@@ -11,6 +11,41 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 use Data::Dumper;
 use SpaceShip;
 
+use IO::Socket::UNIX;
+my $SOCK_PATH = "$ENV{HOME}/captainAscii.sock";
+unlink $SOCK_PATH;
+
+my $server = IO::Socket::UNIX->new(
+    Type => SOCK_STREAM(),
+    Local => $SOCK_PATH,
+    Listen => 1,
+	Blocking => 0,
+) or die "failed to open socket $SOCK_PATH";
+
+
+#### wait for at least one client
+my $conn = $server->accept();
+# wait to recieve your first ship build
+#
+print "client connected\n";
+my $waitShip = 1;
+my $firstShip = "";
+while ($waitShip){
+	while(<$conn>){
+		if ($_ !~ /^DONE/){
+			$firstShip .= $_;
+		} else {
+			$waitShip = 0;
+		}
+	}
+}
+$server->blocking(0);
+
+exit;
+
+### turn off blocking mode as we enter the main loop
+$server->blocking(0);
+
 my $ship_file1 = shift;
 my $ship_file2 = shift;
 
