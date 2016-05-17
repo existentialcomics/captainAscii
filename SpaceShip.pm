@@ -168,6 +168,7 @@ my %parts = (
 		type   => 'gun',
 		poweruse => -3,
 		shipMomentum => 1,
+		lifespan => 4,
 		weight => 6,
 		damage => 4,
 		shoots => "o",
@@ -228,7 +229,10 @@ sub _init {
 	$self->{'direction'} = $direction;
 	$self->{'id'} = $id;
 
-	$self->{'moving'}   = 0;
+	$self->{'movingHoz'}   = 0;
+	$self->{'movingVert'}   = 0;
+	$self->{'movingHozPress'}   = 0;
+	$self->{'movingVertPress'}   = 0;
 	$self->{'shooting'} = 0;
 
 	$self->{'ship'} = {};
@@ -258,12 +262,13 @@ sub shoot {
 			$self->{currentPower} += $part->{'part'}->{poweruse};
 			push @bullets, {
 				id => $self->{'id'},
+				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
 				damage => $part->{part}->{damage},
 				y => ($self->{x} + $part->{x}),
 				x => ($self->{y} + $part->{y} + $self->{direction}),
 				'chr' => $part->{'part'}->{'shoots'},
 				dx => $self->{direction} * $part->{'part'}->{'bulletspeed'},
-				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'moving'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 			};
 		}
 	}
@@ -459,10 +464,13 @@ sub keypress {
 	my $self = shift;
 	my $chr = shift;
 	if ($self->{'controls'} eq 'a'){
-		if ($chr eq 'a'){ $self->{moving} = -1; }
-		if ($chr eq 'd'){ $self->{moving} = 1;  }
-		if ($chr eq 's'){ $self->{moving} = 0;  }
-		if ($chr eq 'w'){ $self->{shooting} = time();}
+		if ($chr eq 'a'){ $self->{movingHozPress} = time(); $self->{movingHoz} = -1; }
+		if ($chr eq 'd'){ $self->{movingHozPress} = time(); $self->{movingHoz} = 1;  }
+		if ($chr eq 'w'){ $self->{movingVertPress} = time(); $self->{movingVert} = -1; }
+		if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
+		if ($chr eq ' '){ $self->{shooting} = time();}
+		if ($chr eq 'q'){ $self->{direction} = 1}
+		if ($chr eq 'e'){ $self->{direction} = -1}
 	} else {
 		if ($chr eq 'j'){ $self->{moving} = -1; }
 		if ($chr eq 'l'){ $self->{moving} = 1;  }
@@ -477,7 +485,7 @@ sub power {
 	my $timeMod = time() - $self->{lastPower};
 
 	# if the thrusters are activated
-	if ($self->{moving} != 0){
+	if ($self->{movingHoz} != 0 && $self->{movingVert} != 0){
 		if (int($self->{currentPower} < 2)){
 			$self->{currentPowerGen} = $self->{powergen};
 			$self->{moving} = 0;
@@ -531,21 +539,28 @@ sub move {
 	my $self = shift;
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
 	my $timeMod = time() - $self->{lastMove};
-	$self->{x} += ($self->{moving} * $self->{speed} * $timeMod);
-	#$self->{x} += (1 * $self->{speed} * $timeMod);
+
+	if (time - $self->{movingHozPress} < 0.3){
+		$self->{x} += ($self->{movingHoz} * $self->{speed} * $timeMod);
+	} else {
+		$self->{movingHoz} = 0;
+	}
+	if (time - $self->{movingVertPress} < 0.3){
+		$self->{y} += ($self->{movingVert} * $self->{speed} * $timeMod * 0.4);
+	} else {
+		$self->{movingVert} = 0;
+	}
 	$self->{lastMove} = time();
 }
 
 sub _loadShip {
 	my $self = shift;
-	my $file = shift;
+	my $ship = shift;
 
-	open(my $fh, '<', $file) or die "failed to open $file\n";
 	my @ship;
+	my @shipLines = split("\n", $ship);
 	my $y = 0;
-	while (<$fh>){
-		chomp;
-		my $line = $_;
+	foreach my $line (@shipLines){
 		my @chrs = split('', $line);
 		$y++;
 		my $x = 0;
@@ -553,7 +568,6 @@ sub _loadShip {
 			$x++;
 			if ($chr ne ' '){
 				if (defined($parts{$chr})){
-					print "$x, $y, $chr\n";
 					push @ship, {
 						'x' => $x,
 						'y' => $y,

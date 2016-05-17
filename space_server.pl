@@ -1,9 +1,7 @@
 #!/usr/bin/perl
 #
 use strict; use warnings;
-use Tie::File;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
-use Fcntl 'O_RDONLY';
 require Term::Screen;
 use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
@@ -31,20 +29,28 @@ print "client connected\n";
 my $waitShip = 1;
 my $firstShip = "";
 while ($waitShip){
-	while(<$conn>){
-		if ($_ !~ /^DONE/){
-			$firstShip .= $_;
-		} else {
+	while(my $line = <$conn>){
+			print "**$line\n";
+		if ($line =~ /DONE/){
+			print "done!\n";
 			$waitShip = 0;
+			last;
+		} else {
+			$firstShip .= $line;
 		}
 	}
 }
-$server->blocking(0);
+print $firstShip . "\n";
 
-exit;
+my $ship = SpaceShip->new($firstShip, 5, 30, -1, 1);
+$ship->{conn} = $conn;
+my @ships = ($ship);
+
+print "loaded\n";
 
 ### turn off blocking mode as we enter the main loop
 $server->blocking(0);
+$conn->blocking(0);
 
 my $ship_file1 = shift;
 my $ship_file2 = shift;
@@ -63,19 +69,17 @@ foreach my $x (0 .. $height){
 	}
 }
 
-my $scr = new Term::Screen;
-
 my $starttime = time();
 #           SpaceShip->new(file, x, y, facing, id, %options)
-my $ship  = SpaceShip->new($ship_file1, 5, 30, -1, 1, {controls => 'b'});
-my $ship2 = SpaceShip->new($ship_file2, 3, 2, 1, 2);
+#my $ship2 = SpaceShip->new($firstShip, 3, 2, 1, 2);
 
-my @ships = ($ship, $ship2);
+# TODO push ship 2
 
 my @players = ();
 
 my $currentFacing = 0;
 
+my $scr = new Term::Screen;
 $scr->clrscr();
 $scr->noecho();
 my $frame = 0;
@@ -87,10 +91,30 @@ my $framesInSec;
 my $lastTime = time();
 my $time = time();
 
-my $bulletSpeed = 5.0;
 my %bullets;
-
+my $shipIds = 3;
 while ($playing == 1){ 
+    if (defined( my $conntmp = $server->accept())){
+		my $newShip = '';
+		$waitShip = 1;
+
+		while ($waitShip){
+			while(my $line = <$conntmp>){
+					print "**$line\n";
+				if ($line =~ /DONE/){
+					$waitShip = 0;
+					last;
+				} else {
+					$newShip .= $line;
+				}
+			}
+		}
+		my $shipNew = SpaceShip->new($newShip, 5, 5, -1, $shipIds++);
+		$conntmp->blocking(0);
+		$shipNew->{conn} = $conntmp;
+		push @ships, $shipNew;
+	}
+
 	$frame = int(time() * $fps);
 	if ($frame == $lastFrame){ next; }
 
@@ -111,22 +135,22 @@ while ($playing == 1){
 
 	foreach my $bulletK ( keys %bullets){
 		my $bullet = $bullets{$bulletK};
+		if ($bullet->{expires} < time()){
+			delete $bullets{$bulletK};
+			next;
+		}
 		$bullet->{x} += ($bullet->{dx} * ($time - $lastTime));
 		$bullet->{y} += ($bullet->{dy} * ($time - $lastTime));
-		if ($bullet->{x} < 0 || $bullet->{x} > $height) { delete $bullets{$bulletK}; next; }
-		if ($bullet->{y} < 0 || $bullet->{y} > $width){ delete $bullets{$bulletK}; next; }
 		$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
 
-		if ($ship->resolveCollision($bullet)){
-			delete $bullets{$bulletK};	
-		}
-		if ($ship2->resolveCollision($bullet)){
-			delete $bullets{$bulletK};	
+		foreach my $ship (@ships){
+			if ($ship->resolveCollision($bullet)){
+				delete $bullets{$bulletK};	
+			}
 		}
 		foreach my $ship (@ships){
 			$ship->pruneParts();
 		}
-
 	}
 
 	foreach my $ship (@ships){
@@ -162,6 +186,15 @@ while ($playing == 1){
 			}
 		}
 	}
+	foreach my $ship (@ships){
+		my $conn = $ship->{conn};
+		if (defined(my $in = <$conn>)){
+			chomp($in);
+			my $chr = $in;
+			$ship->keypress($chr);
+			print "chr: $chr\n";
+		}
+	}
 
 	if ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
@@ -180,36 +213,36 @@ while ($playing == 1){
 	}
 
 	### draw the screen
-	$scr->at(0, 0);
-	$scr->puts(
-		"weight: " .  $ship2->{weight} .
-		"  thrust: " . $ship2->{thrust} .
-		"  speed: " . sprintf('%.1f', $ship2->{speed}) . 
-		"  cost: \$" . $ship2->{cost} . 
-		"  powergen: " . sprintf('%.2f', $ship2->{currentPowerGen}) . "  "
-		);
-	# power
-	$scr->at(1, 0);
-	$scr->puts(sprintf('%-10s|', $ship2->{power} . ' / ' . int($ship2->{currentPower})). 
-	(color('ON_RGB' .
-		5 . 
-		(int(5 * ($ship2->{currentPower} / $ship2->{power}))) .
-		0) . " "
-		x ( 60 * ($ship2->{currentPower} / $ship2->{power})) . 
-		color('RESET') . " " x (60 - ( 60 * ($ship2->{currentPower} / $ship2->{power}))) ) . "|"
-	);
-	# display shield
-	if ($ship2->{shield} > 0){
-		$scr->at(2, 0);
-		$scr->puts(sprintf('%-10s|', $ship2->{shield} . ' / ' . int($ship2->{shieldHealth})). 
-		(color('ON_RGB' .
-			0 . 
-			(int(5 * ($ship2->{shieldHealth} / $ship2->{shield}))) .
-			5) . " "
-			x ( 60 * ($ship2->{shieldHealth} / $ship2->{shield})) . 
-			color('RESET') . " " x (60 - ( 60 * ($ship2->{shieldHealth} / $ship2->{shield}))) ) . "|"
-		);
-	}
+#	$scr->at(0, 0);
+#	$scr->puts(
+#		"weight: " .  $ship2->{weight} .
+#		"  thrust: " . $ship2->{thrust} .
+#		"  speed: " . sprintf('%.1f', $ship2->{speed}) . 
+#		"  cost: \$" . $ship2->{cost} . 
+#		"  powergen: " . sprintf('%.2f', $ship2->{currentPowerGen}) . "  "
+#		);
+#	# power
+#	$scr->at(1, 0);
+#	$scr->puts(sprintf('%-10s|', $ship2->{power} . ' / ' . int($ship2->{currentPower})). 
+#	(color('ON_RGB' .
+#		5 . 
+#		(int(5 * ($ship2->{currentPower} / $ship2->{power}))) .
+#		0) . " "
+#		x ( 60 * ($ship2->{currentPower} / $ship2->{power})) . 
+#		color('RESET') . " " x (60 - ( 60 * ($ship2->{currentPower} / $ship2->{power}))) ) . "|"
+#	);
+#	# display shield
+#	if ($ship2->{shield} > 0){
+#		$scr->at(2, 0);
+#		$scr->puts(sprintf('%-10s|', $ship2->{shield} . ' / ' . int($ship2->{shieldHealth})). 
+#		(color('ON_RGB' .
+#			0 . 
+#			(int(5 * ($ship2->{shieldHealth} / $ship2->{shield}))) .
+#			5) . " "
+#			x ( 60 * ($ship2->{shieldHealth} / $ship2->{shield})) . 
+#			color('RESET') . " " x (60 - ( 60 * ($ship2->{shieldHealth} / $ship2->{shield}))) ) . "|"
+#		);
+#	}
 	 
 	#### display map ####
 	foreach (0 .. $height){

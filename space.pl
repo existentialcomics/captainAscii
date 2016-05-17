@@ -13,6 +13,23 @@ use SpaceShip;
 
 my $ship_file1 = shift;
 my $ship_file2 = shift;
+open (my $fh1, "<", $ship_file1) or die "failed to open $ship_file1\n";
+my $ship_str1 = "";
+while (<$fh1>){
+	$ship_str1 .= $_;
+}
+close $fh1;
+
+open (my $fh2, "<", $ship_file2) or die "failed to open $ship_file2\n";
+my $ship_str2 = "";
+while (<$fh2>){
+	$ship_str2 .= $_;
+}
+close $fh2;
+
+#           SpaceShip->new(file, x, y, facing, id, %options)
+my $ship  = SpaceShip->new($ship_str1, 5, 30, -1, 1, {controls => 'b'});
+my $ship2 = SpaceShip->new($ship_str2, 3, 2, 1, 2);
 
 my @map;
 my @lighting;
@@ -31,9 +48,6 @@ foreach my $x (0 .. $height){
 my $scr = new Term::Screen;
 
 my $starttime = time();
-#           SpaceShip->new(file, x, y, facing, id, %options)
-my $ship  = SpaceShip->new($ship_file1, 5, 30, -1, 1, {controls => 'b'});
-my $ship2 = SpaceShip->new($ship_file2, 3, 2, 1, 2);
 
 my @ships = ($ship, $ship2);
 
