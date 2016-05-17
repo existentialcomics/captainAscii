@@ -12,7 +12,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 use Data::Dumper;
 use SpaceShip;
 use IO::Socket::UNIX;
-my $SOCK_PATH = "$ENV{HOME}/captainAscii.sock";
+my $SOCK_PATH = "/tmp/captainAscii.sock";
 # Client:
 print "begin\n";
 my $socket = IO::Socket::UNIX->new(

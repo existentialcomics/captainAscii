@@ -10,7 +10,7 @@ use Data::Dumper;
 use SpaceShip;
 
 use IO::Socket::UNIX;
-my $SOCK_PATH = "$ENV{HOME}/captainAscii.sock";
+my $SOCK_PATH = "/tmp/captainAscii.sock";
 unlink $SOCK_PATH;
 
 my $server = IO::Socket::UNIX->new(
