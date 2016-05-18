@@ -8,7 +8,7 @@ use Term::ANSIColor 4.00 qw(RESET color :constants256);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use Data::Dumper;
-
+#use Math::Trig;
 
 my %connectors = (
 	1 => {
@@ -261,7 +261,7 @@ sub _init {
  
 	$self->{'x'} = $x;	
 	$self->{'y'} = $y;	
-	$self->{'direction'} = $direction;
+	$self->{'direction'} = 1;
 	$self->{'id'} = $id;
 
 	$self->{'movingHoz'}   = 0;
@@ -269,6 +269,8 @@ sub _init {
 	$self->{'movingHozPress'}   = 0;
 	$self->{'movingVertPress'}   = 0;
 	$self->{'shooting'} = 0;
+	$self->{aimingPress} = 0;
+	$self->{aimingDir} = 1;
 
 	$self->{'ship'} = {};
 
@@ -280,6 +282,7 @@ sub _init {
 	$self->_calculateCost();
 	$self->_calculateSpeed();
 	$self->_calculateShield();
+	$self->_calculateHealth();
 	return 1;
 }
 
@@ -302,10 +305,12 @@ sub shoot {
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
 				damage => $part->{part}->{damage},
 				y => ($self->{x} + $part->{x}),
-				x => ($self->{y} + $part->{y} + $self->{direction}),
+				x => ($self->{y} + $part->{y}),
 				'chr' => $part->{'part'}->{'shoots'},
-				dx => $self->{direction} * $part->{'part'}->{'bulletspeed'},
-				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+					   + $part->{part}->{bulletspeed} * cos($self->{direction}),
+				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+					   + $part->{part}->{bulletspeed} * sin($self->{direction}),
 			};
 		}
 	}
@@ -389,6 +394,14 @@ sub _calculateWeight {
 	}
 }
 
+sub _calculateHealth {
+	my $self = shift;
+	$self->{health} = 0.0;
+	foreach my $part (@{ $self->{ship} }){
+		$self->{health} += $part->{part}->{health};
+	}
+}
+
 sub _recalculate {
 	my $self = shift;
 	$self->_recalculatePower();
@@ -396,6 +409,7 @@ sub _recalculate {
 	$self->_calculateThrust();
 	$self->_calculateSpeed();
 	$self->_calculateShield();
+	$self->_calculateHealth();
 	#TODO check for orphaned pieces
 }
 
@@ -475,7 +489,6 @@ sub resolveCollision {
 				)
 				){
 					$part->{'hit'} = time();
-					# TODO damage
 					$part->{'shieldHealth'} -= $bullet->{damage};
 					if ($part->{'shieldHealth'} < 0){
 						$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
@@ -511,8 +524,8 @@ sub keypress {
 		if ($chr eq 'w'){ $self->{movingVertPress} = time(); $self->{movingVert} = -1; }
 		if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
 		if ($chr eq ' '){ $self->{shooting} = time();}
-		if ($chr eq 'q'){ $self->{direction} = 1}
-		if ($chr eq 'e'){ $self->{direction} = -1}
+		if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
+		if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
 	} else {
 		if ($chr eq 'j'){ $self->{moving} = -1; }
 		if ($chr eq 'l'){ $self->{moving} = 1;  }
@@ -582,6 +595,9 @@ sub move {
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
 	my $timeMod = time() - $self->{lastMove};
 
+	if (time - $self->{aiming} < 0.2){
+		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
+	}
 	if (time - $self->{movingHozPress} < 0.3){
 		$self->{x} += ($self->{movingHoz} * $self->{speed} * $timeMod);
 	} else {
@@ -638,10 +654,10 @@ sub _loadShip {
 	} else {
 		return 0;
 	}
-	my $leftmost   = -1;
-	my $rightmost  = 1;
-	my $topmost    = 1;
-	my $bottommost = -1;
+	$self->{leftmost}  = -1;
+	$self->{rightmost} = 1;
+	$self->{topmost}   = 1;
+	$self->{bottommost} = -1;
 	foreach my $part (@ship){
 		# ground parts to cm as 0,1
 		$part->{x} -= $cm->{x};
@@ -649,10 +665,10 @@ sub _loadShip {
 		my $x = $part->{x};
 		my $y = $part->{y};
 		# find box dimensions of the ship
-		if ($x > $rightmost)  { $rightmost = $x;  }
-		if ($x < $leftmost)   { $leftmost  = $x;  }
-		if ($y > $topmost)    { $topmost   = $y;  }
-		if ($y < $bottommost) { $bottommost = $y; }
+		if ($x > $self->{rightmost})  { $self->{rightmost} = $x;  }
+		if ($x < $self->{leftmost})   { $self->{leftmost}  = $x;  }
+		if ($y > $self->{topmost})    { $self->{topmost}   = $y;  }
+		if ($y < $self->{bottommost}) { $self->{bottommost} = $y; }
 
 		# calculate connections
 		foreach my $partInner (@ship){
@@ -669,12 +685,15 @@ sub _loadShip {
 				$part->{connected}->{b} = $partInner->{id};	
 			}
 		}
-		if ($part->{'type'} eq 'plate'){
+		if ($part->{'part'}->{'type'} eq 'plate'){
 			my $connectStr = 
-				(defined($part->{connected}->{b}) ? $part->{connected}->{b} : '') .
-				(defined($part->{connected}->{l}) ? $part->{connected}->{b} : '') .
-				(defined($part->{connected}->{r}) ? $part->{connected}->{b} : '') .
-				(defined($part->{connected}->{t}) ? $part->{connected}->{b} : '') ;
+				(defined($part->{connected}->{b}) ? 'b' : '') .
+				(defined($part->{connected}->{l}) ? 'l' : '') .
+				(defined($part->{connected}->{r}) ? 'r' : '') .
+				(defined($part->{connected}->{t}) ? 't' : '') ;
+			if ($connectors{1}->{$connectStr}){
+				$part->{'chr'} = $connectors{1}->{$connectStr};
+			}
 		}
 	}
 
