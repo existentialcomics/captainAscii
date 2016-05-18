@@ -9,6 +9,31 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use Data::Dumper;
 
+
+my %connectors = (
+	1 => {
+		'b'  => '│',
+		't'  => '│',
+		'bt' => '│',
+     	'l'  => '─',
+     	'r'  => '─',
+     	'lr' => '─',
+		'bl' => '┌',
+		'br' => '┌',
+
+		'rt' => '└',
+		'lt' => '┘',
+
+		'lrt' => '┴',
+		'blr' => '┬',
+
+		'blt' => '┤',
+		'brt' => '├',
+
+		'blrt' => '┼',
+	},
+);
+
 my %parts = (
 	'X' => {
 		cost   => '0',
@@ -103,6 +128,13 @@ my %parts = (
 	'[' => {
 		cost   => '10',
 		type   => 'plate',
+		weight => 2,
+		'chr'  => color('white') . '[',
+		health => 10
+	},
+	'+' => {
+		cost   => '10',
+		type   => 'connector',
 		weight => 2,
 		'chr'  => color('white') . '[',
 		health => 10
@@ -209,8 +241,11 @@ sub new {
 	my $self = {};
 	bless( $self, $class );
 
-	$self->_init(@_);
-	return $self;
+	if ($self->_init(@_)){
+		return $self;
+	}else {
+		return undef;
+	}
 }
 
 sub _init {
@@ -237,13 +272,15 @@ sub _init {
 
 	$self->{'ship'} = {};
 
-	$self->_loadShip($shipDesign);
+	my $loaded = $self->_loadShip($shipDesign);
+	if (!$loaded){ return 0; }
 	$self->_calculatePower();
 	$self->_calculateWeight();
 	$self->_calculateThrust();
 	$self->_calculateCost();
 	$self->_calculateSpeed();
 	$self->_calculateShield();
+	return 1;
 }
 
 sub shoot {
@@ -378,9 +415,14 @@ sub resolveCollision {
 				(
 				(	($part->{'part'}->{'size'} eq 'medium') &&
 					(
-					(int($bullet->{x}) == $px - 2 &&
-					int($bullet->{y}) >= $py - 1 && 
-					int($bullet->{y}) <= $py + 1) ||
+					 (
+						int($bullet->{x}) == $px - 2 &&
+						int($bullet->{y}) >= $py - 1 && 
+						int($bullet->{y}) <= $py + 1
+#						($this->{shieldStatus} eq 'rear' ||
+#						 $this->{shieldStatus} eq 'full'
+#						 )
+					 ) ||
 
 					(int($bullet->{x}) == $px - 1 &&
 					int($bullet->{y}) >= $py - 3 && 
@@ -557,6 +599,7 @@ sub _loadShip {
 	my $self = shift;
 	my $ship = shift;
 
+	my $command = undef;
 	my @ship;
 	my @shipLines = split("\n", $ship);
 	my $y = 0;
@@ -568,19 +611,75 @@ sub _loadShip {
 			$x++;
 			if ($chr ne ' '){
 				if (defined($parts{$chr})){
+					my $id = $#ship + 1;
+					if ($parts{$chr}->{'type'} eq 'command'){
+						$command = $id;	
+					}
 					push @ship, {
 						'x' => $x,
 						'y' => $y,
 						'health' => $parts{$chr}->{health},
 						'shieldHealth' => $parts{$chr}->{shield},
 						'hit' => time(),
+						'id'  => $id,
+						'chr' => $parts{$chr}->{'chr'},
+						'connected' => {},
 						'part' => $parts{$chr}
 					}
 				}
 			}		
 		}
 	}
+
+	# find command module and build new ship with connections
+	my $cm;
+	if (defined($command)){
+		$cm = $ship[$command];
+	} else {
+		return 0;
+	}
+	my $leftmost   = -1;
+	my $rightmost  = 1;
+	my $topmost    = 1;
+	my $bottommost = -1;
+	foreach my $part (@ship){
+		# ground parts to cm as 0,1
+		$part->{x} -= $cm->{x};
+		$part->{y} -= $cm->{y};
+		my $x = $part->{x};
+		my $y = $part->{y};
+		# find box dimensions of the ship
+		if ($x > $rightmost)  { $rightmost = $x;  }
+		if ($x < $leftmost)   { $leftmost  = $x;  }
+		if ($y > $topmost)    { $topmost   = $y;  }
+		if ($y < $bottommost) { $bottommost = $y; }
+
+		# calculate connections
+		foreach my $partInner (@ship){
+			if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
+				$part->{connected}->{l} = $partInner->{id};	
+			}
+			elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
+				$part->{connected}->{r} = $partInner->{id};	
+			}
+			elsif ($partInner->{x} == $x && $partInner->{y} - 1 == $y){
+				$part->{connected}->{t} = $partInner->{id};	
+			}
+			elsif ($partInner->{x} == $x && $partInner->{y} + 1 == $y){
+				$part->{connected}->{b} = $partInner->{id};	
+			}
+		}
+		if ($part->{'type'} eq 'plate'){
+			my $connectStr = 
+				(defined($part->{connected}->{b}) ? $part->{connected}->{b} : '') .
+				(defined($part->{connected}->{l}) ? $part->{connected}->{b} : '') .
+				(defined($part->{connected}->{r}) ? $part->{connected}->{b} : '') .
+				(defined($part->{connected}->{t}) ? $part->{connected}->{b} : '') ;
+		}
+	}
+
 	$self->{ship} = \@ship;
+	return 1;
 }
 
 1;

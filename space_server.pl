@@ -8,6 +8,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use Data::Dumper;
 use SpaceShip;
+use Storable;
 
 use IO::Socket::UNIX;
 my $SOCK_PATH = "/tmp/captainAscii.sock";
@@ -20,6 +21,7 @@ my $server = IO::Socket::UNIX->new(
 	Blocking => 0,
 ) or die "failed to open socket $SOCK_PATH";
 
+chmod 0777, $SOCK_PATH;
 
 #### wait for at least one client
 my $conn = $server->accept();
@@ -30,7 +32,6 @@ my $waitShip = 1;
 my $firstShip = "";
 while ($waitShip){
 	while(my $line = <$conn>){
-			print "**$line\n";
 		if ($line =~ /DONE/){
 			print "done!\n";
 			$waitShip = 0;
