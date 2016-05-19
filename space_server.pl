@@ -8,6 +8,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use SpaceShip;
 use Storable;
+use JSON::XS qw(encode_json decode_json);
 
 use IO::Socket::UNIX;
 my $SOCK_PATH = "/tmp/captainAscii.sock";
@@ -100,7 +101,6 @@ while ($playing == 1){
 
 		while ($waitShip){
 			while(my $line = <$conntmp>){
-					print "**$line\n";
 				if ($line =~ /DONE/){
 					$waitShip = 0;
 					last;
@@ -149,6 +149,14 @@ while ($playing == 1){
 			}
 		}
 		foreach my $ship (@ships){
+			sendMsg($ship->{conn}, 'b', 
+				{
+					x => $bullet->{x},
+					y => $bullet->{y},
+					k => $bulletK,
+					chr => $bullet->{chr}
+				}
+			);
 			$ship->pruneParts();
 		}
 	}
@@ -185,13 +193,32 @@ while ($playing == 1){
 				}
 			}
 		}
-		my %msg = ( 'test' => 'testval');
-		my $freeze = Storable::nfreeze(\%msg);
-		my $socket = $ship->{conn};
-		print $socket $freeze;
+		#print $socket Storable::nfreeze(\%bullets);
+		#print $socket Storable::nfreeze({ msg => \%bullets});
+		#Storable::nstore_fd(\%msg, $socket);
 	}
 	foreach my $ship (@ships){
-		my $conn = $ship->{conn};
+		foreach my $shipInner (@ships) {
+			# send the inner loop ship the info of the outer loop ship
+			my $msg = {};
+			if ($ship->{id} eq $shipInner->{id}){
+				$msg = {
+					id => 'self' ,
+					x => $ship->{x},
+					y => $ship->{y},
+					shieldHealth => $ship->{shieldHealth},
+					currentPower => $ship->{currentPower},
+					powergen     => $ship->{powergen},
+				};
+			} else {
+				# we only need to know location
+			}
+			sendMsg($shipInner->{conn}, 's', $msg);
+		}
+	}
+
+
+	foreach my $ship (@ships){
 		if (defined(my $in = <$conn>)){
 			chomp($in);
 			my $chr = $in;
@@ -216,74 +243,20 @@ while ($playing == 1){
 		}
 	}
 
-	### draw the screen
-#	$scr->at(0, 0);
-#	$scr->puts(
-#		"weight: " .  $ship2->{weight} .
-#		"  thrust: " . $ship2->{thrust} .
-#		"  speed: " . sprintf('%.1f', $ship2->{speed}) . 
-#		"  cost: \$" . $ship2->{cost} . 
-#		"  powergen: " . sprintf('%.2f', $ship2->{currentPowerGen}) . "  "
-#		);
-#	# power
-#	$scr->at(1, 0);
-#	$scr->puts(sprintf('%-10s|', $ship2->{power} . ' / ' . int($ship2->{currentPower})). 
-#	(color('ON_RGB' .
-#		5 . 
-#		(int(5 * ($ship2->{currentPower} / $ship2->{power}))) .
-#		0) . " "
-#		x ( 60 * ($ship2->{currentPower} / $ship2->{power})) . 
-#		color('RESET') . " " x (60 - ( 60 * ($ship2->{currentPower} / $ship2->{power}))) ) . "|"
-#	);
-#	# display shield
-#	if ($ship2->{shield} > 0){
-#		$scr->at(2, 0);
-#		$scr->puts(sprintf('%-10s|', $ship2->{shield} . ' / ' . int($ship2->{shieldHealth})). 
-#		(color('ON_RGB' .
-#			0 . 
-#			(int(5 * ($ship2->{shieldHealth} / $ship2->{shield}))) .
-#			5) . " "
-#			x ( 60 * ($ship2->{shieldHealth} / $ship2->{shield})) . 
-#			color('RESET') . " " x (60 - ( 60 * ($ship2->{shieldHealth} / $ship2->{shield}))) ) . "|"
-#		);
-#	}
-	 
 	#### display map ####
 	foreach (0 .. $height){
 		$scr->at($_ + 3, 0);
 		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
 		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
 	}
-	#### ----------- ####
-	$scr->at($height + 5, 0);
-	$scr->puts(
-		"weight: " .  $ship->{weight} .
-		"  thrust: " . $ship->{thrust} .
-		"  speed: " . sprintf('%.1f', $ship->{speed}) . 
-		"  cost: \$" . $ship->{cost} . 
-		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
-		);
-	# power
-	$scr->at($height + 6, 0);
-	$scr->puts(sprintf('%-10s|', $ship->{power} . ' / ' . int($ship->{currentPower})). 
-	(color('ON_RGB' .
-		5 . 
-		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
-		0) . " "
-		x ( 60 * ($ship->{currentPower} / $ship->{power})) . 
-		color('RESET') . " " x (60 - ( 60 * ($ship->{currentPower} / $ship->{power}))) ) . "|"
-	);
-	# display shield
-	if ($ship->{shield} > 0){
-		$scr->at($height + 7, 0);
-		$scr->puts(sprintf('%-10s|', $ship->{shield} . ' / ' . int($ship->{shieldHealth})). 
-		(color('ON_RGB' .
-			0 . 
-			(int(5 * ($ship->{shieldHealth} / $ship->{shield}))) .
-			5) . " "
-			x ( 60 * ($ship->{shieldHealth} / $ship->{shield})) . 
-			color('RESET') . " " x (60 - ( 60 * ($ship->{shieldHealth} / $ship->{shield}))) ) . "|"
-		);
-	}
+}
 
+
+sub sendMsg {
+	my ($socket, $category, $data) = @_;
+	my $msg = {
+		c => $category,
+		d => $data
+	};
+	print $socket (JSON::XS::encode_json($msg)) . "\n";
 }

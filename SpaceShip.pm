@@ -257,11 +257,12 @@ sub _init {
 	my $id = shift;
 	my $options = shift;
 
+	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
  
 	$self->{'x'} = $x;	
 	$self->{'y'} = $y;	
-	$self->{'direction'} = 1;
+	$self->{'direction'} = 3.14;
 	$self->{'id'} = $id;
 
 	$self->{'movingHoz'}   = 0;
@@ -283,6 +284,7 @@ sub _init {
 	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateHealth();
+	$self->{shieldHealth} = $self->{shield};
 	return 1;
 }
 
@@ -654,14 +656,16 @@ sub _loadShip {
 	} else {
 		return 0;
 	}
+	my $offx = $cm->{x};
+	my $offy = $cm->{y};
 	$self->{leftmost}  = -1;
 	$self->{rightmost} = 1;
 	$self->{topmost}   = 1;
 	$self->{bottommost} = -1;
 	foreach my $part (@ship){
 		# ground parts to cm as 0,1
-		$part->{x} -= $cm->{x};
-		$part->{y} -= $cm->{y};
+		$part->{x} -= $offx;
+		$part->{y} -= $offy;
 		my $x = $part->{x};
 		my $y = $part->{y};
 		# find box dimensions of the ship
