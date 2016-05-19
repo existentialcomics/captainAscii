@@ -90,6 +90,7 @@ while ($playing == 1){
 		if ($msg->{c} eq 'b'){
 			my $key = $data->{k};
 			$bullets{$key} = $data;
+			$bullets{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 's'){
 			$ship->{x} = $data->{x};
 			$ship->{y} = $data->{y};
@@ -120,6 +121,7 @@ while ($playing == 1){
 			if (defined($part->{lastShot})){
 				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
 			}
+			# TODO change to offx offy so it works for other ships
 			my $px = $cenY + $part->{'y'};
 			my $py = $cenX + $part->{'x'};
 			$map[$px]->[$py] = $highlight . $bold . color('RGB033') . $part->{'part'}->{'chr'} . color('reset');
@@ -147,13 +149,14 @@ while ($playing == 1){
 		}
 	}
 	
-	# draw the screen to Term::Screen
+	### draw the screen to Term::Screen
 	foreach (0 .. $height){
 		$scr->at($_ + 2, 0);
 		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
 		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
 	}
-	#### ----------- ####
+
+	#### ----- ship info ------ ####
 	$scr->at($height + 5, 0);
 	$scr->puts(
 		"weight: " .  $ship->{weight} .

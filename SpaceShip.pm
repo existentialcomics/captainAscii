@@ -270,8 +270,8 @@ sub _init {
 	$self->{'movingHozPress'}   = 0;
 	$self->{'movingVertPress'}   = 0;
 	$self->{'shooting'} = 0;
-	$self->{aimingPress} = 0;
-	$self->{aimingDir} = 1;
+	$self->{'aimingPress'} = 0;
+	$self->{'aimingDir'} = 1;
 
 	$self->{'ship'} = {};
 
@@ -666,6 +666,8 @@ sub _loadShip {
 		# ground parts to cm as 0,1
 		$part->{x} -= $offx;
 		$part->{y} -= $offy;
+	}
+	foreach my $part (@ship){
 		my $x = $part->{x};
 		my $y = $part->{y};
 		# find box dimensions of the ship
@@ -676,17 +678,17 @@ sub _loadShip {
 
 		# calculate connections
 		foreach my $partInner (@ship){
-			if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
+			if    ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
 				$part->{connected}->{l} = $partInner->{id};	
 			}
 			elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
 				$part->{connected}->{r} = $partInner->{id};	
 			}
 			elsif ($partInner->{x} == $x && $partInner->{y} - 1 == $y){
-				$part->{connected}->{t} = $partInner->{id};	
+				$part->{connected}->{b} = $partInner->{id};	
 			}
 			elsif ($partInner->{x} == $x && $partInner->{y} + 1 == $y){
-				$part->{connected}->{b} = $partInner->{id};	
+				$part->{connected}->{t} = $partInner->{id};	
 			}
 		}
 		if ($part->{'part'}->{'type'} eq 'plate'){
@@ -696,7 +698,7 @@ sub _loadShip {
 				(defined($part->{connected}->{r}) ? 'r' : '') .
 				(defined($part->{connected}->{t}) ? 't' : '') ;
 			if ($connectors{1}->{$connectStr}){
-				$part->{'chr'} = $connectors{1}->{$connectStr};
+				$part->{'chr'} = color('white') . $connectors{1}->{$connectStr};
 			}
 		}
 	}

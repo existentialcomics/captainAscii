@@ -95,6 +95,7 @@ my $time = time();
 my %bullets;
 my $shipIds = 3;
 while ($playing == 1){ 
+	# listen for new ships
     if (defined( my $conntmp = $server->accept())){
 		my $newShip = '';
 		$waitShip = 1;
@@ -124,7 +125,7 @@ while ($playing == 1){
 	$framesInSec++;
 	$lastFrame = $frame;
 	
-	# reset map
+	# reset map - to be removed
 	foreach my $x (0 .. $height){
 		push @map, [];
 		foreach my $y (0 .. $width){
@@ -133,6 +134,7 @@ while ($playing == 1){
 		}
 	}
 
+	### calcuate bullets
 	foreach my $bulletK ( keys %bullets){
 		my $bullet = $bullets{$bulletK};
 		if ($bullet->{expires} < time()){
@@ -148,12 +150,15 @@ while ($playing == 1){
 				delete $bullets{$bulletK};	
 			}
 		}
+
+		# send the bullet data to clients
 		foreach my $ship (@ships){
 			sendMsg($ship->{conn}, 'b', 
 				{
 					x => $bullet->{x},
 					y => $bullet->{y},
 					k => $bulletK,
+					ex => ( $bullet->{expires} - time() ), # time left in case client clock differs
 					chr => $bullet->{chr}
 				}
 			);
@@ -193,9 +198,6 @@ while ($playing == 1){
 				}
 			}
 		}
-		#print $socket Storable::nfreeze(\%bullets);
-		#print $socket Storable::nfreeze({ msg => \%bullets});
-		#Storable::nstore_fd(\%msg, $socket);
 	}
 	foreach my $ship (@ships){
 		foreach my $shipInner (@ships) {
@@ -217,16 +219,17 @@ while ($playing == 1){
 		}
 	}
 
-
+	# recieve ship input
 	foreach my $ship (@ships){
 		if (defined(my $in = <$conn>)){
 			chomp($in);
 			my $chr = $in;
 			$ship->keypress($chr);
-			print "chr: $chr\n";
+			#print "chr: $chr\n";
 		}
 	}
 
+	# server input, replace with stdin
 	if ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
 		foreach my $ship (@ships){
@@ -234,6 +237,7 @@ while ($playing == 1){
 		}
 	}
 
+	# calculate power and movement
 	foreach my $ship (@ships){
 		# power first because it disables move
 		$ship->power($time - $lastTime);
@@ -243,15 +247,15 @@ while ($playing == 1){
 		}
 	}
 
-	#### display map ####
+	#### display map - to be removed ####
 	foreach (0 .. $height){
 		$scr->at($_ + 3, 0);
 		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
 		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
 	}
-}
+} ### END LOOP
 
-
+### transmit a msg to the clients
 sub sendMsg {
 	my ($socket, $category, $data) = @_;
 	my $msg = {
