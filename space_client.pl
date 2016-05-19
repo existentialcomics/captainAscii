@@ -12,6 +12,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 use Data::Dumper;
 use SpaceShip;
 use IO::Socket::UNIX;
+use Storable;
 my $SOCK_PATH = "/tmp/captainAscii.sock";
 # Client:
 print "begin\n";
@@ -37,7 +38,7 @@ select STDOUT;
 print "loaded\n";
 
 my $scr = new Term::Screen;
-#$scr->clrscr();
+##$scr->clrscr();
 $scr->noecho();
 
 my $frame = 0;
@@ -54,7 +55,8 @@ my %bullets;
 $socket->blocking(0);
 while ($playing == 1){ 
 	# message from server
-	if (defined(my $in = <$socket>)){
+	if (defined(my $msg = <$socket>)){
+		$scr->puts( Dumper($msg) );
 	}
 	# send keystrokes
 	if ($scr->key_pressed()) { 

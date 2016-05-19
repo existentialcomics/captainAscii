@@ -595,7 +595,7 @@ sub move {
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
 	my $timeMod = time() - $self->{lastMove};
 
-	if (time - $self->{aiming} < 0.2){
+	if (time - $self->{aimingPress} < 0.2){
 		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
 	}
 	if (time - $self->{movingHozPress} < 0.3){

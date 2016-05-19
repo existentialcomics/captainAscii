@@ -6,7 +6,6 @@ require Term::Screen;
 use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
-use Data::Dumper;
 use SpaceShip;
 use Storable;
 
@@ -186,6 +185,10 @@ while ($playing == 1){
 				}
 			}
 		}
+		my %msg = ( 'test' => 'testval');
+		my $freeze = Storable::nfreeze(\%msg);
+		my $socket = $ship->{conn};
+		print $socket $freeze;
 	}
 	foreach my $ship (@ships){
 		my $conn = $ship->{conn};
