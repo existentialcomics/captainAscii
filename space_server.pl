@@ -126,13 +126,13 @@ while ($playing == 1){
 	$lastFrame = $frame;
 	
 	# reset map - to be removed
-	foreach my $x (0 .. $height){
-		push @map, [];
-		foreach my $y (0 .. $width){
-			$map[$x][$y] = ' ';
-			$lighting[$x][$y] = 0;
-		}
-	}
+#	foreach my $x (0 .. $height){
+#		push @map, [];
+#		foreach my $y (0 .. $width){
+#			$map[$x][$y] = ' ';
+#			$lighting[$x][$y] = 0;
+#		}
+#	}
 
 	### calcuate bullets
 	foreach my $bulletK ( keys %bullets){
@@ -143,7 +143,7 @@ while ($playing == 1){
 		}
 		$bullet->{x} += ($bullet->{dx} * ($time - $lastTime));
 		$bullet->{y} += ($bullet->{dy} * ($time - $lastTime));
-		$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
+		#$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
 
 		foreach my $ship (@ships){
 			if ($ship->resolveCollision($bullet)){
@@ -175,28 +175,28 @@ while ($playing == 1){
 			}
 			my $px = $ship->{'y'} + $part->{'y'};
 			my $py = $ship->{'x'} + $part->{'x'};
-			$map[$px]->[$py] = $highlight . $bold . color('RGB033') . $part->{'part'}->{'chr'} . color('reset');
-			if ($part->{'part'}->{'type'} eq 'shield'){
-				if ($part->{'shieldHealth'} > 0){
-					my $shieldLevel = ($highlight ne '' ? 5 : 2);
-					if ($part->{'part'}->{'size'} eq 'medium'){
-						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-
-					} elsif ($part->{'part'}->{'size'} eq 'large'){
-						$lighting[$px - 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-5 .. 5);
-						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-					}
-				}
-			}
+			#$map[$px]->[$py] = $highlight . $bold . color('RGB033') . $part->{'part'}->{'chr'} . color('reset');
+#			if ($part->{'part'}->{'type'} eq 'shield'){
+#				if ($part->{'shieldHealth'} > 0){
+#					my $shieldLevel = ($highlight ne '' ? 5 : 2);
+#					if ($part->{'part'}->{'size'} eq 'medium'){
+#						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
+#						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
+#						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
+#						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
+#						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
+#
+#					} elsif ($part->{'part'}->{'size'} eq 'large'){
+#						$lighting[$px - 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
+#						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
+#						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
+#						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-5 .. 5);
+#						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
+#						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
+#						$lighting[$px + 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
+#					}
+#				}
+#			}
 		}
 	}
 	foreach my $ship (@ships){
@@ -248,11 +248,11 @@ while ($playing == 1){
 	}
 
 	#### display map - to be removed ####
-	foreach (0 .. $height){
-		$scr->at($_ + 3, 0);
-		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
-		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
-	}
+#	foreach (0 .. $height){
+#		$scr->at($_ + 3, 0);
+#		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
+#		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
+#	}
 } ### END LOOP
 
 ### transmit a msg to the clients

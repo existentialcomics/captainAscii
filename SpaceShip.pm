@@ -385,7 +385,7 @@ sub _calculatePower {
 
 sub _calculateSpeed {
 	my $self = shift;
-	$self->{speed} = $self->{thrust} / $self->{weight};
+	$self->{speed} = $self->{thrust} / $self->{weight} * 5;
 }
 
 sub _calculateWeight {
