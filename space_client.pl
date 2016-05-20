@@ -77,7 +77,8 @@ while ($playing == 1){
 	foreach my $x (0 .. $height){
 		push @map, [];
 		foreach my $y (0 .. $width){
-			$map[$x][$y] = (abs(cos(int($x + $ship->{y}) * int($y + $ship->{x}) * 13)) < 0.03 ? color("GREY3") . '.' . color("RESET") : ' ');
+			my $modVal = abs(cos(int($x + $ship->{y}) * int($y + $ship->{x}) * 13));
+			$map[$x][$y] = (($modVal < 0.03) ? ($modVal < 0.01 ? color("GREY1") : color("GREY5")) . '.' . color("RESET") : ' ');
 			$lighting[$x][$y] = 0;
 		}
 	}
