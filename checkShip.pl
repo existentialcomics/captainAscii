@@ -5,6 +5,7 @@ use Term::ANSIColor 4.00 qw(RESET color :constants256);
 
 
 my $ship_file1 = shift;
+my $color = shift;
 open (my $fh1, "<", $ship_file1) or die "failed to open $ship_file1\n";
 my $ship_str1 = "";
 while (<$fh1>){
@@ -16,7 +17,7 @@ print "---------------------" . " ship input" . "---------------------" . "\n\n"
 print $ship_str1;
 print "\n---------------------" . " ship output" . "--------------------" . "\n\n";
 
-my $ship = SpaceShip->new($ship_str1, 5, 5, 1, 1);
+my $ship = SpaceShip->new($ship_str1, 5, 5, 1, 1, { color => $color } );
 my @display;
 foreach my $x ($ship->{bottommost} .. $ship->{topmost}){
 	foreach my $y ($ship->{leftmost} .. $ship->{rightmost}){
@@ -26,7 +27,7 @@ foreach my $x ($ship->{bottommost} .. $ship->{topmost}){
 			#print "  c $part->{chr} x: $part->{x}, y: $part->{y}\n";
 			if ($part->{x} == $y && $part->{y} == $x){
 				#print "matched \n";
-				$chr = color('RGB033') . $part->{chr} . color('reset');
+				$chr = $ship->{color} . $part->{chr} . color('reset');
 				last;
 			}
 		}
@@ -41,7 +42,7 @@ print 'cost:    $'.$ship->{cost}."\n";
 print 'powergen: '.$ship->{powergen}."\n";
 print 'power:   '.$ship->{power}."\n";
 print 'thrust:  '.$ship->{thrust}."\n";
-print 'speed:   '.$ship->{speed}."\n";
+print 'speed:   '. sprintf('%.2f', $ship->{speed} )."\n";
 print 'weight:  '.$ship->{weight}."\n";
 print 'health:  '.$ship->{health}."\n";
 print 'shield:  '.$ship->{shield}."\n";

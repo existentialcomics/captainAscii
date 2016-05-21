@@ -8,6 +8,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use SpaceShip;
 use Storable;
+use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 
 use IO::Socket::UNIX;
@@ -27,7 +28,7 @@ chmod 0777, $SOCK_PATH;
 my $conn = $server->accept();
 # wait to recieve your first ship build
 #
-print "client connected\n";
+print "first client connected\n";
 my $waitShip = 1;
 my $firstShip = "";
 while ($waitShip){
@@ -71,8 +72,6 @@ foreach my $x (0 .. $height){
 }
 
 my $starttime = time();
-#           SpaceShip->new(file, x, y, facing, id, %options)
-#my $ship2 = SpaceShip->new($firstShip, 3, 2, 1, 2);
 
 # TODO push ship 2
 
@@ -80,9 +79,9 @@ my @players = ();
 
 my $currentFacing = 0;
 
-my $scr = new Term::Screen;
-$scr->clrscr();
-$scr->noecho();
+#my $scr = new Term::Screen;
+#$scr->clrscr();
+#$scr->noecho();
 my $frame = 0;
 my $lastFrame = 0;
 my $playing = 1;
@@ -97,23 +96,33 @@ my $shipIds = 3;
 while ($playing == 1){ 
 	# listen for new ships
     if (defined( my $conntmp = $server->accept())){
-		my $newShip = '';
+		my $newShipDesign = '';
 		$waitShip = 1;
-
+		print "new ship entering...\n";
 		while ($waitShip){
 			while(my $line = <$conntmp>){
 				if ($line =~ /DONE/){
 					$waitShip = 0;
 					last;
 				} else {
-					$newShip .= $line;
+					$newShipDesign .= $line;
 				}
 			}
 		}
-		my $shipNew = SpaceShip->new($newShip, 5, 5, -1, $shipIds++);
+		print "$newShipDesign\n";
+		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $shipIds++);
+		foreach my $ship (@ships){
+			sendMsg($ship->{conn}, 'newship', {
+				design => $newShipDesign,
+				x => 5,
+				y => 5,
+				id => $shipNew->{id},
+			});
+		}
 		$conntmp->blocking(0);
 		$shipNew->{conn} = $conntmp;
 		push @ships, $shipNew;
+		print "player loaded, " . ($#ships + 1) . " in game.\n";
 	}
 
 	$frame = int(time() * $fps);
@@ -124,15 +133,6 @@ while ($playing == 1){
 
 	$framesInSec++;
 	$lastFrame = $frame;
-	
-	# reset map - to be removed
-#	foreach my $x (0 .. $height){
-#		push @map, [];
-#		foreach my $y (0 .. $width){
-#			$map[$x][$y] = ' ';
-#			$lighting[$x][$y] = 0;
-#		}
-#	}
 
 	### calcuate bullets
 	foreach my $bulletK ( keys %bullets){
@@ -147,6 +147,7 @@ while ($playing == 1){
 
 		foreach my $ship (@ships){
 			if ($ship->resolveCollision($bullet)){
+				# TODO send bullet del to clients
 				delete $bullets{$bulletK};	
 			}
 		}
@@ -157,6 +158,8 @@ while ($playing == 1){
 				{
 					x => $bullet->{x},
 					y => $bullet->{y},
+					dx => $bullet->{dx},
+					dy => $bullet->{dy},
 					k => $bulletK,
 					ex => ( $bullet->{expires} - time() ), # time left in case client clock differs
 					chr => $bullet->{chr}
@@ -175,28 +178,6 @@ while ($playing == 1){
 			}
 			my $px = $ship->{'y'} + $part->{'y'};
 			my $py = $ship->{'x'} + $part->{'x'};
-			#$map[$px]->[$py] = $highlight . $bold . color('RGB033') . $part->{'part'}->{'chr'} . color('reset');
-#			if ($part->{'part'}->{'type'} eq 'shield'){
-#				if ($part->{'shieldHealth'} > 0){
-#					my $shieldLevel = ($highlight ne '' ? 5 : 2);
-#					if ($part->{'part'}->{'size'} eq 'medium'){
-#						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-#						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-#						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-#						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-#						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-#
-#					} elsif ($part->{'part'}->{'size'} eq 'large'){
-#						$lighting[$px - 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-#						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-#						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-#						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-5 .. 5);
-#						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-#						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-#						$lighting[$px + 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-#					}
-#				}
-#			}
 		}
 	}
 	foreach my $ship (@ships){
@@ -208,20 +189,34 @@ while ($playing == 1){
 					id => 'self' ,
 					x => $ship->{x},
 					y => $ship->{y},
+					dx => $ship->{movingHoz},
+					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
 					currentPower => $ship->{currentPower},
 					powergen     => $ship->{powergen},
 				};
+				sendMsg($shipInner->{conn}, 's', $msg);
 			} else {
+				$msg = {
+					id => $ship->{id} ,
+					x => $ship->{x},
+					y => $ship->{y},
+					dx => $ship->{movingHoz},
+					dy => $ship->{movingVert},
+					shieldHealth => $ship->{shieldHealth},
+					currentPower => $ship->{currentPower},
+					powergen     => $ship->{powergen},
+				};
+				sendMsg($shipInner->{conn}, 's', $msg);
 				# we only need to know location
 			}
-			sendMsg($shipInner->{conn}, 's', $msg);
 		}
 	}
 
 	# recieve ship input
 	foreach my $ship (@ships){
-		if (defined(my $in = <$conn>)){
+		my $socket = $ship->{conn};
+		if (defined(my $in = <$socket>)){
 			chomp($in);
 			my $chr = $in;
 			$ship->keypress($chr);
@@ -230,12 +225,12 @@ while ($playing == 1){
 	}
 
 	# server input, replace with stdin
-	if ($scr->key_pressed()) { 
-		my $chr = $scr->getch();
-		foreach my $ship (@ships){
-			$ship->keypress($chr);
-		}
-	}
+	#if ($scr->key_pressed()) { 
+		#my $chr = $scr->getch();
+		#foreach my $ship (@ships){
+			#$ship->keypress($chr);
+		#}
+	#}
 
 	# calculate power and movement
 	foreach my $ship (@ships){

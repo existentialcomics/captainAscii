@@ -10,7 +10,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 use Data::Dumper;
 #use Math::Trig;
 
-my %connectors = (
+my %coannectors= (
 	1 => {
 		'b'  => '│',
 		't'  => '│',
@@ -18,7 +18,7 @@ my %connectors = (
      	'l'  => '─',
      	'r'  => '─',
      	'lr' => '─',
-		'bl' => '┌',
+		'bl' => '┐',
 		'br' => '┌',
 
 		'rt' => '└',
@@ -31,6 +31,29 @@ my %connectors = (
 		'brt' => '├',
 
 		'blrt' => '┼',
+	},
+);
+my %connectors = (
+	1 => {
+		'b'  => '║',
+		't'  => '║',
+		'bt' => '║',
+     	'l'  => '═',
+     	'r'  => '═',
+     	'lr' => '═',
+		'bl' => '╗',
+		'br' => '╔',
+
+		'rt' => '╚',
+		'lt' => '╝',
+
+		'lrt' => '╩',
+		'blr' => '╦',
+
+		'blt' => '╣',
+		'brt' => '╠',
+
+		'blrt' => '╬',
 	},
 );
 
@@ -48,7 +71,7 @@ my %parts = (
 		poweruse => 1,
 		rate   => 0.9,
 		lastShot => 0,
-		'chr'  => 'X',
+		'chr'  => color("BOLD") . 'X',
 		health => 15
 	},
 	'/' => {
@@ -134,7 +157,7 @@ my %parts = (
 	},
 	'+' => {
 		cost   => '10',
-		type   => 'connector',
+		type   => 'plate',
 		weight => 2,
 		'chr'  => color('white') . '[',
 		health => 10
@@ -256,6 +279,8 @@ sub _init {
 	my $direction = shift;
 	my $id = shift;
 	my $options = shift;
+
+	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
