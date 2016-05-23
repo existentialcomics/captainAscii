@@ -1132,13 +1132,22 @@ sub getQuadrant {
 
 sub getShipDisplay {
 	my $self = shift;	
+	my $cloaked = shift;
 	my $shipStr = "";
 	foreach my $x ($self->{bottommost} .. $self->{topmost}){
 		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
 			my $chr = ' ';
 			foreach my $part ($self->getParts()){
 				if ($part->{x} == $y && $part->{y} == $x){
-					$chr = $self->{color} . $part->{chr} . color('reset');
+					if ($cloaked && $part->{part}->{type} ne 'command'){
+						$chr = ' ';
+					} elsif ($cloaked){
+						$chr = $part->{chr};
+						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
+						$chr = color('GREY1') . $chr;
+					} else {
+						$chr = $self->{color} . $part->{chr} . color('reset');
+					}
 					last;
 				}
 			}

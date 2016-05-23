@@ -6,6 +6,7 @@ use Term::ANSIColor 4.00 qw(RESET color :constants256);
 
 my $ship_file1 = shift;
 my $color = shift;
+my $cloaked = shift;
 open (my $fh1, "<", $ship_file1) or die "failed to open $ship_file1\n";
 my $ship_str1 = "";
 while (<$fh1>){
@@ -18,10 +19,11 @@ print $ship_str1;
 print "\n---------------------" . " ship output" . "--------------------" . "\n\n";
 
 my $ship = SpaceShip->new($ship_str1, 5, 5, 1, 1, { color => $color } );
-my $display = $ship->getShipDisplay();
+my $display = $ship->getShipDisplay($cloaked);
 
 print $display . "\n";
 
+print color('reset');
 print "\n-----------------------------------------------" . "\n\n";
 
 print 'cost:    $'.$ship->{cost}."\n";
