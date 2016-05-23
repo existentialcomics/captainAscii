@@ -10,7 +10,14 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 use Data::Dumper;
 #use Math::Trig;
 
-my %coannectors= (
+use constant {
+	ASPECTRATIO => 0.6,
+	PI => 3.1415
+};
+
+my $aspectRatio = 0.6;
+
+my %connectors= (
 	1 => {
 		'b'  => '│',
 		't'  => '│',
@@ -33,7 +40,7 @@ my %coannectors= (
 		'blrt' => '┼',
 	},
 );
-my %connectors = (
+my %connectors2 = (
 	1 => {
 		'b'  => '║',
 		't'  => '║',
@@ -74,23 +81,7 @@ my %parts = (
 		'chr'  => color("BOLD") . 'X',
 		health => 15
 	},
-	'/' => {
-		cost   => '50',
-		type   => 'thrust',
-		poweruse => -0.45,
-		weight => 1,
-		thrust  => 90,
-		'chr'  => '/',
-		health => 3
-	},
-	'\\' => {
-		cost   => '50',
-		type   => 'thrust',
-		weight => 1,
-		thrust  => 90,
-		'chr'  => '\\',
-		health => 3
-	},
+	################## thrusters ###################
 	'^' => {
 		cost   => '30',
 		type   => 'thrust',
@@ -123,6 +114,7 @@ my %parts = (
 		thrust  => 100,
 		health => 6
 	},
+	################## power cells ###################
 	'O' => {
 		cost   => '150',
 		'chr' => 'O',
@@ -141,6 +133,7 @@ my %parts = (
 		weight => 5,
 		health => 5
 	},
+	################## plates ###################
 	'-' => {
 		cost   => '10',
 		type   => 'plate',
@@ -148,27 +141,29 @@ my %parts = (
 		'chr'  => color('white') . '—',
 		health => 10
 	},
-	'[' => {
-		cost   => '10',
-		type   => 'plate',
-		weight => 2,
-		'chr'  => color('white') . '[',
-		health => 10
-	},
 	'+' => {
-		cost   => '10',
+		cost   => '20',
 		type   => 'plate',
 		weight => 2,
 		'chr'  => color('white') . '[',
 		health => 10
 	},
-	']' => {
-		cost   => '10',
-		type   => 'plate',
-		weight => 2,
-		'chr'  => color('white') . ']',
-		health => 10
-	},
+	################## weapons ###################
+    #   quadrants
+    #
+    #       5
+    #     6   4
+    #   7   X   3
+    #     8   2
+    #       1  
+    #
+	#	quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+	#	quadrants => { 2 => 1, 3 => 1, 4 => 1, 6 => 1, 7 => 1, 8 => 1 }, # left/right
+	#	quadrants => { 5 => 1, 1 => 1 }, # up/down tight
+	#	quadrants => { 7 => 1, 3 => 1 }, # left/right tight
+	#	quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
+	#	quadrants => { 6 => 1, 3 => 1 }, # NW/SW tight
+    ###################
 	'|' => {
 		cost   => '100',
 		type   => 'gun',
@@ -176,10 +171,50 @@ my %parts = (
 		poweruse => -1,
 		damage => 0.7,
 		shoots => color('RGB440') . "'" . color('white'),
+		quadrants => { 5 => 1, 1 => 1 }, # up/down tight
 		bulletspeed => 22,
 		rate   => 0.3,
 		'chr'  => '|',
-		health => 5
+		health => 5,
+	},
+	'_' => {
+		'chr'  => '—',
+		cost   => '100',
+		type   => 'gun',
+		weight => 2,
+		poweruse => -1,
+		damage => 0.7,
+		shoots => color('RGB440') . "-" . color('white'),
+		quadrants => { 3 => 1, 7 => 1 }, # left/right
+		bulletspeed => 22,
+		rate   => 0.3,
+		health => 5,
+	},
+	'/' => {
+		'chr'  => '/',
+		cost   => '100',
+		type   => 'gun',
+		weight => 2,
+		poweruse => -1,
+		damage => 0.7,
+		shoots => color('RGB440') . "/" . color('white'),
+		quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
+		bulletspeed => 22,
+		rate   => 0.3,
+		health => 5,
+	},
+	'\\' => {
+		'chr'  => '\\',
+		cost   => '100',
+		type   => 'gun',
+		weight => 2,
+		poweruse => -1,
+		damage => 0.7,
+		shoots => color('RGB440') . "\\" . color('white'),
+		quadrants => { 6 => 1, 2 => 1 }, # NW/SW tight
+		bulletspeed => 22,
+		rate   => 0.3,
+		health => 5,
 	},
 	'I' => {
 		chr    => color('ON_GREY5 RGB530 BOLD') . "|" . color('reset'),
@@ -187,8 +222,22 @@ my %parts = (
 		type   => 'gun',
 		weight => 4,
 		poweruse => -4,
+		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
 		damage => 4,
 		shoots => color('RGB551 bold') . "|" . color('reset'),
+		bulletspeed => 22,
+		rate   => 0.3,
+		health => 10
+	},
+	'~' => {
+		chr    => color('ON_GREY5 RGB530 BOLD') . "—" . color('reset'),
+		cost   => '500',
+		type   => 'gun',
+		weight => 4,
+		poweruse => -4,
+		quadrants => { 2 => 1, 3 => 1, 4 => 1, 6 => 1, 7 => 1, 8 => 1 }, # left/right
+		damage => 4,
+		shoots => color('RGB551 bold') . "—" . color('reset'),
 		bulletspeed => 22,
 		rate   => 0.3,
 		health => 10
@@ -200,14 +249,17 @@ my %parts = (
 		weight => 2,
 		poweruse => -1.5,
 		damage => 1,
+		lifespan => 2.5,
 		shoots => color('RGB225') . ":" . color('white'),
-		bulletspeed => 14,
+		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+		bulletspeed => 20,
 		rate   => 0.6,
 		health => 5
 	},
 	'U' => {
 		cost   => '150',
 		'chr'  => 'U',
+		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
 		type   => 'gun',
 		weight => 2,
 		shipMomentum => 0.5,
@@ -222,16 +274,18 @@ my %parts = (
 		cost   => '150',
 		type   => 'gun',
 		poweruse => -3,
+		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
 		shipMomentum => 1,
-		lifespan => 4,
+		lifespan => 5,
 		weight => 6,
 		damage => 4,
 		shoots => "o",
-		bulletspeed => 5,
+		bulletspeed => 6,
 		rate   => 1,
 		'chr'  => '8',
 		health => 5
 	},
+	####################### shields #############################
 	'@' => {
 		cost   => '200',
 		type   => 'shield',
@@ -287,7 +341,7 @@ sub _init {
  
 	$self->{'x'} = $x;	
 	$self->{'y'} = $y;	
-	$self->{'direction'} = 3.14;
+	$self->{'direction'} = PI;
 	$self->{'id'} = $id;
 
 	$self->{'movingHoz'}   = 0;
@@ -298,10 +352,12 @@ sub _init {
 	$self->{'aimingPress'} = 0;
 	$self->{'aimingDir'} = 1;
 
-	$self->{'ship'} = {};
+	$self->{'parts'} = {};
+	$self->{'idCount'} = 0;
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
+	$self->orphanParts();
 	$self->_calculatePower();
 	$self->_calculateWeight();
 	$self->_calculateThrust();
@@ -310,32 +366,48 @@ sub _init {
 	$self->_calculateShield();
 	$self->_calculateHealth();
 	$self->{shieldHealth} = $self->{shield};
+	
 	return 1;
+}
+
+sub getAimingCursor {
+	my $self = shift;
+	return(cos($self->{direction}) * 12 * ASPECTRATIO, sin($self->{direction}) * 12);
 }
 
 sub shoot {
 	my $self = shift;
 	if (time() - $self->{shooting} > 0.5){ return []; }
 
+	my $quad = $self->getQuadrant();
+
 	my $time = time();
 	my @bullets = ();
-	foreach my $part (@{$self->{ship}}){
+	my $id = -1;
+	foreach my $part ($self->getParts()){
+		$id += 1;
 		if (!defined($part->{'lastShot'})){ $part->{'lastShot'} = $time;}
 		if (($part->{'part'}->{'type'} eq 'gun' || $part->{'part'}->{'type'} eq 'command') and abs($time - $part->{lastShot}) > $part->{'part'}->{rate}){
 			$part->{'lastShot'} = $time;
+			# not enough power
 			if ($self->{currentPower} < abs($part->{part}->{poweruse})){
+				next;
+			}
+			# can't fire in this dir
+			if (! defined($part->{quadrants}->{$quad})){
 				next;
 			}
 			$self->{currentPower} += $part->{'part'}->{poweruse};
 			push @bullets, {
 				id => $self->{'id'},
+				partId => $id,
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
 				damage => $part->{part}->{damage},
-				y => ($self->{x} + $part->{x}),
-				x => ($self->{y} + $part->{y}),
+				y => ($self->{'x'} + $part->{'x'}),
+				x => ($self->{'y'} + $part->{'y'}),
 				'chr' => $part->{'part'}->{'shoots'},
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
-					   + $part->{part}->{bulletspeed} * cos($self->{direction}),
+					   + $part->{part}->{bulletspeed} * $aspectRatio * cos($self->{direction}),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * sin($self->{direction}),
 			};
@@ -348,7 +420,7 @@ sub shoot {
 sub _calculateThrust {
 	my $self = shift;
 	$self->{thrust} = 0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{thrust})){
 			$self->{thrust} += $part->{part}->{thrust};
 		}
@@ -358,7 +430,7 @@ sub _calculateThrust {
 sub _calculateShield {
 	my $self = shift;
 	$self->{shield} = 0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{shield})){
 			$self->{shield} += $part->{part}->{shield};
 		}
@@ -385,7 +457,7 @@ sub _recalculatePower {
 sub _calculateCost {
 	my $self = shift;
 	$self->{cost} = 0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		$self->{cost} += $part->{part}->{cost};
 	}
 }
@@ -393,13 +465,13 @@ sub _calculateCost {
 sub _calculatePower {
 	my $self = shift;
 	$self->{power} = 0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{power})){
 			$self->{power} += $part->{part}->{power};
 		}
 	}
 	$self->{powergen} = 0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{powergen})){
 			$self->{powergen} += $part->{part}->{powergen};
 		}
@@ -410,13 +482,17 @@ sub _calculatePower {
 
 sub _calculateSpeed {
 	my $self = shift;
-	$self->{speed} = $self->{thrust} / $self->{weight} * 5;
+	if ($self->{weight} == 0){
+		$self->{speed} = 0;
+	} else {
+		$self->{speed} = $self->{thrust} / $self->{weight} * 5;
+	}
 }
 
 sub _calculateWeight {
 	my $self = shift;
 	$self->{weight} = 0.0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		$self->{weight} += $part->{part}->{weight};
 	}
 }
@@ -424,20 +500,23 @@ sub _calculateWeight {
 sub _calculateHealth {
 	my $self = shift;
 	$self->{health} = 0.0;
-	foreach my $part (@{ $self->{ship} }){
+	foreach my $part ($self->getParts()){
 		$self->{health} += $part->{part}->{health};
 	}
 }
 
 sub _recalculate {
 	my $self = shift;
+	$self->_resetPartIds();
+	$self->orphanParts();
+	$self->_recalculateCollisionMap();
 	$self->_recalculatePower();
 	$self->_calculateWeight();
 	$self->_calculateThrust();
 	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateHealth();
-	#TODO check for orphaned pieces
+	$self->_resetPartIds();
 }
 
 
@@ -445,7 +524,8 @@ sub resolveCollision {
 	my $self = shift;
 	my $bullet = shift;
 	if ($bullet->{id} == $self->{id}){ return 0; }
-	foreach my $part (@{ $self->{ship} }){
+	my $i = 0;
+	foreach my $part ($self->getParts()){
 		# x and y got mixed somehow
 		my $px = int($part->{y} + $self->{y});
 		my $py = int($part->{x} + $self->{x});
@@ -520,45 +600,157 @@ sub resolveCollision {
 					if ($part->{'shieldHealth'} < 0){
 						$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
 					}
-					return 1;
+					return { id => $i, shield => $part->{shieldHealth} };
 			}
 		}
 		if (int($bullet->{y}) == $py &&
 		    int($bullet->{x}) == $px){
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
-			return 1;
+			return { id => $i, health => $part->{health} };
 		}
+		$i++;
 	}
+	return undef;
+}
+
+sub damagePart {
+	my $self = shift;
+	my ($partId, $health) = @_;
+	my $part = $self->getPartById($partId);
+	$part->{'hit'} = time();
+	$part->{health} = $health;
+}
+
+sub damageShield {
+	my $self = shift;
+	my ($partId, $health) = @_;
+	my $part = $self->getPartById($partId);
+	$part->{'hit'} = time();
+	$part->{shieldHealth} = $health;
+}
+
+sub getPartDefs {
+	my $self = shift;
+}
+
+sub setPartDefs {
+	my $self = shift;
+}
+
+sub _resetPartIds {
+	my $self = shift;
+	my $id = -1;
+	foreach my $part ($self->getParts()){
+		$part->{id} = $id++;
+	}
+}
+
+sub orphanParts {
+	my $self = shift;
+	my %matched  = ();
+	my %bad = ();
+
+	my $command = $self->getCommandModule();
+	my $cid = $command->{id};
+	$matched{$cid} = 1;
+	foreach my $p ($self->getPartIds()){
+		my %examined = ();
+		my @toExamine = $self->_getConnectedPartIds($self->{parts}->{$p});
+		my $pexam = $p;
+		if (defined($bad{$pexam})){ next; }
+		if (defined($matched{$pexam})){ next; }
+		{
+			do {
+				if (defined($matched{$pexam})){ 
+					$matched{$pexam} = 1;
+					while (my $pleft = pop @toExamine){
+						$matched{$pleft} = 1;
+					}
+					foreach my $k (keys %examined){
+						$matched{$k} = 1;
+					}
+					last;
+				} 
+				if (! defined($examined{$pexam})){
+					$examined{$pexam} = 1;
+					push @toExamine, $self->_getConnectedPartIds($self->getPartById($pexam));
+				}
+			} while (defined($pexam = shift @toExamine));
+			$bad{$p} = 1;
+		} # empty block for last; to apply to
+	}
+	foreach my $bad (keys %bad){
+		delete $self->{parts}->{$bad};
+	}
+}
+
+sub _partCanReachCommand {
+	my $self = shift;
+	my $part = shift;
+	my %examined = ();
+	my $command = $self->getCommandModule();
+	my $cid = $command->{id};
+	if ($part->{id} eq $cid){ return 1; }
+	#print "examine: $part->{id} $part->{chr}\n";
+
+	my @toExamine = $self->_getConnectedPartIds($part);
+	my $p = $part->{id};
+	do {
+		#print " matching $p\n";
+		#print " stack : " . (join ",", @toExamine) . "\n";
+		if (! defined($examined{$p})){
+			$examined{$p} = 1;
+			if ($p eq $cid){ 
+				#print "matched $p\n";
+				return 1;
+			}
+			push @toExamine, $self->_getConnectedPartIds($self->getPartById($p));
+		}
+		#print " stack : " . (join ",", @toExamine) . "\n";
+	} while (defined($p = shift @toExamine));
+	#print "can't connect: $part->{id}\n";
 	return 0;
+}
+
+sub _getConnectedPartIds {
+	my $self = shift;
+	my $part = shift;
+	my @ids;
+	foreach my $k (keys %{$part->{connected}}){
+		push @ids, $part->{connected}->{$k};
+	}
+	#print "  $part->{id} $part->{chr} ids: " . (join ",", @ids) . "\n";
+	return @ids;
 }
 
 sub pruneParts {
 	my $self = shift;
-	my $size = $#{ $self->{ship} };
-	$self->{ship} = [ grep { $_->{'health'} > 0 }  @{ $self->{ship} } ];
-	if ($#{ $self->{ship} } < $size){
-		$self->_recalculate();
+	my $deleted = 0;
+	foreach my $key ($self->getPartIds()){
+		if ($self->{parts}->{$key}->{'health'} < 0){
+			$deleted++;
+			delete $self->{parts}->{$key};
+		}
 	}
+	if ($deleted > 0){
+		$self->_recalculate();
+		return 1;
+	}
+	return 0;
 }
 
 sub keypress {
 	my $self = shift;
 	my $chr = shift;
-	if ($self->{'controls'} eq 'a'){
-		if ($chr eq 'a'){ $self->{movingHozPress} = time(); $self->{movingHoz} = -1; }
-		if ($chr eq 'd'){ $self->{movingHozPress} = time(); $self->{movingHoz} = 1;  }
-		if ($chr eq 'w'){ $self->{movingVertPress} = time(); $self->{movingVert} = -1; }
-		if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
-		if ($chr eq ' '){ $self->{shooting} = time();}
-		if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
-		if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
-	} else {
-		if ($chr eq 'j'){ $self->{moving} = -1; }
-		if ($chr eq 'l'){ $self->{moving} = 1;  }
-		if ($chr eq 'k'){ $self->{moving} = 0;  }
-		if ($chr eq 'i'){ $self->{shooting} = time();}
-	}
+	if ($chr eq 'a'){ $self->{movingHozPress} = time(); $self->{movingHoz} = -1; }
+	if ($chr eq 'd'){ $self->{movingHozPress} = time(); $self->{movingHoz} = 1;  }
+	if ($chr eq 'w'){ $self->{movingVertPress} = time(); $self->{movingVert} = -1; }
+	if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
+	if ($chr eq ' '){ $self->{shooting} = time();}
+	if ($chr eq 'p'){ $self->_recalculate(); }
+	if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
+	if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
 }
 
 sub power {
@@ -580,7 +772,7 @@ sub power {
 
 	$self->{shieldHealth} = 0;
 	# if shields are regenerating
-	foreach my $part (@{ $self->{'ship'} }){
+	foreach my $part ($self->getParts()){
 		if ($part->{'part'}->{'type'} eq 'shield'){
 			# if you are below 20% power you can't gen shields
 			if ($self->{currentPower} / $self->{power} < 0.2){
@@ -622,28 +814,110 @@ sub move {
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
 	my $timeMod = time() - $self->{lastMove};
 
-	if (time - $self->{aimingPress} < 0.2){
+	if (time - $self->{aimingPress} < 0.15){
 		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
+		if ($self->{direction} > (PI * 2)){ $self->{direction} -= (PI * 2); }
+		if ($self->{direction} < 0){ $self->{direction} += (PI * 2); }
 	}
-	if (time - $self->{movingHozPress} < 0.3){
+	
+	if (time - $self->{movingHozPress} < 0.2){
 		$self->{x} += ($self->{movingHoz} * $self->{speed} * $timeMod);
 	} else {
 		$self->{movingHoz} = 0;
 	}
-	if (time - $self->{movingVertPress} < 0.3){
-		$self->{y} += ($self->{movingVert} * $self->{speed} * $timeMod * 0.4);
+	if (time - $self->{movingVertPress} < 0.2){
+		$self->{y} += ($self->{movingVert} * $self->{speed} * $timeMod * $aspectRatio);
 	} else {
 		$self->{movingVert} = 0;
 	}
 	$self->{lastMove} = time();
 }
 
+sub _loadPart {
+	my $self = shift;
+	my ($chr, $x, $y) = @_;
+	my $id = $self->{idCount}++;
+	$self->{parts}->{$id} = {
+		'x' => $x,
+		'y' => $y,
+		'health' => $parts{$chr}->{health},
+		'shieldHealth' => $parts{$chr}->{shield},
+		'hit' => time(),
+		'id'  => $id,
+		'defchr' => $chr,
+		'chr' => $parts{$chr}->{'chr'},
+		'connected' => {},
+		'part' => $parts{$chr}
+	};
+	$self->{collisionMap}->{$x}->{$y} = $chr;
+	$self->{partMap}->{$x}->{$y} = $id;
+	return $id;
+}
+
+sub _recalculateCollisionMap {
+	my $self = shift;
+	$self->{collisionMap} = {};
+	foreach my $part ($self->getParts()){
+		my $x = $part->{x};
+		my $y = $part->{y};
+		my $chr = $part->{defchr};
+		$self->{collisionMap}->{$x}->{$y} = $chr;
+		$self->{partMap}->{$x}->{$y} = $part->{id};
+	}
+}
+
+sub getParts {
+	my $self = shift;
+	return values %{ $self->{parts} };
+}
+
+sub getPartIds {
+	my $self = shift;
+	return keys %{ $self->{parts} };
+}
+
+sub getPartById {
+	my $self = shift;
+	my $id = shift;
+	return $self->{parts}->{$id};
+}
+
+sub getCommandModule {
+	my $self = shift;
+	foreach my $part ($self->getParts()){
+		if ($part->{part}->{type} eq "command"){
+			return $part;
+		}
+	}
+}
+
+sub _offsetByCommandModule {
+	my $self = shift;
+	# find command module and build new ship with connections
+	my $cm = $self->getCommandModule();
+
+	my $offx = $cm->{x};
+	my $offy = $cm->{y};
+	$self->{leftmost}  = -1;
+	$self->{rightmost} = 1;
+	$self->{topmost}   = 1;
+	$self->{bottommost} = -1;
+	foreach my $part ($self->getParts()){
+		# ground parts to cm as 0,1
+		$part->{x} -= $offx;
+		$part->{y} -= $offy;
+	}
+}
+
 sub _loadShip {
 	my $self = shift;
 	my $ship = shift;
 
+	$self->{parts} = {};
+	$self->{collisionMap} = {};
+	$self->{partMap} = {};
+
 	my $command = undef;
-	my @ship;
 	my @shipLines = split("\n", $ship);
 	my $y = 0;
 	foreach my $line (@shipLines){
@@ -652,47 +926,81 @@ sub _loadShip {
 		my $x = 0;
 		foreach my $chr (@chrs){
 			$x++;
-			if ($chr ne ' '){
-				if (defined($parts{$chr})){
-					my $id = $#ship + 1;
-					if ($parts{$chr}->{'type'} eq 'command'){
-						$command = $id;	
-					}
-					push @ship, {
-						'x' => $x,
-						'y' => $y,
-						'health' => $parts{$chr}->{health},
-						'shieldHealth' => $parts{$chr}->{shield},
-						'hit' => time(),
-						'id'  => $id,
-						'chr' => $parts{$chr}->{'chr'},
-						'connected' => {},
-						'part' => $parts{$chr}
-					}
-				}
-			}		
+			if (defined($parts{$chr})){
+				my $id = $self->_loadPart($chr, $x, $y);
+			}
 		}
 	}
 
-	# find command module and build new ship with connections
-	my $cm;
-	if (defined($command)){
-		$cm = $ship[$command];
-	} else {
-		return 0;
+	$self->_calculateParts();
+	return 1;
+}
+
+sub _calculateParts {
+	my $self = shift;
+	$self->_offsetByCommandModule();
+	$self->_setPartConnections();
+	$self->_removeBlockedGunQuadrants();
+	$self->pruneParts(); # will removed orphaned parts and recalc if necessary
+}
+
+sub _loadShipByMap {
+	my $self = shift;
+	my $map = shift;
+	$self->{parts} = {};
+	$self->{collisionMap} = {};
+	$self->{partMap} = {};
+	
+	foreach my $x (keys %{$map}){
+		foreach my $y (keys %{$map->{$x}}){
+			my $chr = $map->{$x}->{$y};
+			my $id = $self->_loadPart($chr, $x, $y);
+		}
 	}
-	my $offx = $cm->{x};
-	my $offy = $cm->{y};
-	$self->{leftmost}  = -1;
-	$self->{rightmost} = 1;
-	$self->{topmost}   = 1;
-	$self->{bottommost} = -1;
-	foreach my $part (@ship){
-		# ground parts to cm as 0,1
-		$part->{x} -= $offx;
-		$part->{y} -= $offy;
+
+	$self->_calculateParts();
+}
+
+sub setAllPartConnections {
+	my $self = shift;
+	return 0;
+	foreach my $part ($self->getParts()){
+		$self->setPartConnection($part);
 	}
-	foreach my $part (@ship){
+}
+
+sub setPartConnection {
+	my $self = shift;
+	my $part = shift;
+	my $x = $part->{x};
+	my $y = $part->{y};
+	if ($self->{partMap}->{$x}->{$y}){
+		$part->{connected}->{l} = $self->{partMap}->{$x}->{$y};
+	}
+	if ($self->{partMap}->{$x}->{$y}){
+		$part->{connected}->{r} = $self->{partMap}->{$x}->{$y};
+	}
+	if ($self->{partMap}->{$x}->{$y}){
+		$part->{connected}->{b} = $self->{partMap}->{$x}->{$y};
+	}
+	if ($self->{partMap}->{$x}->{$y}){
+		$part->{connected}->{t} = $self->{partMap}->{$x}->{$y};
+	}
+	if ($part->{'part'}->{'type'} eq 'plate'){
+		my $connectStr = 
+			(defined($part->{connected}->{b}) ? 'b' : '') .
+			(defined($part->{connected}->{l}) ? 'l' : '') .
+			(defined($part->{connected}->{r}) ? 'r' : '') .
+			(defined($part->{connected}->{t}) ? 't' : '') ;
+		if ($connectors{1}->{$connectStr}){
+			$part->{'chr'} = color('white') . $connectors{1}->{$connectStr};
+		}
+	}
+}
+
+sub _setPartConnections {
+	my $self = shift;
+	foreach my $part ($self->getParts()){
 		my $x = $part->{x};
 		my $y = $part->{y};
 		# find box dimensions of the ship
@@ -702,7 +1010,7 @@ sub _loadShip {
 		if ($y < $self->{bottommost}) { $self->{bottommost} = $y; }
 
 		# calculate connections
-		foreach my $partInner (@ship){
+		foreach my $partInner ($self->getParts()){
 			if    ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
 				$part->{connected}->{l} = $partInner->{id};	
 			}
@@ -727,9 +1035,77 @@ sub _loadShip {
 			}
 		}
 	}
+}
 
-	$self->{ship} = \@ship;
-	return 1;
+### find the angles each gun can shoot
+#   quadrants
+#
+#       5
+#     6   4
+#   7   X   3
+#     8   2
+#       1  
+#
+sub _removeBlockedGunQuadrants {
+	my $self = shift;
+	foreach my $part ($self->getParts()){
+		foreach my $k (keys %{$part->{part}->{quadrants}}){
+			$part->{quadrants}->{$k} = $part->{part}->{quadrants}->{$k};
+		}
+		my $y = $part->{x};
+		my $x = $part->{y};
+		if ($part->{part}->{type} eq 'gun'){
+			if ($self->{collisionMap}->{ $x }->{ $y - 1 }){
+				delete $part->{quadrants}->{5};
+			}
+			if ($self->{collisionMap}->{ $x + 1 }->{ $y - 1 }){
+				delete $part->{quadrants}->{4};
+			}
+			if ($self->{collisionMap}->{ $x + 1 }->{ $y }){
+				delete $part->{quadrants}->{3};
+			}
+			if ($self->{collisionMap}->{ $x + 1 }->{ $y + 1 }){
+				delete $part->{quadrants}->{2};
+			}
+			if ($self->{collisionMap}->{ $x }->{ $y + 1 }){
+				delete $part->{quadrants}->{1};
+			}
+			if ($self->{collisionMap}->{ $x - 1 }->{ $y + 1 }){
+				delete $part->{quadrants}->{8};
+			}
+			if ($self->{collisionMap}->{ $x - 1 }->{ $y }){
+				delete $part->{quadrants}->{7};
+			}
+			if ($self->{collisionMap}->{ $x - 1 }->{ $y - 1 }){
+				delete $part->{quadrants}->{6};
+			}
+		}
+	}
+
+}
+
+sub getQuadrant {
+	my $self = shift;
+	my $dir = shift;
+	$dir = (defined($dir) ? $dir : $self->{direction});
+	if ($dir > 15/8 * PI || $dir <= 1/8 * PI){
+		return 1;
+	} elsif ($dir > 1/8 * PI && $dir <= 3/8 * PI){
+		return 2;
+	} elsif ($dir > 3/8 * PI && $dir <= 5/8 * PI){
+		return 3;
+	} elsif ($dir > 5/8 * PI && $dir <= 7/8 * PI){
+		return 4;
+	} elsif ($dir > 7/8 * PI && $dir <= 9/8 * PI){
+		return 5;
+	} elsif ($dir > 9/8 * PI && $dir <= 11/8 * PI){
+		return 6;
+	} elsif ($dir > 11/8 * PI && $dir <= 13/8 * PI){
+		return 7;
+	} elsif ($dir > 13/8 * PI && $dir <= 15/8 * PI){
+		return 8;
+	}
+	return undef;
 }
 
 1;

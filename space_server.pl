@@ -15,6 +15,12 @@ use IO::Socket::UNIX;
 my $SOCK_PATH = "/tmp/captainAscii.sock";
 unlink $SOCK_PATH;
 
+$SIG{PIPE} = \&catchSigPipe;
+
+sub catchSigPipe {
+
+}
+
 my $server = IO::Socket::UNIX->new(
     Type => SOCK_STREAM(),
     Local => $SOCK_PATH,
@@ -46,8 +52,9 @@ print $firstShip . "\n";
 
 my $ship = SpaceShip->new($firstShip, 5, 30, -1, 1);
 $ship->{conn} = $conn;
+sendMsg($ship->{conn}, 'setShipId', { old_id => 'self', new_id => $ship->{id} });
 my @ships = ($ship);
-
+#print Dumper($ship->{collisionMap});
 print "loaded\n";
 
 ### turn off blocking mode as we enter the main loop
@@ -57,31 +64,8 @@ $conn->blocking(0);
 my $ship_file1 = shift;
 my $ship_file2 = shift;
 
-my @map;
-my @lighting;
-
-my $height = 40;
-my $width = 150;
-
-foreach my $x (0 .. $height){
-	push @map, [];
-	foreach my $y (0 .. $width){
-		$map[$x][$y] = ' ';
-		$lighting[$x][$y] = 0;
-	}
-}
-
 my $starttime = time();
 
-# TODO push ship 2
-
-my @players = ();
-
-my $currentFacing = 0;
-
-#my $scr = new Term::Screen;
-#$scr->clrscr();
-#$scr->noecho();
 my $frame = 0;
 my $lastFrame = 0;
 my $playing = 1;
@@ -121,6 +105,19 @@ while ($playing == 1){
 		}
 		$conntmp->blocking(0);
 		$shipNew->{conn} = $conntmp;
+
+		# set the new ship's id
+		sendMsg($shipNew->{conn}, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
+		# send it to the other ships
+		foreach my $os (@ships){
+			sendMsg($shipNew->{conn}, 'newship', {
+				design => $os->{design},
+				x => $os->{x},
+				y => $os->{y},
+				id => $os->{id},
+			});
+		}
+
 		push @ships, $shipNew;
 		print "player loaded, " . ($#ships + 1) . " in game.\n";
 	}
@@ -145,13 +142,6 @@ while ($playing == 1){
 		$bullet->{y} += ($bullet->{dy} * ($time - $lastTime));
 		#$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
 
-		foreach my $ship (@ships){
-			if ($ship->resolveCollision($bullet)){
-				# TODO send bullet del to clients
-				delete $bullets{$bulletK};	
-			}
-		}
-
 		# send the bullet data to clients
 		foreach my $ship (@ships){
 			sendMsg($ship->{conn}, 'b', 
@@ -160,17 +150,42 @@ while ($playing == 1){
 					y => $bullet->{y},
 					dx => $bullet->{dx},
 					dy => $bullet->{dy},
+					sid => $bullet->{id}, 
+					pid => $bullet->{partId},
 					k => $bulletK,
 					ex => ( $bullet->{expires} - time() ), # time left in case client clock differs
 					chr => $bullet->{chr}
 				}
 			);
-			$ship->pruneParts();
+			if ($ship->pruneParts()){
+				#resend ship
+				my $map = $ship->{collisionMap};
+				my $msg = {
+					ship_id => $ship->{id},
+					'map' => $map
+				};
+				foreach my $s (@ships){
+					sendMsg($s->{conn}, 'shipchange', $msg);
+				}
+			}
+		}
+
+		# detect and resolve bullet collisions
+		foreach my $ship (@ships){
+			if (my $data = $ship->resolveCollision($bullet)){
+				# TODO send bullet del to clients
+				foreach my $s (@ships){
+					$data->{bullet_del} = $bulletK;
+					$data->{ship_id} = $ship->{id};
+					sendMsg($s->{conn}, 'dam', $data); 
+				}
+				delete $bullets{$bulletK}
+			}
 		}
 	}
 
 	foreach my $ship (@ships){
-		foreach my $part (@{ $ship->{'ship'} }){
+		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
 			if (defined($part->{lastShot})){
@@ -186,7 +201,8 @@ while ($playing == 1){
 			my $msg = {};
 			if ($ship->{id} eq $shipInner->{id}){
 				$msg = {
-					id => 'self' ,
+					#id => 'self' ,
+					id => $ship->{id} ,
 					x => $ship->{x},
 					y => $ship->{y},
 					dx => $ship->{movingHoz},
@@ -194,6 +210,7 @@ while ($playing == 1){
 					shieldHealth => $ship->{shieldHealth},
 					currentPower => $ship->{currentPower},
 					powergen     => $ship->{powergen},
+					direction    => $ship->{direction},
 				};
 				sendMsg($shipInner->{conn}, 's', $msg);
 			} else {
@@ -205,7 +222,7 @@ while ($playing == 1){
 					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
 					currentPower => $ship->{currentPower},
-					powergen     => $ship->{powergen},
+					direction    => $ship->{direction},
 				};
 				sendMsg($shipInner->{conn}, 's', $msg);
 				# we only need to know location
@@ -220,6 +237,17 @@ while ($playing == 1){
 			chomp($in);
 			my $chr = $in;
 			$ship->keypress($chr);
+			if ($chr eq 'p'){
+				my $map = $ship->{collisionMap};
+				print Dumper($map);
+				my $msg = {
+					ship_id => $ship->{id},
+					'map' => $map
+				};
+				foreach my $s (@ships){
+					sendMsg($s->{conn}, 'shipchange', $msg);
+				}
+			}
 			#print "chr: $chr\n";
 		}
 	}
@@ -242,13 +270,9 @@ while ($playing == 1){
 		}
 	}
 
-	#### display map - to be removed ####
-#	foreach (0 .. $height){
-#		$scr->at($_ + 3, 0);
-#		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
-#		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
-#	}
 } ### END LOOP
+
+print "END\n";
 
 ### transmit a msg to the clients
 sub sendMsg {

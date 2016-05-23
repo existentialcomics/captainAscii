@@ -23,7 +23,7 @@ foreach my $x ($ship->{bottommost} .. $ship->{topmost}){
 	foreach my $y ($ship->{leftmost} .. $ship->{rightmost}){
 		my $chr = ' ';
 		#print "\nx: $x, y: $y\n";
-		foreach my $part (@{$ship->{ship}}){
+		foreach my $part ($ship->getParts()){
 			#print "  c $part->{chr} x: $part->{x}, y: $part->{y}\n";
 			if ($part->{x} == $y && $part->{y} == $x){
 				#print "matched \n";

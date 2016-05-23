@@ -17,6 +17,9 @@ use JSON::XS qw(encode_json decode_json);
 my $SOCK_PATH = "/tmp/captainAscii.sock";
 # Client:
 print "begin\n";
+if (! -e $SOCK_PATH){
+	system('perl space_server.pl');
+}
 my $socket = IO::Socket::UNIX->new(
 	Type => SOCK_STREAM(),
 	Peer => $SOCK_PATH,
@@ -56,22 +59,37 @@ my $lastTime = time();
 my $time = time();
 
 my $height = 55;
-my $width = 120;
+my $width = 130;
 
+my %lighting;
 my @map;
-my @lighting;
+#my @lighting;
 my %bullets;
 my @ships;
+my %ships;
 push @ships, $ship;
+$ships{$ship->{id}} = $ship;
 
+my $debug = "";
 $socket->blocking(0);
 while ($playing == 1){ 
-	# message from server
+	### message from server
 	while (my $msgjson = <$socket>){
 		my $msg = decode_json($msgjson);
 		my $data = $msg->{d};
-		if ($msg->{c} eq 'b'){
+		if ($msg->{c} eq 'b'){ # bullet msg
 			my $key = $data->{k};
+			# new bullet
+			if (!defined($bullets{$key})){
+				#$ships{$data->{sid}}->{ship}->[$data->{pid}]->{'hit'} = time();
+				#$ships{'self'}->{parts}->{$data->{pid}}->{'hit'} = time();
+				if (defined($ships{$data->{sid}})){
+					my $part = $ships{$data->{sid}}->getPartById($data->{pid});
+					$part->{'lastShot'} = time();
+				} else {
+					$debug = "ship not found $data->{sid}";
+				}
+			}
 			$bullets{$key} = $data;
 			$bullets{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 's'){
@@ -82,15 +100,39 @@ while ($playing == 1){
 				$ship->{movingVert} = $data->{dy},
 				$ship->{movingHoz} = $data->{dx},
 				$ship->{powergen} = $data->{powergen};
+				$ship->{direction} = $data->{direction};
 				$ship->{currentPower} = $data->{currentPower};
 			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, -1, $data->{id});
+			$ships{$shipNew->{id}} = $shipNew;
 			push @ships, $shipNew;
-			open my $fh, ">logfile";
-			print $fh Dumper($shipNew);
-			print $fh Dumper(@ships);
-			close $fh;
+		} elsif ($msg->{c} eq 'dam'){
+			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
+			delete $bullets{$data->{bullet_del}};
+			foreach my $s (@ships){
+				if ($s->{id} eq $data->{ship_id}){
+					if (defined($data->{shield})){
+						$s->damageShield($data->{id}, $data->{shield});
+					}
+					if (defined($data->{health})){
+						$s->damagePart($data->{id}, $data->{health});
+					}
+				}
+			}
+		} elsif ($msg->{c} eq 'shipchange'){
+			foreach my $s (@ships){
+				if ($s->{id} eq $data->{'ship_id'}){
+					$s->_loadShipByMap($data->{'map'});
+				}
+			}
+		} elsif ($msg->{c} eq 'setShipId'){
+			foreach my $s (@ships){
+				if ($s->{id} eq $data->{'old_id'}){
+					$s->{id} = $data->{'new_id'};
+					$debug = "$data->{'old_id'} to $data->{'new_id'}";
+				}
+			}
 		}
 	}
 
@@ -98,9 +140,10 @@ while ($playing == 1){
 	my $cenY = int($height / 2);
 	#my $offx = $ship->{x} + $cenX;
 	#my $offy = $ship->{y} + $cenY;
-	my $offx = $cenX - $ship->{x} ;
-	my $offy = $cenY - $ship->{y} ;
+	my $offx = $cenX - int($ship->{x});
+	my $offy = $cenY - int($ship->{y});
 
+	%lighting = ();
 	# reset map
 	foreach my $x (0 .. $height){
 		push @map, [];
@@ -131,7 +174,7 @@ while ($playing == 1){
 			}
 
 			$map[$x][$y] = (($modVal < 0.03) ? $col . $chr . color("RESET") : ' ');
-			$lighting[$x][$y] = 0;
+			#$lighting[$x][$y] = 0;
 		}
 	}
 
@@ -155,50 +198,59 @@ while ($playing == 1){
 	}
 
 	foreach my $ship (@ships){
-		foreach my $part (@{ $ship->{'ship'} }){
+		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
 			if (defined($part->{lastShot})){
 				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
 			}
-			# TODO change to offx offy so it works for other ships
-			my $px = ($offy + $ship->{y}) + $part->{'y'};
-			my $py = ($offx + $ship->{x}) + $part->{'x'};
-			$map[$px]->[$py] = $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset');
+			my $px = ($offy + int($ship->{y})) + $part->{'y'};
+			my $py = ($offx + int($ship->{x})) + $part->{'x'};
+			if (! defined ($part->{x})){ $debug = Dumper($part); next; }
+			setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
 			if ($part->{'part'}->{'type'} eq 'shield'){
 				if ($part->{'shieldHealth'} > 0){
 					my $shieldLevel = ($highlight ne '' ? 5 : 2);
 					if ($part->{'part'}->{'size'} eq 'medium'){
-						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-
+						addLighting($px - 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
+						addLighting($px - 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
+						addLighting($px + 0, $py + $_, $shieldLevel) foreach (-4 .. 4);
+						addLighting($px + 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
+						addLighting($px + 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
 					} elsif ($part->{'part'}->{'size'} eq 'large'){
-						$lighting[$px - 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
-						$lighting[$px - 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px - 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 0]->[$py + $_] += $shieldLevel foreach (-5 .. 5);
-						$lighting[$px + 1]->[$py + $_] += $shieldLevel foreach (-4 .. 4);
-						$lighting[$px + 2]->[$py + $_] += $shieldLevel foreach (-3 .. 3);
-						$lighting[$px + 3]->[$py + $_] += $shieldLevel foreach (-1 .. 1);
+						addLighting($px - 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
+						addLighting($px - 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
+						addLighting($px - 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
+						addLighting($px + 0, $py + $_, $shieldLevel) foreach (-5 .. 5);
+						addLighting($px + 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
+						addLighting($px + 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
+						addLighting($px + 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
 					}
 				}
 			}
 		}
+		my ($aimx, $aimy) = $ship->getAimingCursor();
+		my $px = ($offy + int($ship->{y})) + $aimx;
+		my $py = ($offx + int($ship->{x})) + $aimy;
+		setMap($px, $py, color('GREEN') . "+");
 	}
 	
 	### draw the screen to Term::Screen
-	foreach (0 .. $height){
-		$scr->at($_ + 1, 0);
-		my @lightingRow = map { color('ON_GREY' . $_) } @{ $lighting[$_] };
-		$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
+	foreach my $i (0 .. $height){
+		$scr->at($i + 1, 0);
+		my $row = '';
+		foreach my $j (0 .. $width){
+			$row .= (defined($lighting{$i}->{$j}) ? color('ON_GREY' . $lighting{$i}->{$j}) : color('ON_BLACK'));
+			$row .= (defined($map[$i]->[$j]) ? $map[$i]->[$j] : " ");
+		}
+		#$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
+		$scr->puts($row);
 	}
 
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, 0);
-	$scr->puts("ships in game: " . ($#ships + 1));
+	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
+	$scr->puts(sprintf('dir: %.2f  quad: %s   ', $ship->{direction}, $ship->getQuadrant()) );
 	$scr->at($height + 3, 0);
 	$scr->puts(
 		"weight: " .  $ship->{weight} .
@@ -229,4 +281,23 @@ while ($playing == 1){
 			color('RESET') . " " x (60 - ( 60 * ($ship->{shieldHealth} / $ship->{shield}))) ) . "|"
 		);
 	}
+	$scr->at($height + 6, 0);
+	$scr->puts($debug);
+}
+
+sub setMap {
+	my ($x, $y, $chr) = @_;
+	if ( ! onMap($x, $y) ){ return 0; }
+	$map[$x]->[$y] = $chr;
+}
+
+sub addLighting {
+	my ($x, $y, $level) = @_;
+	if ( ! onMap($x, $y) ){ return 0; }
+	$lighting{$x}->{$y} += $level;
+}
+
+sub onMap {
+	my ($x, $y) = @_;
+	return ($x > 0 && $y > 0 && $x < $height && $y < $width);
 }
