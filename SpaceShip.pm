@@ -652,6 +652,7 @@ sub orphanParts {
 	my %bad = ();
 
 	my $command = $self->getCommandModule();
+	if (!$command){ return 0; }
 	my $cid = $command->{id};
 	$matched{$cid} = 1;
 	foreach my $p ($self->getPartIds()){
@@ -733,6 +734,10 @@ sub pruneParts {
 			delete $self->{parts}->{$key};
 		}
 	}
+	# check if command module was destroyed!
+	my $command = $self->getCommandModule();
+	if (!$command){ return 1; }
+
 	if ($deleted > 0){
 		$self->_recalculate();
 		return 1;
@@ -889,6 +894,7 @@ sub getCommandModule {
 			return $part;
 		}
 	}
+	return 0;
 }
 
 sub _offsetByCommandModule {
