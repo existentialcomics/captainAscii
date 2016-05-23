@@ -104,7 +104,7 @@ my %parts = (
 		type   => 'thrust',
 		weight => 2,
 		thrust  => 100,
-		health => 6
+		health => 4
 	},
 	')' => {
 		cost   => '70',
@@ -112,7 +112,23 @@ my %parts = (
 		type   => 'thrust',
 		weight => 2,
 		thrust  => 100,
-		health => 6
+		health => 4
+	},
+	'{' => {
+		cost   => '200',
+		'chr'  => color('ON_GREY5 RGB530 BOLD') . '{' . color('RESET'),
+		type   => 'thrust',
+		weight => 2,
+		thrust  => 250,
+		health => 8
+	},
+	'}' => {
+		cost   => '200',
+		'chr'  => color('ON_GREY5 RGB530 BOLD') . '}' . color('RESET'),
+		type   => 'thrust',
+		weight => 2,
+		thrust  => 250,
+		health => 8
 	},
 	################## power cells ###################
 	'O' => {
@@ -122,7 +138,7 @@ my %parts = (
 		power  => 30,
 		powergen => 3,
 		weight => 5,
-		health => 5
+		health => 2
 	},
 	'0' => {
 		cost   => '400',
@@ -131,7 +147,7 @@ my %parts = (
 		power  => 50,
 		powergen => 6,
 		weight => 5,
-		health => 5
+		health => 2
 	},
 	################## plates ###################
 	'-' => {
@@ -144,9 +160,9 @@ my %parts = (
 	'+' => {
 		cost   => '20',
 		type   => 'plate',
-		weight => 2,
+		weight => 3,
 		'chr'  => color('white') . '[',
-		health => 10
+		health => 20
 	},
 	################## weapons ###################
     #   quadrants
@@ -175,7 +191,7 @@ my %parts = (
 		bulletspeed => 22,
 		rate   => 0.3,
 		'chr'  => '|',
-		health => 5,
+		health => 4,
 	},
 	'_' => {
 		'chr'  => '—',
@@ -188,7 +204,7 @@ my %parts = (
 		quadrants => { 3 => 1, 7 => 1 }, # left/right
 		bulletspeed => 22,
 		rate   => 0.3,
-		health => 5,
+		health => 4,
 	},
 	'/' => {
 		'chr'  => '/',
@@ -201,7 +217,7 @@ my %parts = (
 		quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
 		bulletspeed => 22,
 		rate   => 0.3,
-		health => 5,
+		health => 4,
 	},
 	'\\' => {
 		'chr'  => '\\',
@@ -214,7 +230,7 @@ my %parts = (
 		quadrants => { 6 => 1, 2 => 1 }, # NW/SW tight
 		bulletspeed => 22,
 		rate   => 0.3,
-		health => 5,
+		health => 4,
 	},
 	'I' => {
 		chr    => color('ON_GREY5 RGB530 BOLD') . "|" . color('reset'),
@@ -278,7 +294,7 @@ my %parts = (
 		shipMomentum => 1,
 		lifespan => 5,
 		weight => 6,
-		damage => 4,
+		damage => 5,
 		shoots => "o",
 		bulletspeed => 6,
 		rate   => 1,
