@@ -18,23 +18,9 @@ print $ship_str1;
 print "\n---------------------" . " ship output" . "--------------------" . "\n\n";
 
 my $ship = SpaceShip->new($ship_str1, 5, 5, 1, 1, { color => $color } );
-my @display;
-foreach my $x ($ship->{bottommost} .. $ship->{topmost}){
-	foreach my $y ($ship->{leftmost} .. $ship->{rightmost}){
-		my $chr = ' ';
-		#print "\nx: $x, y: $y\n";
-		foreach my $part ($ship->getParts()){
-			#print "  c $part->{chr} x: $part->{x}, y: $part->{y}\n";
-			if ($part->{x} == $y && $part->{y} == $x){
-				#print "matched \n";
-				$chr = $ship->{color} . $part->{chr} . color('reset');
-				last;
-			}
-		}
-		print "$chr";
-	}
-	print "\n";
-}
+my $display = $ship->getShipDisplay();
+
+print $display . "\n";
 
 print "\n-----------------------------------------------" . "\n\n";
 

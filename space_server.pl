@@ -17,6 +17,8 @@ unlink $SOCK_PATH;
 
 $SIG{PIPE} = \&catchSigPipe;
 
+my @colors = qw(red  green  yellow  blue  magenta  cyan);
+
 sub catchSigPipe {
 
 }
@@ -158,6 +160,10 @@ while ($playing == 1){
 				}
 			);
 			if ($ship->pruneParts()){
+				# TODO check if command module got pruned!
+
+				print $ship->{id} . " lost parts.\n";
+				print $ship->getShipDisplay();
 				#resend ship
 				my $map = $ship->{collisionMap};
 				my $msg = {
@@ -251,14 +257,6 @@ while ($playing == 1){
 			#print "chr: $chr\n";
 		}
 	}
-
-	# server input, replace with stdin
-	#if ($scr->key_pressed()) { 
-		#my $chr = $scr->getch();
-		#foreach my $ship (@ships){
-			#$ship->keypress($chr);
-		#}
-	#}
 
 	# calculate power and movement
 	foreach my $ship (@ships){

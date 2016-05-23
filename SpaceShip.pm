@@ -1108,4 +1108,23 @@ sub getQuadrant {
 	return undef;
 }
 
+sub getShipDisplay {
+	my $self = shift;	
+	my $shipStr = "";
+	foreach my $x ($self->{bottommost} .. $self->{topmost}){
+		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
+			my $chr = ' ';
+			foreach my $part ($self->getParts()){
+				if ($part->{x} == $y && $part->{y} == $x){
+					$chr = $self->{color} . $part->{chr} . color('reset');
+					last;
+				}
+			}
+			$shipStr .= "$chr";
+		}
+		$shipStr .= "\n";
+	}
+	return $shipStr;
+}
+
 1;
