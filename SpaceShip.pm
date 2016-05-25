@@ -423,9 +423,9 @@ sub shoot {
 				x => ($self->{'y'} + $part->{'y'}),
 				'chr' => $part->{'part'}->{'shoots'},
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
-					   + $part->{part}->{bulletspeed} * $aspectRatio * cos($self->{direction}),
+					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($self->{direction}),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
-					   + $part->{part}->{bulletspeed} * sin($self->{direction}),
+					   + $part->{part}->{bulletspeed} * 2 * sin($self->{direction}),
 			};
 		}
 	}
@@ -501,7 +501,7 @@ sub _calculateSpeed {
 	if ($self->{weight} == 0){
 		$self->{speed} = 0;
 	} else {
-		$self->{speed} = $self->{thrust} / $self->{weight} * 5;
+		$self->{speed} = $self->{thrust} / $self->{weight} * 2;
 	}
 }
 
@@ -917,6 +917,7 @@ sub _offsetByCommandModule {
 	my $self = shift;
 	# find command module and build new ship with connections
 	my $cm = $self->getCommandModule();
+	if (!$cm){ return 0; }
 
 	my $offx = $cm->{x};
 	my $offy = $cm->{y};
@@ -1139,7 +1140,7 @@ sub getShipDisplay {
 			my $chr = ' ';
 			foreach my $part ($self->getParts()){
 				if ($part->{x} == $y && $part->{y} == $x){
-					if ($cloaked && $part->{part}->{type} ne 'command'){
+					if ($cloaked && $part->{part}->{type} eq 'plate'){
 						$chr = ' ';
 					} elsif ($cloaked){
 						$chr = $part->{chr};

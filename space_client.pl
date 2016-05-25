@@ -75,7 +75,11 @@ $socket->blocking(0);
 while ($playing == 1){ 
 	### message from server
 	while (my $msgjson = <$socket>){
-		my $msg = decode_json($msgjson);
+		my $msg;
+		eval {
+			$msg = decode_json($msgjson);
+		};
+		if (! defined($msg)){ next; }
 		my $data = $msg->{d};
 		if ($msg->{c} eq 'b'){ # bullet msg
 			my $key = $data->{k};

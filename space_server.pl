@@ -96,7 +96,7 @@ while ($playing == 1){
 			}
 		}
 		print "$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $shipIds++);
+		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $shipIds++, {color => $colors[rand($#colors)] });
 		foreach my $ship (@ships){
 			sendMsg($ship->{conn}, 'newship', {
 				design => $newShipDesign,
