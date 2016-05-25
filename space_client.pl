@@ -177,7 +177,7 @@ while ($playing == 1){
 				$chr = '–';
 			}
 
-			$map[$x][$y] = (($modVal < 0.03) ? $col . $chr . color("RESET") : ' ');
+			$map[$x][$y] = color("ON_BLACK") . (($modVal < 0.03) ? $col . $chr . color("RESET") : ' ');
 			#$lighting[$x][$y] = 0;
 		}
 	}
@@ -211,24 +211,33 @@ while ($playing == 1){
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
 			if (! defined ($part->{x})){ $debug = Dumper($part); next; }
-			setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
-			if ($part->{'part'}->{'type'} eq 'shield'){
-				if ($part->{'shieldHealth'} > 0){
-					my $shieldLevel = ($highlight ne '' ? 5 : 2);
-					if ($part->{'part'}->{'size'} eq 'medium'){
-						addLighting($px - 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
-						addLighting($px - 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
-						addLighting($px + 0, $py + $_, $shieldLevel) foreach (-4 .. 4);
-						addLighting($px + 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
-						addLighting($px + 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
-					} elsif ($part->{'part'}->{'size'} eq 'large'){
-						addLighting($px - 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
-						addLighting($px - 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
-						addLighting($px - 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
-						addLighting($px + 0, $py + $_, $shieldLevel) foreach (-5 .. 5);
-						addLighting($px + 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
-						addLighting($px + 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
-						addLighting($px + 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
+			# TODO have it fade to black?
+			if ($ship->{cloaked}){
+				setMap($px, $py, color('on_black') . ' ' . color('reset'));
+			} else { 
+				setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
+
+			}
+			if ($ship->{shieldsOn}){
+				if ($part->{'part'}->{'type'} eq 'shield'){
+					if ($part->{'shieldHealth'} > 0){
+						my $shieldLevel = ($highlight ne '' ? 5 : 2);
+						### TODO add more lighting if shields in deflector mode, maybe just on the borders
+						if ($part->{'part'}->{'size'} eq 'medium'){
+							addLighting($px - 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
+							addLighting($px - 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
+							addLighting($px + 0, $py + $_, $shieldLevel) foreach (-4 .. 4);
+							addLighting($px + 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
+							addLighting($px + 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
+						} elsif ($part->{'part'}->{'size'} eq 'large'){
+							addLighting($px - 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
+							addLighting($px - 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
+							addLighting($px - 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
+							addLighting($px + 0, $py + $_, $shieldLevel) foreach (-5 .. 5);
+							addLighting($px + 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
+							addLighting($px + 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
+							addLighting($px + 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
+						}
 					}
 				}
 			}

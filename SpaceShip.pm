@@ -382,6 +382,7 @@ sub _init {
 	$self->_calculateShield();
 	$self->_calculateHealth();
 	$self->{shieldHealth} = $self->{shield};
+	$self->{shieldsOn} = 1;
 	
 	return 1;
 }
@@ -548,7 +549,7 @@ sub resolveCollision {
 
 		if ($part->{'part'}->{'type'} eq 'shield'){
 			if (
-				($part->{'shieldHealth'} > 0) &&
+				($part->{'shieldHealth'} > 0) && $self->{shieldsOn} &&
 				(
 				(	($part->{'part'}->{'size'} eq 'medium') &&
 					(
@@ -772,6 +773,41 @@ sub keypress {
 	if ($chr eq 'p'){ $self->_recalculate(); }
 	if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
 	if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
+	if ($chr eq 'S'){ $self->hyperdrive(0, -1); } 
+	if ($chr eq 'A'){ $self->hyperdrive(-1, 0); } 
+	if ($chr eq 'D'){ $self->hyperdrive(1, 0); } 
+	if ($chr eq 'W'){ $self->hyperdrive(0, 1); } 
+	if ($chr eq 'c'){ $self->cloak(); } 
+	if ($chr eq '@'){ $self->toggleShield(); } 
+}
+
+sub cloak {
+	my $self = shift;
+	if ($self->{cloaked}){
+		$self->{cloaded} = 0;
+	} else {
+		$self->{cloaded} = 1;
+	}
+}
+
+sub toggleShield {
+	my $self = shift;
+	if ($self->{shieldsOn}){
+		$self->{shieldsOn} = 0;
+	} else {
+		# TODO shields must regenerate from scratch!
+		$self->{shieldsOn} = 1;
+	}
+
+}
+
+sub hyperdrive {
+	my $self = shift;
+	my ($x, $y);
+	$self->{x} += ($self->{speed} * $x);
+	$self->{y} += ($self->{speed} * $y);
+	$self->{currentPower} -= $self->{speed};
+	$self->{lastHyperdrive} = time();
 }
 
 sub power {
@@ -790,27 +826,33 @@ sub power {
 	} else {
 		$self->{currentPowerGen} = $self->{powergen};
 	}
+	
+	if ($self->{cloaked}){
+		$self->{currentPowerGen} -= ($# { $self->getparts() });
+	}
 
 	$self->{shieldHealth} = 0;
 	# if shields are regenerating
-	foreach my $part ($self->getParts()){
-		if ($part->{'part'}->{'type'} eq 'shield'){
-			# if you are below 20% power you can't gen shields
-			if ($self->{currentPower} / $self->{power} < 0.2){
-				$part->{shieldHealth} -= ($part->{'part'}->{shieldgen} * $timeMod);
-				# recover the passive part of shieldgen (substract because it is negative)
-				$self->{currentPowerGen} -= $part->{'part'}->{powergen};
-			} else {
-				if ($part->{shieldHealth} < $part->{'part'}->{shield}){
-					$self->{currentPowerGen} += $part->{'part'}->{'poweruse'};
-					$part->{shieldHealth} += ($part->{'part'}->{shieldgen} * $timeMod);
+	if ($self->{shieldsOn}){
+		foreach my $part ($self->getParts()){
+			if ($part->{'part'}->{'type'} eq 'shield'){
+				# if you are below 20% power you can't gen shields
+				if ($self->{currentPower} / $self->{power} < 0.2){
+					$part->{shieldHealth} -= ($part->{'part'}->{shieldgen} * $timeMod);
+					# recover the passive part of shieldgen (substract because it is negative)
+					$self->{currentPowerGen} -= $part->{'part'}->{powergen};
+				} else {
+					if ($part->{shieldHealth} < $part->{'part'}->{shield}){
+						$self->{currentPowerGen} += $part->{'part'}->{'poweruse'};
+						$part->{shieldHealth} += ($part->{'part'}->{shieldgen} * $timeMod);
+					}
+					if ($part->{shieldHealth} > $part->{'part'}->{shield}){
+						$part->{shieldHealth} = $part->{'part'}->{shield};
+					}
 				}
-				if ($part->{shieldHealth} > $part->{'part'}->{shield}){
-					$part->{shieldHealth} = $part->{'part'}->{shield};
-				}
+				# calculate total shield health;
+				$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
 			}
-			# calculate total shield health;
-			$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
 		}
 	}
 
