@@ -212,7 +212,7 @@ while ($playing == 1){
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
 			if (! defined ($part->{x})){ $debug = Dumper($part); next; }
 			# TODO have it fade to black?
-			if (! $ship->{cloaked}){
+			if ($ship->{cloaked}){
 						my $chr = $part->{chr};
 						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
 				setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));

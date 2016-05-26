@@ -24,9 +24,25 @@ sub new {
 
 	if ($self->_init(@_)){
 		return $self;
-	}else {
+	} else {
 		return undef;
 	}
+}
+
+sub _init {
+	my $self = shift;
+	my $socket = shift;
+	my $options = shift;
+	print "socket: $socket \n";
+	
+	$self->_bindSocket($socket);
+	$self->{ships} = [];
+	$self->{fps} = 24;
+	$self->{shipIds} = 1;
+	$self->{lastTime} = 0;
+	$self->{bullets} = {};
+
+	return 1;
 }
 
 sub _bindSocket {
@@ -40,14 +56,25 @@ sub _bindSocket {
 	) or die "failed to open socket $SOCK_PATH";
 
 	chmod 0777, $SOCK_PATH;
+	$self->{server}->blocking(0);
 
 	return 1;
 }
 
 sub loop {
 	my $self = shift;
+	$self->{lastTime} = time();
+	my $time = time();
 	while (1){
+		$self->{lastTime} = $time;
+		$time = time();
+
 		$self->_loadNewPlayers();
+		$self->_calculateBullets();
+		$self->_sendShipsToClients();
+		$self->_calculatePowerAndMovement();
+		$self->_recieveInputFromClients();
+		$self->_drawShipsToMap();
 	}
 }
 
@@ -94,7 +121,7 @@ sub _loadNewPlayers {
 			}
 		}
 		print "$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $shipIds++);
+		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $self->{shipIds}++);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship->{conn}, 'newship', {
 				design => $newShipDesign,
@@ -163,21 +190,27 @@ sub _sendShipsToClients {
 	}
 }
 
-sub calculatePowerAndMovement {
+sub addBullet {
+	my $self = shift;
+	my $bullet = shift;
+	$self->{bullets}->{ rand(1000) . time() } = $bullet;
+}
+
+sub _calculatePowerAndMovement {
 	my $self = shift;
 	my $time = time();
 	# calculate power and movement
 	foreach my $ship ($self->getShips()){
 		# power first because it disables move
-		$ship->power($time - $lastTime);
-		$ship->move($time - $lastTime);
+		$ship->power($time - $self->{lastTime});
+		$ship->move($time - $self->{lastTime});
 		foreach (@{ $ship->shoot() }){
-			$bullets{ rand(1000) . time() } = $_;
+			$self->addBullet($_);
 		}
 	}
 }
 
-sub recieveInputFromClients {
+sub _recieveInputFromClients {
 	my $self = shift;
 	# recieve ship input
 	foreach my $ship ($self->getShips()){
@@ -197,7 +230,6 @@ sub recieveInputFromClients {
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
 				}
 			}
-			#print "chr: $chr\n";
 		}
 	}
 }
@@ -217,18 +249,23 @@ sub _drawShipsToMap {
 	}
 }
 
+sub getBullets {
+	my $self = shift;
+	return keys %{ $self->{bullets} };
+}
+
 sub _calculateBullets {
 	my $self = shift;
 	my $time = time();
 	### calcuate bullets
-	foreach my $bulletK ( keys %bullets){
-		my $bullet = $bullets{$bulletK};
+	foreach my $bulletK ( $self->getBullets() ){
+		my $bullet = $self->{bullets}->{$bulletK};
 		if ($bullet->{expires} < time()){
-			delete $bullets{$bulletK};
+			delete $self->{bullets}->{$bulletK};
 			next;
 		}
-		$bullet->{x} += ($bullet->{dx} * ($time - $lastTime));
-		$bullet->{y} += ($bullet->{dy} * ($time - $lastTime));
+		$bullet->{x} += ($bullet->{dx} * ($time - $self->{lastTime}));
+		$bullet->{y} += ($bullet->{dy} * ($time - $self->{lastTime}));
 		#$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
 
 		# send the bullet data to clients
@@ -272,23 +309,11 @@ sub _calculateBullets {
 					$data->{ship_id} = $ship->{id};
 					$self->sendMsg($s->{conn}, 'dam', $data); 
 				}
-				delete $bullets{$bulletK}
+				delete $self->{bullets}->{$bulletK};
 			}
 		}
 	}
 
 }
-
-sub _init {
-	my $self = shift;
-	my $socket = shift;
-	my $options = shift;
-	
-	$self->{ships} = [];
-	$self->{fps} = 24;
-
-	return 1;
-}
-
 
 1;
