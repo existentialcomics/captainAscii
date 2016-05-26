@@ -84,6 +84,14 @@ sub getShips {
 	return @{ $self->{ships} };
 }
 
+sub removeShip {
+	my $self = shift;
+	my $id = shift;
+
+	$self->{ships} = grep { $_->{id} != $id } $self->getShips();
+	#TODO send to client
+}
+
 sub addShip {
 	my $self = shift;
 	my $ship = shift;
@@ -266,7 +274,6 @@ sub _calculateBullets {
 		}
 		$bullet->{x} += ($bullet->{dx} * ($time - $self->{lastTime}));
 		$bullet->{y} += ($bullet->{dy} * ($time - $self->{lastTime}));
-		#$map[$bullet->{x}]->[$bullet->{y}] = $bullet->{'chr'};
 
 		# send the bullet data to clients
 		foreach my $ship ($self->getShips()){
@@ -284,7 +291,11 @@ sub _calculateBullets {
 				}
 			);
 			if ($ship->pruneParts()){
-				# TODO check if command module got pruned!
+				if (! $self->getCommandModule() ){
+					$self->removeShip($ship->{id});
+					print "ship $ship->{id}'s command module destroyed!";
+					next;
+				}
 
 				print $ship->{id} . " lost parts.\n";
 				print $ship->getShipDisplay();
@@ -308,8 +319,15 @@ sub _calculateBullets {
 					$data->{bullet_del} = $bulletK;
 					$data->{ship_id} = $ship->{id};
 					$self->sendMsg($s->{conn}, 'dam', $data); 
+					if ($data->{deflect} == 1) {
+						delete $self->{bullets}->{$bulletK};
+					} else {
+						$bullet->{dx} = (0 - $bullet->{dx});
+						$bullet->{dy} = (0 - $bullet->{dy});
+						$bullet->{ship_id} = $ship->{id};
+					}
+					last;
 				}
-				delete $self->{bullets}->{$bulletK};
 			}
 		}
 	}

@@ -264,12 +264,13 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1.5,
-		damage => 1,
+		damage => 0.2,
 		lifespan => 2.5,
-		shoots => color('RGB225') . ":" . color('white'),
+		shoots => color('RGB225') . ":" . color('reset'),
 		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+		spread => 1,
 		bulletspeed => 20,
-		rate   => 0.6,
+		rate   => 0.2,
 		health => 5
 	},
 	'U' => {
@@ -383,6 +384,7 @@ sub _init {
 	$self->_calculateHealth();
 	$self->{shieldHealth} = $self->{shield};
 	$self->{shieldsOn} = 1;
+	$self->{'shieldStatus'} = 'full';
 	
 	return 1;
 }
@@ -415,18 +417,23 @@ sub shoot {
 				next;
 			}
 			$self->{currentPower} += $part->{'part'}->{poweruse};
+			my $direction = $self->{direction};
+			if (defined($part->{part}->{spread})){
+				$direction += (rand($self->{part}->{spread}) - $self->{part}->{spread});
+			}
 			push @bullets, {
 				id => $self->{'id'},
 				partId => $id,
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
+				emp => 1,
 				damage => $part->{part}->{damage},
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
 				'chr' => $part->{'part'}->{'shoots'},
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
-					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($self->{direction}),
+					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
-					   + $part->{part}->{bulletspeed} * 2 * sin($self->{direction}),
+					   + $part->{part}->{bulletspeed} * 2 * sin($direction),
 			};
 		}
 	}
@@ -617,14 +624,14 @@ sub resolveCollision {
 					if ($part->{'shieldHealth'} < 0){
 						$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
 					}
-					return { id => $i, shield => $part->{shieldHealth} };
+					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => 1 };
 			}
 		}
 		if (int($bullet->{y}) == $py &&
 		    int($bullet->{x}) == $px){
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
-			return { id => $i, health => $part->{health} };
+			return { id => $part->{id}, health => $part->{health} };
 		}
 		$i++;
 	}
