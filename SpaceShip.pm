@@ -773,10 +773,10 @@ sub keypress {
 	if ($chr eq 'p'){ $self->_recalculate(); }
 	if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
 	if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
-	if ($chr eq 'S'){ $self->hyperdrive(0, -1); } 
+	if ($chr eq 'S'){ $self->hyperdrive(0, 1); } 
 	if ($chr eq 'A'){ $self->hyperdrive(-1, 0); } 
 	if ($chr eq 'D'){ $self->hyperdrive(1, 0); } 
-	if ($chr eq 'W'){ $self->hyperdrive(0, 1); } 
+	if ($chr eq 'W'){ $self->hyperdrive(0, -1); } 
 	if ($chr eq 'c'){ $self->cloak(); } 
 	if ($chr eq '@'){ $self->toggleShield(); } 
 }
@@ -803,9 +803,10 @@ sub toggleShield {
 
 sub hyperdrive {
 	my $self = shift;
-	my ($x, $y);
-	$self->{x} += ($self->{speed} * $x);
-	$self->{y} += ($self->{speed} * $y);
+	my $x = shift;
+	my $y = shift;
+	$self->{x} += ($self->{speed} * $x * 2);
+	$self->{y} += ($self->{speed} * $y * 2 * $aspectRatio);
 	$self->{currentPower} -= $self->{speed};
 	$self->{lastHyperdrive} = time();
 }

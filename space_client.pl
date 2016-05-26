@@ -212,8 +212,10 @@ while ($playing == 1){
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
 			if (! defined ($part->{x})){ $debug = Dumper($part); next; }
 			# TODO have it fade to black?
-			if ($ship->{cloaked}){
-				setMap($px, $py, color('on_black') . ' ' . color('reset'));
+			if (! $ship->{cloaked}){
+						my $chr = $part->{chr};
+						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
+				setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
 			} else { 
 				setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
 
@@ -263,7 +265,7 @@ while ($playing == 1){
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, 0);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
-	$scr->puts(sprintf('dir: %.2f  quad: %s   ', $ship->{direction}, $ship->getQuadrant()) );
+	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y})) );
 	$scr->at($height + 3, 0);
 	$scr->puts(
 		"weight: " .  $ship->{weight} .
