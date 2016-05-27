@@ -111,6 +111,14 @@ sub sendMsg {
 	print $socket (JSON::XS::encode_json($msg)) . "\n";
 }
 
+sub broadcastMsg {
+	my $self = shift;
+	my ($category, $data) = @_;
+	foreach my $ship ($self->getShips()){
+		$self->sendMsg($ship->{conn}, $category, $data);
+	}
+}
+
 sub _loadNewPlayers {
 	my $self = shift;
 
@@ -176,8 +184,9 @@ sub _sendShipsToClients {
 					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
 					currentPower => $ship->{currentPower},
-					powergen     => $ship->{powergen},
+					powergen     => $ship->{currentPowerGen},
 					direction    => $ship->{direction},
+					cloaked      => $ship->{cloaked},
 				};
 				$self->sendMsg($shipInner->{conn}, 's', $msg);
 			} else {
@@ -189,7 +198,9 @@ sub _sendShipsToClients {
 					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
 					currentPower => $ship->{currentPower},
+					powergen     => $ship->{currentPowerGen},
 					direction    => $ship->{direction},
+					cloaked      => $ship->{cloaked},
 				};
 				$self->sendMsg($shipInner->{conn}, 's', $msg);
 				# we only need to know location
@@ -277,6 +288,7 @@ sub _calculateBullets {
 
 		# send the bullet data to clients
 		foreach my $ship ($self->getShips()){
+			# TODO only send once in a while, let client move in the meantime
 			$self->sendMsg($ship->{conn}, 'b', 
 				{
 					x => $bullet->{x},
@@ -293,6 +305,7 @@ sub _calculateBullets {
 			if ($ship->pruneParts()){
 				if (! $self->getCommandModule() ){
 					$self->removeShip($ship->{id});
+					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
 					print "ship $ship->{id}'s command module destroyed!";
 					next;
 				}
@@ -314,24 +327,22 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-				# TODO send bullet del to clients
-				foreach my $s ($self->getShips()){
-					$data->{bullet_del} = $bulletK;
-					$data->{ship_id} = $ship->{id};
-					$self->sendMsg($s->{conn}, 'dam', $data); 
-					if (! defined($data->{deflect})) {
-						delete $self->{bullets}->{$bulletK};
-					} else {
-						$bullet->{dx} = (0 - $bullet->{dx});
-						$bullet->{dy} = (0 - $bullet->{dy});
-						$bullet->{ship_id} = $ship->{id};
+				if (! defined($data->{deflect})) {
+					foreach my $s ($self->getShips()){
+						$data->{bullet_del} = $bulletK;
+						$data->{ship_id} = $ship->{id};
+						$self->sendMsg($s->{conn}, 'dam', $data); 
 					}
-					last;
+					delete $self->{bullets}->{$bulletK};
+				} else {
+					$bullet->{dx} = (0 - $bullet->{dx});
+					$bullet->{dy} = (0 - $bullet->{dy});
+					$bullet->{ship_id} = $ship->{id};
 				}
+				last;
 			}
 		}
 	}
-
 }
 
 1;

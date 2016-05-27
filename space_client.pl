@@ -124,6 +124,13 @@ while ($playing == 1){
 					}
 				}
 			}
+		} elsif ($msg->{c} eq 'shipdelete'){
+			@ships = grep { $_->{id} != $data->{id} } @ships;
+			foreach my $s (@ships){
+				if ($s->{id} eq $data->{'ship_id'}){
+					$s->_loadShipByMap($data->{'map'});
+				}
+			}
 		} elsif ($msg->{c} eq 'shipchange'){
 			foreach my $s (@ships){
 				if ($s->{id} eq $data->{'ship_id'}){

@@ -136,7 +136,7 @@ my %parts = (
 		'chr' => 'O',
 		type   => 'power',
 		power  => 30,
-		powergen => 3,
+		powergen => 4,
 		weight => 5,
 		health => 2
 	},
@@ -145,7 +145,7 @@ my %parts = (
 		'chr'  => color('ON_GREY5 RGB530 BOLD') . '0' . color('ON_RGB000 RESET'),
 		type   => 'power',
 		power  => 50,
-		powergen => 6,
+		powergen => 8,
 		weight => 5,
 		health => 2
 	},
@@ -337,7 +337,7 @@ sub new {
 
 	if ($self->_init(@_)){
 		return $self;
-	}else {
+	} else {
 		return undef;
 	}
 }
@@ -384,6 +384,7 @@ sub _init {
 	$self->_calculateHealth();
 	$self->{shieldHealth} = $self->{shield};
 	$self->{shieldsOn} = 1;
+	$self->{empOn} = 1;
 	$self->{'shieldStatus'} = 'full';
 	
 	return 1;
@@ -425,7 +426,7 @@ sub shoot {
 				id => $self->{'id'},
 				partId => $id,
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
-				emp => 1,
+				emp => $self->{empOn},
 				damage => $part->{part}->{damage},
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
@@ -791,9 +792,9 @@ sub keypress {
 sub cloak {
 	my $self = shift;
 	if ($self->{cloaked}){
-		$self->{cloaded} = 0;
+		$self->{cloaked} = 0;
 	} else {
-		$self->{cloaded} = 1;
+		$self->{cloaked} = 1;
 	}
 }
 
@@ -812,10 +813,15 @@ sub hyperdrive {
 	my $self = shift;
 	my $x = shift;
 	my $y = shift;
+	if ($self->{currentPower} < $self->{speed} || time() - $self->{lastHyperdrive} < 1){
+		return 0;
+
+	}
 	$self->{x} += ($self->{speed} * $x * 2);
 	$self->{y} += ($self->{speed} * $y * 2 * $aspectRatio);
 	$self->{currentPower} -= $self->{speed};
 	$self->{lastHyperdrive} = time();
+	return 1;
 }
 
 sub power {
@@ -836,7 +842,7 @@ sub power {
 	}
 	
 	if ($self->{cloaked}){
-		$self->{currentPowerGen} -= ($# { $self->getparts() });
+		$self->{currentPowerGen} -= ($# { $self->getparts() / 3 });
 	}
 
 	$self->{shieldHealth} = 0;
@@ -1034,45 +1040,46 @@ sub _loadShipByMap {
 	$self->_calculateParts();
 }
 
-sub setAllPartConnections {
-	my $self = shift;
-	return 0;
-	foreach my $part ($self->getParts()){
-		$self->setPartConnection($part);
-	}
-}
-
-sub setPartConnection {
-	my $self = shift;
-	my $part = shift;
-	my $x = $part->{x};
-	my $y = $part->{y};
-	if ($self->{partMap}->{$x}->{$y}){
-		$part->{connected}->{l} = $self->{partMap}->{$x}->{$y};
-	}
-	if ($self->{partMap}->{$x}->{$y}){
-		$part->{connected}->{r} = $self->{partMap}->{$x}->{$y};
-	}
-	if ($self->{partMap}->{$x}->{$y}){
-		$part->{connected}->{b} = $self->{partMap}->{$x}->{$y};
-	}
-	if ($self->{partMap}->{$x}->{$y}){
-		$part->{connected}->{t} = $self->{partMap}->{$x}->{$y};
-	}
-	if ($part->{'part'}->{'type'} eq 'plate'){
-		my $connectStr = 
-			(defined($part->{connected}->{b}) ? 'b' : '') .
-			(defined($part->{connected}->{l}) ? 'l' : '') .
-			(defined($part->{connected}->{r}) ? 'r' : '') .
-			(defined($part->{connected}->{t}) ? 't' : '') ;
-		if ($connectors{1}->{$connectStr}){
-			$part->{'chr'} = color('white') . $connectors{1}->{$connectStr};
-		}
-	}
-}
+#sub setAllPartConnections {
+#	my $self = shift;
+#	return 0;
+#	foreach my $part ($self->getParts()){
+#		$self->setPartConnection($part);
+#	}
+#}
+#
+#sub setPartConnection {
+#	my $self = shift;
+#	my $part = shift;
+#	my $x = $part->{x};
+#	my $y = $part->{y};
+#	if ($self->{partMap}->{$x}->{$y}){
+#		$part->{connected}->{l} = $self->{partMap}->{$x}->{$y};
+#	}
+#	if ($self->{partMap}->{$x}->{$y}){
+#		$part->{connected}->{r} = $self->{partMap}->{$x}->{$y};
+#	}
+#	if ($self->{partMap}->{$x}->{$y}){
+#		$part->{connected}->{b} = $self->{partMap}->{$x}->{$y};
+#	}
+#	if ($self->{partMap}->{$x}->{$y}){
+#		$part->{connected}->{t} = $self->{partMap}->{$x}->{$y};
+#	}
+#	if ($part->{'part'}->{'type'} eq 'plate'){
+#		my $connectStr = 
+#			(defined($part->{connected}->{b}) ? 'b' : '') .
+#			(defined($part->{connected}->{l}) ? 'l' : '') .
+#			(defined($part->{connected}->{r}) ? 'r' : '') .
+#			(defined($part->{connected}->{t}) ? 't' : '') ;
+#		if ($connectors{1}->{$connectStr}){
+#			$part->{'chr'} = color('white') . $connectors{1}->{$connectStr};
+#		}
+#	}
+#}
 
 sub _setPartConnections {
 	my $self = shift;
+	# TODO put command link calc here, start with command and work out
 	foreach my $part ($self->getParts()){
 		my $x = $part->{x};
 		my $y = $part->{y};
