@@ -419,7 +419,7 @@ sub shoot {
 			$self->{currentPower} += $part->{'part'}->{poweruse};
 			my $direction = $self->{direction};
 			if (defined($part->{part}->{spread})){
-				$direction += (rand($self->{part}->{spread}) - $self->{part}->{spread});
+				$direction += (rand($part->{part}->{spread}) - ($part->{part}->{spread} / 2));
 			}
 			push @bullets, {
 				id => $self->{'id'},

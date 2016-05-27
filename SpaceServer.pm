@@ -319,7 +319,7 @@ sub _calculateBullets {
 					$data->{bullet_del} = $bulletK;
 					$data->{ship_id} = $ship->{id};
 					$self->sendMsg($s->{conn}, 'dam', $data); 
-					if ($data->{deflect} == 1) {
+					if (! defined($data->{deflect})) {
 						delete $self->{bullets}->{$bulletK};
 					} else {
 						$bullet->{dx} = (0 - $bullet->{dx});
