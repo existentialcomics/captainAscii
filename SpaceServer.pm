@@ -303,7 +303,7 @@ sub _calculateBullets {
 				}
 			);
 			if ($ship->pruneParts()){
-				if (! $self->getCommandModule() ){
+				if (! $ship->getCommandModule() ){
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
 					print "ship $ship->{id}'s command module destroyed!";

@@ -52,7 +52,6 @@ sub _loadShip {
 	my $self = shift;
 	my $ship_file = shift;
 	$| = 1;
-	my $ship_file = shift;
 
 	open (my $fh, '<', $ship_file) or die "failed to open $ship_file\n";
 
@@ -62,21 +61,34 @@ sub _loadShip {
 	while(my $line = <$fh>){
 		print $line;
 		$shipStr .= $line;
-		print $self->{socket} $line;
+		print {$self->{'socket'}} $line;
 	}
 	close ($fh);
 
-	print $self->{socket} "DONE\n";
+	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
-	my $self->{ship} = SpaceShip->new($shipStr, 5, 5, -1, 'self');
+	$self->{ship} = SpaceShip->new($shipStr, 5, 5, -1, 'self');
+	$self->_addShip($self->{ship});
 	
 	return 1;
 }
 
 sub _getShips {
 	my $self = shift;
-	return keys %{$self->{ships}};
+	return values %{$self->{ships}};
+}
+
+sub _removeShip {
+	my $self = shift;
+	my $id = shift;
+	delete $self->{ships}->{$id};
+}
+
+sub _addShip {
+	my $self = shift;
+	my $ship = shift;
+	$self->{ships}->{$ship->{id}} = $ship;
 }
 
 sub _getShip {
@@ -99,13 +111,6 @@ sub loop {
 	my $height = 55;
 	my $width = 130;
 
-	my %lighting;
-	my @map;
-	#my @lighting;
-	my %bullets;
-	my @ships;
-	my %ships;
-
 	my $scr = new Term::Screen;
 	$scr->clrscr();
 	$scr->noecho();
@@ -116,28 +121,34 @@ sub loop {
 		$self->{lighting} = {};
 		my $cenX = int($width / 2);
 		my $cenY = int($height / 2);
-		my $offx = $cenX - int($ship->{x});
-		my $offy = $cenY - int($ship->{y});
+		my $offx = $cenX - int($self->{ship}->{x});
+		my $offy = $cenY - int($self->{ship}->{y});
 
-		$self->_sendKeystrokesToServer();
-		$self->_resetMap($width, $height);
+		$self->_sendKeystrokesToServer($scr);
+		$self->{'map'} = $self->_resetMap($width, $height);
 
-		$self->_drawBullets();
-		$self->_drawShips();
+		$self->_drawBullets($offx, $offy);
+		$self->_drawShips($offx, $offy);
 
-		$self->printScreen();
+		$self->printScreen($scr);
+		$self->printInfo($scr);
 	}
 }
 
 sub printScreen {
 	my $self = shift;
+	my $scr = shift;
 	
+	my $height = $self->{height};
+	my $width = $self->{width};
+	my @map = @{ $self->{map} };
+
 	### draw the screen to Term::Screen
 	foreach my $i (0 .. $height){
 		$scr->at($i + 1, 0);
 		my $row = '';
 		foreach my $j (0 .. $width){
-			$row .= (defined($lighting{$i}->{$j}) ? color('ON_GREY' . $lighting{$i}->{$j}) : color('ON_BLACK'));
+			$row .= (defined($self->{lighting}->{$i}->{$j}) ? color('ON_GREY' . $self->{lighting}->{$i}->{$j}) : color('ON_BLACK'));
 			$row .= (defined($map[$i]->[$j]) ? $map[$i]->[$j] : " ");
 		}
 		#$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
@@ -147,6 +158,11 @@ sub printScreen {
 
 sub printInfo {
 	my $self = shift;
+	my $scr  = shift;
+
+	my $ship = $self->{ship};
+	my $height = $self->{height};
+	my $width = $self->{width};
 
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, 0);
@@ -183,12 +199,13 @@ sub printInfo {
 		);
 	}
 	$scr->at($height + 6, 0);
-	$scr->puts($debug);
+	$scr->puts($self->{debug});
 }
 
 sub _resetMap {
 	my $self = shift;
-	my ($height, $width) = @_;
+	#my ($height, $width) = @_;
+	my ($width, $height) = @_;
 
 	my @map;
 	foreach my $x (0 .. $height){
@@ -228,6 +245,11 @@ sub _resetMap {
 
 sub _drawBullets {
 	my $self = shift;
+
+	my $offx = shift;
+	my $offy = shift;
+
+	my %bullets = %{ $self->{bullets} };
 	foreach my $bulletK ( keys %bullets){
 		my $bullet = $bullets{$bulletK};
 		if ($bullet->{expires} < time()){
@@ -237,7 +259,7 @@ sub _drawBullets {
 		my $spotX = $bullet->{x} + $offy;
 		my $spotY = $bullet->{y} + $offx;
 		if ($spotX > 0 && $spotY > 0){
-			$map[$spotX]->[$spotY] = $bullet->{chr};
+			$self->setMap($spotX, $spotY, $bullet->{chr});
 		}
 	}
 }
@@ -245,7 +267,11 @@ sub _drawBullets {
 sub _drawShips {
 	my $self = shift;	
 
-	foreach my $ship (@ships){
+	my $offx = shift;
+	my $offy = shift;
+
+
+	foreach my $ship ($self->_getShips()){
 		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
@@ -254,14 +280,14 @@ sub _drawShips {
 			}
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
-			if (! defined ($part->{x})){ $debug = Dumper($part); next; }
+			if (! defined ($part->{x})){ $self->{debug} = Dumper($part); next; }
 			# TODO have it fade to black?
 			if ($ship->{cloaked}){
 						my $chr = $part->{chr};
 						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
-				setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
+				$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
 			} else { 
-				setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
+				$self->setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
 
 			}
 			if ($ship->{shieldsOn}){
@@ -291,22 +317,25 @@ sub _drawShips {
 		my ($aimx, $aimy) = $ship->getAimingCursor();
 		my $px = ($offy + int($ship->{y})) + $aimx;
 		my $py = ($offx + int($ship->{x})) + $aimy;
-		setMap($px, $py, color('GREEN') . "+");
+		$self->setMap($px, $py, color('GREEN') . "+");
 	}
 }
 
 sub _sendKeystrokesToServer {
 	my $self = shift;	
+	my $scr = shift;
 	# send keystrokes
 	if ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
-		print $self->{socket} "$chr\n";
+		print {$self->{socket}} "$chr\n";
 	}
 }
 
 sub _getMessagesFromServer {
 	my $self = shift;
-	while (my $msgjson = <$self->{socket}>){
+	my $socket = $self->{socket};
+	my $bullets = $self->{bullets};
+	while (my $msgjson = <$socket>){
 		my $msg;
 		eval {
 			$msg = decode_json($msgjson);
@@ -316,20 +345,20 @@ sub _getMessagesFromServer {
 		if ($msg->{c} eq 'b'){ # bullet msg
 			my $key = $data->{k};
 			# new bullet
-			if (!defined($bullets{$key})){
+			if (!defined($self->{bullets}->{$key})){
 				#$ships{$data->{sid}}->{ship}->[$data->{pid}]->{'hit'} = time();
 				#$ships{'self'}->{parts}->{$data->{pid}}->{'hit'} = time();
-				if (defined($ships{$data->{sid}})){
-					my $part = $ships{$data->{sid}}->getPartById($data->{pid});
+				if (my $ship = $self->_getShip($data->{sid})){
+					my $part = $ship->getPartById($data->{pid});
 					$part->{'lastShot'} = time();
 				} else {
-					$debug = "ship not found $data->{sid}";
+					$self->{debug} = "ship not found $data->{sid}";
 				}
 			}
-			$bullets{$key} = $data;
-			$bullets{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
+			$self->{bullets}->{$key} = $data;
+			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 's'){
-			foreach my $ship (@ships){
+			foreach my $ship ($self->_getShips()){
 				next if ($ship->{id} ne $data->{id});
 				$ship->{x} = $data->{x};
 				$ship->{y} = $data->{y};
@@ -341,12 +370,11 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, -1, $data->{id});
-			$ships{$shipNew->{id}} = $shipNew;
-			push @ships, $shipNew;
+			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
 			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
-			delete $bullets{$data->{bullet_del}};
-			foreach my $s (@ships){
+			delete $self->{bullets}->{$data->{bullet_del}};
+			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
 						$s->damageShield($data->{id}, $data->{shield});
@@ -357,23 +385,24 @@ sub _getMessagesFromServer {
 				}
 			}
 		} elsif ($msg->{c} eq 'shipdelete'){
-			@ships = grep { $_->{id} != $data->{id} } @ships;
-			foreach my $s (@ships){
+			#@ships = grep { $_->{id} != $data->{id} } @ships;
+			$self->_removeShip($data->{id});
+			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'ship_id'}){
 					$s->_loadShipByMap($data->{'map'});
 				}
 			}
 		} elsif ($msg->{c} eq 'shipchange'){
-			foreach my $s (@ships){
+			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'ship_id'}){
 					$s->_loadShipByMap($data->{'map'});
 				}
 			}
 		} elsif ($msg->{c} eq 'setShipId'){
-			foreach my $s (@ships){
+			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'old_id'}){
 					$s->{id} = $data->{'new_id'};
-					$debug = "$data->{'old_id'} to $data->{'new_id'}";
+					$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
 				}
 			}
 		}
@@ -388,23 +417,25 @@ sub _bindSocket {
 		Type => SOCK_STREAM(),
 		Peer => $socket_path,
 	) or die "failed to open socket $socket_path\n";
-	$self->{socket} = $socket_path;
+	$self->{socket} = $socket;
 }
 
 sub setMap {
+	my $self = shift;
 	my ($x, $y, $chr) = @_;
-	if ( ! onMap($x, $y) ){ return 0; }
-	$map[$x]->[$y] = $chr;
+	if ( ! $self->onMap($x, $y) ){ return 0; }
+	$self->{map}->[$x]->[$y] = $chr;
 }
 
 sub addLighting {
 	my $self = shift;
 	my ($x, $y, $level) = @_;
-	if ( ! onMap($x, $y) ){ return 0; }
-	$lighting{$x}->{$y} += $level;
+	if ( ! $self->onMap($x, $y) ){ return 0; }
+	$self->{lighting}->{$x}->{$y} += $level;
 }
 
 sub onMap {
+	my $self = shift;
 	my ($x, $y) = @_;
 	return ($x > 0 && $y > 0 && $x < $self->{height} && $y < $self->{width});
 }
