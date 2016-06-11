@@ -88,8 +88,9 @@ sub removeShip {
 	my $self = shift;
 	my $id = shift;
 
-	$self->{ships} = grep { $_->{id} != $id } $self->getShips();
-	#TODO send to client
+    my @ships = grep { $_->{id} != $id } $self->getShips();
+
+	$self->{ships} = \@ships; 
 }
 
 sub addShip {
@@ -327,18 +328,18 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-				if (! defined($data->{deflect})) {
+				#if (! defined($data->{deflect})) {
 					foreach my $s ($self->getShips()){
 						$data->{bullet_del} = $bulletK;
 						$data->{ship_id} = $ship->{id};
 						$self->sendMsg($s->{conn}, 'dam', $data); 
 					}
 					delete $self->{bullets}->{$bulletK};
-				} else {
-					$bullet->{dx} = (0 - $bullet->{dx});
-					$bullet->{dy} = (0 - $bullet->{dy});
-					$bullet->{ship_id} = $ship->{id};
-				}
+				#} else {
+					#$bullet->{dx} = (0 - $bullet->{dx});
+					#$bullet->{dy} = (0 - $bullet->{dy});
+					#$bullet->{ship_id} = $ship->{id};
+				#}
 				last;
 			}
 		}

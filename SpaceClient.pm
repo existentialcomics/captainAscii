@@ -100,13 +100,12 @@ sub _getShip {
 sub loop {
 	my $self = shift;
 
-	my $frame = 0;
-	my $lastFrame = 0;
-	my $playing = 1;
-	my $fps = 20;
-	my $framesInSec;
-	my $lastTime = time();
-	my $time = time();
+	#my $frame = 0;
+	#my $lastFrame = 0;
+	#my $fps = 20;
+	#my $framesInSec;
+	#my $lastTime = time();
+	#my $time = time();
 
 	my $height = 55;
 	my $width = 130;
@@ -115,6 +114,7 @@ sub loop {
 	$scr->clrscr();
 	$scr->noecho();
 
+	my $playing = 1;
 	while ($playing){
 		$self->_getMessagesFromServer();
 
@@ -148,10 +148,9 @@ sub printScreen {
 		$scr->at($i + 1, 0);
 		my $row = '';
 		foreach my $j (0 .. $width){
-			$row .= (defined($self->{lighting}->{$i}->{$j}) ? color('ON_GREY' . $self->{lighting}->{$i}->{$j}) : color('ON_BLACK'));
-			$row .= (defined($map[$i]->[$j]) ? $map[$i]->[$j] : " ");
+			my $color = (defined($self->{lighting}->{$i}->{$j}) ? color('ON_GREY' . ($self->{lighting}->{$i}->{$j} <= 23 ? $self->{lighting}->{$i}->{$j} : 23 )) : color('ON_BLACK'));
+			$row .= (defined($map[$i]->[$j]) ? $color . $map[$i]->[$j] : $color . " ");
 		}
-		#$scr->puts(join "", zip( @lightingRow, @{ $map[$_] }));
 		$scr->puts($row);
 	}
 }
@@ -236,8 +235,7 @@ sub _resetMap {
 				$chr = '–';
 			}
 
-			$map[$x][$y] = color("ON_BLACK") . (($modVal < 0.03) ? $col . $chr . color("RESET") : ' ');
-			#$lighting[$x][$y] = 0;
+			$map[$x][$y] = (($modVal < 0.03) ? $col . $chr . color("RESET") : ' ');
 		}
 	}
 	return \@map;
@@ -352,7 +350,7 @@ sub _getMessagesFromServer {
 					my $part = $ship->getPartById($data->{pid});
 					$part->{'lastShot'} = time();
 				} else {
-					$self->{debug} = "ship not found $data->{sid}";
+					#$self->{debug} = "ship not found $data->{sid}";
 				}
 			}
 			$self->{bullets}->{$key} = $data;
@@ -375,9 +373,11 @@ sub _getMessagesFromServer {
 			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
 			delete $self->{bullets}->{$data->{bullet_del}};
 			foreach my $s ($self->_getShips()){
+					#$self->{debug} = Dumper($data);
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
 						$s->damageShield($data->{id}, $data->{shield});
+						$self->{debug} = 'damage shields ' . $data->{shield};
 					}
 					if (defined($data->{health})){
 						$s->damagePart($data->{id}, $data->{health});
@@ -385,13 +385,7 @@ sub _getMessagesFromServer {
 				}
 			}
 		} elsif ($msg->{c} eq 'shipdelete'){
-			#@ships = grep { $_->{id} != $data->{id} } @ships;
 			$self->_removeShip($data->{id});
-			foreach my $s ($self->_getShips()){
-				if ($s->{id} eq $data->{'ship_id'}){
-					$s->_loadShipByMap($data->{'map'});
-				}
-			}
 		} elsif ($msg->{c} eq 'shipchange'){
 			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'ship_id'}){

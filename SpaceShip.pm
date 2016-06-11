@@ -185,7 +185,7 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1,
-		damage => 0.7,
+		damage => 1,
 		shoots => color('RGB440') . "'" . color('white'),
 		quadrants => { 5 => 1, 1 => 1 }, # up/down tight
 		bulletspeed => 22,
@@ -199,7 +199,7 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1,
-		damage => 0.7,
+		damage => 1,
 		shoots => color('RGB440') . "-" . color('white'),
 		quadrants => { 3 => 1, 7 => 1 }, # left/right
 		bulletspeed => 22,
@@ -212,7 +212,7 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1,
-		damage => 0.7,
+		damage => 1,
 		shoots => color('RGB440') . "/" . color('white'),
 		quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
 		bulletspeed => 22,
@@ -225,7 +225,7 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1,
-		damage => 0.7,
+		damage => 1,
 		shoots => color('RGB440') . "\\" . color('white'),
 		quadrants => { 6 => 1, 2 => 1 }, # NW/SW tight
 		bulletspeed => 22,
@@ -264,7 +264,7 @@ my %parts = (
 		type   => 'gun',
 		weight => 2,
 		poweruse => -1.5,
-		damage => 0.2,
+		damage => 1,
 		lifespan => 2.5,
 		shoots => color('RGB225') . ":" . color('reset'),
 		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
@@ -625,7 +625,7 @@ sub resolveCollision {
 					if ($part->{'shieldHealth'} < 0){
 						$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
 					}
-					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => 1 };
+					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => undef };
 			}
 		}
 		if (int($bullet->{y}) == $py &&
@@ -653,6 +653,7 @@ sub damageShield {
 	my $part = $self->getPartById($partId);
 	$part->{'hit'} = time();
 	$part->{shieldHealth} = $health;
+	return $part->{shieldHealth};
 }
 
 sub getPartDefs {
@@ -781,6 +782,8 @@ sub keypress {
 	if ($chr eq 'p'){ $self->_recalculate(); }
 	if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
 	if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
+	if ($chr eq 'Q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 5}
+	if ($chr eq 'E'){ $self->{aimingPress} = time(); $self->{aimingDir} = -5}
 	if ($chr eq 'S'){ $self->hyperdrive(0, 1); } 
 	if ($chr eq 'A'){ $self->hyperdrive(-1, 0); } 
 	if ($chr eq 'D'){ $self->hyperdrive(1, 0); } 
@@ -841,9 +844,9 @@ sub power {
 		$self->{currentPowerGen} = $self->{powergen};
 	}
 	
-	if ($self->{cloaked}){
-		$self->{currentPowerGen} -= ($# { $self->getparts() / 3 });
-	}
+	#if ($self->{cloaked}){
+		#$self->{currentPowerGen} -= ($# { $self->getParts() / 3 });
+	#}
 
 	$self->{shieldHealth} = 0;
 	# if shields are regenerating
