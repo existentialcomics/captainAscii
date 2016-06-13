@@ -368,7 +368,7 @@ sub _init {
 	$self->{'shooting'} = 0;
 	$self->{'aimingPress'} = 0;
 	$self->{'aimingDir'} = 1;
-
+	$self->{lastHyperdrive} = 0;
 	$self->{'parts'} = {};
 	$self->{'idCount'} = 0;
 
@@ -419,6 +419,13 @@ sub shoot {
 			}
 			$self->{currentPower} += $part->{'part'}->{poweruse};
 			my $direction = $self->{direction};
+
+			if (defined($self->{autoaim})){
+				foreach my $shipLoc ($self->getNearShipLocs()){
+					#TODO calc direction from part to ship
+				}
+			}
+
 			if (defined($part->{part}->{spread})){
 				$direction += (rand($part->{part}->{spread}) - ($part->{part}->{spread} / 2));
 			}
@@ -532,7 +539,6 @@ sub _calculateHealth {
 
 sub _recalculate {
 	my $self = shift;
-	$self->_resetPartIds();
 	$self->orphanParts();
 	$self->_recalculateCollisionMap();
 	$self->_recalculatePower();
@@ -541,7 +547,6 @@ sub _recalculate {
 	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateHealth();
-	$self->_resetPartIds();
 }
 
 
@@ -664,15 +669,7 @@ sub setPartDefs {
 	my $self = shift;
 }
 
-sub _resetPartIds {
-	my $self = shift;
-	my $id = -1;
-	foreach my $part ($self->getParts()){
-		$part->{id} = $id++;
-	}
-}
-
-sub orphanParts {
+sub _orphanParts {
 	my $self = shift;
 	my %matched  = ();
 	my %bad = ();
@@ -712,34 +709,75 @@ sub orphanParts {
 	}
 }
 
-sub _partCanReachCommand {
+####### new simpler algorithm
+# begins at command modules and works its way out
+# orphaned parts will never be reached, so deleted at the end
+#
+sub orphanParts {
 	my $self = shift;
-	my $part = shift;
-	my %examined = ();
-	my $command = $self->getCommandModule();
-	my $cid = $command->{id};
-	if ($part->{id} eq $cid){ return 1; }
-	#print "examine: $part->{id} $part->{chr}\n";
+	my %matched  = ();
 
-	my @toExamine = $self->_getConnectedPartIds($part);
-	my $p = $part->{id};
+	my $command = $self->getCommandModule();
+	if (!$command){ return 0; }
+
+	my $cid = $command->{id};
+	my @next = $self->_getConnectedPartIds($self->{parts}->{$cid});
+
+	my $pexam = $cid;
+
 	do {
-		#print " matching $p\n";
-		#print " stack : " . (join ",", @toExamine) . "\n";
-		if (! defined($examined{$p})){
-			$examined{$p} = 1;
-			if ($p eq $cid){ 
-				#print "matched $p\n";
-				return 1;
+		$matched{$pexam} = 1;
+		foreach my $np ($self->_getConnectedPartIds($self->getPartById($pexam))){
+			if (! defined($matched{$np})){
+				push @next, $np;
 			}
-			push @toExamine, $self->_getConnectedPartIds($self->getPartById($p));
 		}
-		#print " stack : " . (join ",", @toExamine) . "\n";
-	} while (defined($p = shift @toExamine));
-	#print "can't connect: $part->{id}\n";
-	return 0;
+	} while (defined($pexam = shift @next));
+
+	foreach my $part ($self->getParts()){
+		if (!defined($matched{$part->{id}})){
+			$self->_removePart($part->{id});
+		}
+	}
 }
 
+sub _removePart {
+	my $self = shift;
+	my $id = shift;
+
+	my $part = $self->getPartById($id);
+	my $x = $part->{x};
+	my $y = $part->{y};
+
+	my @connections = $self->_getConnectedPartIds($part);
+	foreach my $connection (@connections){
+		my $part = $self->getPartById($connection);	
+		$self->removeConnection($part, $id);
+	}
+
+	delete $self->{parts}->{$id};
+	#if (defined($x) && defined($x)
+	delete $self->{collisionMap}->{$x}->{$y};
+	delete $self->{partMap}->{$x}->{$y};
+}
+
+sub removeConnection {
+	my $self = shift;
+	my $part = shift;
+	my $connectionId = shift;
+	foreach my $k (keys %{$part->{connected}}){
+		if ($part->{connected}->{$k} == $connectionId){
+			delete $part->{connection}->{$k};
+		}
+	}
+}
+
+# part->{connected} = 
+# { l => id,
+#   r => id,
+#   t => id,
+#   b => id
+#   };
 sub _getConnectedPartIds {
 	my $self = shift;
 	my $part = shift;
@@ -757,7 +795,7 @@ sub pruneParts {
 	foreach my $key ($self->getPartIds()){
 		if ($self->{parts}->{$key}->{'health'} < 0){
 			$deleted++;
-			delete $self->{parts}->{$key};
+			$self->_removePart($key);
 		}
 	}
 	# check if command module was destroyed!
@@ -818,7 +856,6 @@ sub hyperdrive {
 	my $y = shift;
 	if ($self->{currentPower} < $self->{speed} || time() - $self->{lastHyperdrive} < 1){
 		return 0;
-
 	}
 	$self->{x} += ($self->{speed} * $x * 2);
 	$self->{y} += ($self->{speed} * $y * 2 * $aspectRatio);
@@ -844,9 +881,9 @@ sub power {
 		$self->{currentPowerGen} = $self->{powergen};
 	}
 	
-	#if ($self->{cloaked}){
-		#$self->{currentPowerGen} -= ($# { $self->getParts() / 3 });
-	#}
+	if ($self->{cloaked}){
+		$self->{currentPowerGen} -= ($self->getParts() / 3);
+	}
 
 	$self->{shieldHealth} = 0;
 	# if shields are regenerating
@@ -869,6 +906,13 @@ sub power {
 				}
 				# calculate total shield health;
 				$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
+			}
+		}
+	} else {
+		foreach my $part ($self->getParts()){
+			if ($part->{'part'}->{'type'} eq 'shield'){
+				# recover the passive part of shieldgen (substract because it is negative)
+				$self->{currentPowerGen} -= $part->{'part'}->{powergen};
 			}
 		}
 	}
@@ -1023,7 +1067,7 @@ sub _calculateParts {
 	$self->_offsetByCommandModule();
 	$self->_setPartConnections();
 	$self->_removeBlockedGunQuadrants();
-	$self->pruneParts(); # will removed orphaned parts and recalc if necessary
+	#$self->pruneParts(); # will removed orphaned parts and recalc if necessary
 }
 
 sub _loadShipByMap {
@@ -1094,7 +1138,7 @@ sub _setPartConnections {
 
 		# calculate connections
 		foreach my $partInner ($self->getParts()){
-			if    ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
+			if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
 				$part->{connected}->{l} = $partInner->{id};	
 			}
 			elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
@@ -1118,6 +1162,10 @@ sub _setPartConnections {
 			}
 		}
 	}
+}
+
+sub _setPartConnection {
+	my $part = shift;
 }
 
 ### find the angles each gun can shoot
@@ -1198,20 +1246,12 @@ sub getShipDisplay {
 	foreach my $x ($self->{bottommost} .. $self->{topmost}){
 		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
 			my $chr = ' ';
-			foreach my $part ($self->getParts()){
-				if ($part->{x} == $y && $part->{y} == $x){
-					if ($cloaked && $part->{part}->{type} eq 'plate'){
-						$chr = ' ';
-					} elsif ($cloaked){
-						$chr = $part->{chr};
-						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
-						$chr = color('GREY1') . $chr;
-					} else {
+				foreach my $part ($self->getParts()){
+					if ($part->{x} == $y && $part->{y} == $x){
 						$chr = $self->{color} . $part->{chr} . color('reset');
+						last;
 					}
-					last;
 				}
-			}
 			$shipStr .= "$chr";
 		}
 		$shipStr .= "\n";

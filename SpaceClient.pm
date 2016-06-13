@@ -79,6 +79,11 @@ sub _getShips {
 	return values %{$self->{ships}};
 }
 
+sub _getShipCount {
+	my $self = shift;
+	return scalar $self->_getShips();
+}
+
 sub _removeShip {
 	my $self = shift;
 	my $id = shift;
@@ -166,7 +171,7 @@ sub printInfo {
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, 0);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
-	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y})) );
+	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->_getShipCount()) );
 	$scr->at($height + 3, 0);
 	$scr->puts(
 		"weight: " .  $ship->{weight} .
@@ -281,9 +286,14 @@ sub _drawShips {
 			if (! defined ($part->{x})){ $self->{debug} = Dumper($part); next; }
 			# TODO have it fade to black?
 			if ($ship->{cloaked}){
-						my $chr = $part->{chr};
-						$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
-				$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
+				# remove coloring TODO change to color + chr
+				my $chr = $part->{chr};
+				$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
+				if ($ship->{id} eq $self->{ship}->{id}){
+					$self->setMap($px, $py, color('on_black GREY3') . $chr . color('reset'));
+				} else {
+					$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
+				}
 			} else { 
 				$self->setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
 
@@ -315,7 +325,9 @@ sub _drawShips {
 		my ($aimx, $aimy) = $ship->getAimingCursor();
 		my $px = ($offy + int($ship->{y})) + $aimx;
 		my $py = ($offx + int($ship->{x})) + $aimy;
-		$self->setMap($px, $py, color('GREEN') . "+");
+		if ($self->{ship}->{id} eq $ship->{id}){
+			$self->setMap($px, $py, color('GREEN') . "+");
+		}
 	}
 }
 
@@ -365,6 +377,8 @@ sub _getMessagesFromServer {
 				$ship->{powergen} = $data->{powergen};
 				$ship->{direction} = $data->{direction};
 				$ship->{currentPower} = $data->{currentPower};
+				$ship->{currentPowerGen} = $data->{powergen};
+				$ship->{shieldHealth} = $data->{shieldHealth};
 			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, -1, $data->{id});
@@ -397,6 +411,17 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{'old_id'}){
 					$s->{id} = $data->{'new_id'};
 					$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
+				}
+			}
+		} elsif ($msg->{c} eq 'shipstatus'){
+			foreach my $s ($self->_getShips()){
+				if ($s->{id} eq $data->{'ship_id'}){
+					if (defined($data->{cloaked})){
+						$s->{cloaked} = $data->{cloaked};
+					}
+					if (defined($data->{shieldsOn})){
+						$s->{shieldsOn} = $data->{shieldsOn};
+					}
 				}
 			}
 		}

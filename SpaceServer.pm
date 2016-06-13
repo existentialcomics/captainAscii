@@ -74,7 +74,6 @@ sub loop {
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
-		$self->_drawShipsToMap();
 	}
 }
 
@@ -82,6 +81,11 @@ sub getShips {
 	my $self = shift;
 
 	return @{ $self->{ships} };
+}
+
+sub getShipCount {
+	my $self = shift;
+	return scalar $self->getShips();
 }
 
 sub removeShip {
@@ -163,7 +167,7 @@ sub _loadNewPlayers {
 		}
 
 		my $id = $self->addShip($shipNew);
-		print "player loaded, " . $id . " in game.\n";
+		print "player loaded, " . $self->getShipCount() . " in game.\n";
 		return $id;
 	}
 	return 0;
@@ -239,6 +243,20 @@ sub _recieveInputFromClients {
 			chomp($in);
 			my $chr = $in;
 			$ship->keypress($chr);
+			if ($chr eq 'c'){
+				my $msg = {
+					ship_id => $ship->{id},
+					cloaked => $ship->{cloaked},
+				};
+				$self->broadcastMsg('shipstatus', $msg);
+			}
+			if ($chr eq '@'){
+				my $msg = {
+					ship_id => $ship->{id},
+					shieldsOn => $ship->{shieldsOn},
+				};
+				$self->broadcastMsg('shipstatus', $msg);
+			}
 			if ($chr eq 'p'){
 				my $map = $ship->{collisionMap};
 				print Dumper($map);
@@ -250,21 +268,6 @@ sub _recieveInputFromClients {
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
 				}
 			}
-		}
-	}
-}
-
-sub _drawShipsToMap {
-	my $self = shift;
-	foreach my $ship ($self->getShips()){
-		foreach my $part ($ship->getParts()){
-			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
-			my $bold = '';
-			if (defined($part->{lastShot})){
-				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
-			}
-			my $px = $ship->{'y'} + $part->{'y'};
-			my $py = $ship->{'x'} + $part->{'x'};
 		}
 	}
 }
@@ -307,10 +310,12 @@ sub _calculateBullets {
 				if (! $ship->getCommandModule() ){
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-					print "ship $ship->{id}'s command module destroyed!";
+					print "ship $ship->{id}'s command module destroyed!\n";
+					print "ships in game : " . $self->getShipCount() . "\n";
 					next;
 				}
 
+				$ship->orphanParts();
 				print $ship->{id} . " lost parts.\n";
 				print $ship->getShipDisplay();
 				#resend ship
@@ -322,6 +327,7 @@ sub _calculateBullets {
 				foreach my $s ($self->getShips()){
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
 				}
+				print "ships in game : " . $self->getShipCount() . "\n";
 			}
 		}
 
