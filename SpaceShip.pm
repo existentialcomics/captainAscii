@@ -8,6 +8,7 @@ use Term::ANSIColor 4.00 qw(RESET color :constants256);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use Data::Dumper;
+use Config::IniFiles;
 #use Math::Trig;
 
 use constant {
@@ -234,7 +235,7 @@ my %parts = (
 		health => 4,
 	},
 	'I' => {
-		chr    => color('ON_GREY5 RGB530 BOLD') . "|" . color('reset'),
+		chr    => color('ON_GREY5 RGB530') . "|" . color('reset'),
 		cost   => '500',
 		type   => 'gun',
 		weight => 4,
@@ -247,7 +248,7 @@ my %parts = (
 		health => 10
 	},
 	'~' => {
-		chr    => color('ON_GREY5 RGB530 BOLD') . "—" . color('reset'),
+		chr    => color('ON_GREY5 RGB530') . "—" . color('reset'),
 		cost   => '500',
 		type   => 'gun',
 		weight => 4,
@@ -330,6 +331,10 @@ my %parts = (
 	},
 );
 
+sub _loadPartConfig {
+
+}
+
 sub new {
 	my $class = shift;
 
@@ -404,9 +409,7 @@ sub shoot {
 
 	my $time = time();
 	my @bullets = ();
-	my $id = -1;
 	foreach my $part ($self->getParts()){
-		$id += 1;
 		if (!defined($part->{'lastShot'})){ $part->{'lastShot'} = $time;}
 		if (($part->{'part'}->{'type'} eq 'gun' || $part->{'part'}->{'type'} eq 'command') and abs($time - $part->{lastShot}) > $part->{'part'}->{rate}){
 			$part->{'lastShot'} = $time;
@@ -432,7 +435,7 @@ sub shoot {
 			}
 			push @bullets, {
 				id => $self->{'id'},
-				partId => $id,
+				partId => $part->{'id'},
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
 				emp => $self->{empOn},
 				damage => $part->{part}->{damage},
@@ -670,6 +673,7 @@ sub setPartDefs {
 	my $self = shift;
 }
 
+# OLD CODE TODO remove
 sub _orphanParts {
 	my $self = shift;
 	my %matched  = ();
@@ -1089,43 +1093,6 @@ sub _loadShipByMap {
 	$self->_calculateParts();
 }
 
-#sub setAllPartConnections {
-#	my $self = shift;
-#	return 0;
-#	foreach my $part ($self->getParts()){
-#		$self->setPartConnection($part);
-#	}
-#}
-#
-#sub setPartConnection {
-#	my $self = shift;
-#	my $part = shift;
-#	my $x = $part->{x};
-#	my $y = $part->{y};
-#	if ($self->{partMap}->{$x}->{$y}){
-#		$part->{connected}->{l} = $self->{partMap}->{$x}->{$y};
-#	}
-#	if ($self->{partMap}->{$x}->{$y}){
-#		$part->{connected}->{r} = $self->{partMap}->{$x}->{$y};
-#	}
-#	if ($self->{partMap}->{$x}->{$y}){
-#		$part->{connected}->{b} = $self->{partMap}->{$x}->{$y};
-#	}
-#	if ($self->{partMap}->{$x}->{$y}){
-#		$part->{connected}->{t} = $self->{partMap}->{$x}->{$y};
-#	}
-#	if ($part->{'part'}->{'type'} eq 'plate'){
-#		my $connectStr = 
-#			(defined($part->{connected}->{b}) ? 'b' : '') .
-#			(defined($part->{connected}->{l}) ? 'l' : '') .
-#			(defined($part->{connected}->{r}) ? 'r' : '') .
-#			(defined($part->{connected}->{t}) ? 't' : '') ;
-#		if ($connectors{1}->{$connectStr}){
-#			$part->{'chr'} = color('white') . $connectors{1}->{$connectStr};
-#		}
-#	}
-#}
-
 sub _setPartConnections {
 	my $self = shift;
 	# TODO put command link calc here, start with command and work out
@@ -1250,6 +1217,7 @@ sub getQuadrant {
 	return undef;
 }
 
+# TODO VERY SLOW, redo with collision map
 sub getShipDisplay {
 	my $self = shift;	
 	my $cloaked = shift;

@@ -99,7 +99,8 @@ sub _addShip {
 sub _getShip {
 	my $self = shift;
 	my $id = shift;
-	return $self->{ships}->{id};
+	$self->{debug} = $id;
+	return $self->{ships}->{$id};
 }
 
 sub loop {
@@ -356,10 +357,12 @@ sub _getMessagesFromServer {
 			my $key = $data->{k};
 			# new bullet
 			if (!defined($self->{bullets}->{$key})){
-				#$ships{$data->{sid}}->{ship}->[$data->{pid}]->{'hit'} = time();
+				#$self->{ships}->{$data->{sid}}->{parts}->{$data->{pid}}->{'hit'} = time();
 				#$ships{'self'}->{parts}->{$data->{pid}}->{'hit'} = time();
 				if (my $ship = $self->_getShip($data->{sid})){
+				$self->{debug} = "new bullet: $key $data->{sid}";
 					my $part = $ship->getPartById($data->{pid});
+					$self->{debug} = "part time: $data->{pid} *** " . time();
 					$part->{'lastShot'} = time();
 				} else {
 					#$self->{debug} = "ship not found $data->{sid}";
@@ -391,7 +394,7 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
 						$s->damageShield($data->{id}, $data->{shield});
-						$self->{debug} = 'damage shields ' . $data->{shield};
+						#$self->{debug} = 'damage shields ' . $data->{shield};
 					}
 					if (defined($data->{health})){
 						$s->damagePart($data->{id}, $data->{health});
@@ -409,6 +412,7 @@ sub _getMessagesFromServer {
 		} elsif ($msg->{c} eq 'setShipId'){
 			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'old_id'}){
+					$self->{ships}->{$data->{'new_id'}} = $self->{ships}->{$data->{'old_id'}};
 					$s->{id} = $data->{'new_id'};
 					$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
 				}
