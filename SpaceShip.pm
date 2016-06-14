@@ -142,11 +142,11 @@ my %parts = (
 		health => 2
 	},
 	'0' => {
-		cost   => '400',
+		cost   => '500',
 		'chr'  => color('ON_GREY5 RGB530 BOLD') . '0' . color('ON_RGB000 RESET'),
 		type   => 'power',
-		power  => 50,
-		powergen => 8,
+		power  => 60,
+		powergen => 10,
 		weight => 5,
 		health => 2
 	},
@@ -162,7 +162,7 @@ my %parts = (
 		cost   => '20',
 		type   => 'plate',
 		weight => 3,
-		'chr'  => color('white') . '[',
+		'chr'  => color('white BOLD') . '[',
 		health => 20
 	},
 	################## weapons ###################
