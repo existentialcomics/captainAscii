@@ -758,8 +758,8 @@ sub _removePart {
 
 	delete $self->{parts}->{$id};
 	#if (defined($x) && defined($x)
-	delete $self->{collisionMap}->{$x}->{$y};
-	delete $self->{partMap}->{$x}->{$y};
+	#delete $self->{collisionMap}->{$x}->{$y};
+	#delete $self->{partMap}->{$x}->{$y};
 }
 
 sub removeConnection {
@@ -974,8 +974,6 @@ sub _loadPart {
 		'connected' => {},
 		'part' => $parts{$chr}
 	};
-	$self->{collisionMap}->{$x}->{$y} = $chr;
-	$self->{partMap}->{$x}->{$y} = $id;
 	return $id;
 }
 
@@ -1017,6 +1015,7 @@ sub getCommandModule {
 	return 0;
 }
 
+### build collision and part map here
 sub _offsetByCommandModule {
 	my $self = shift;
 	# find command module and build new ship with connections
@@ -1033,6 +1032,8 @@ sub _offsetByCommandModule {
 		# ground parts to cm as 0,1
 		$part->{x} -= $offx;
 		$part->{y} -= $offy;
+		$self->{collisionMap}->{$part->{x}}->{$part->{y}} = $part->{chr};
+		$self->{partMap}->{$part->{x}}->{$part->{y}} = $part->{id};
 	}
 }
 
@@ -1184,31 +1185,40 @@ sub _removeBlockedGunQuadrants {
 		foreach my $k (keys %{$part->{part}->{quadrants}}){
 			$part->{quadrants}->{$k} = $part->{part}->{quadrants}->{$k};
 		}
-		my $y = $part->{x};
-		my $x = $part->{y};
-		if ($part->{part}->{type} eq 'gun'){
+		my $y = $part->{y};
+		my $x = $part->{x};
+
+		if (1){
 			if ($self->{collisionMap}->{ $x }->{ $y - 1 }){
+				#print "removing 5\n";
 				delete $part->{quadrants}->{5};
 			}
 			if ($self->{collisionMap}->{ $x + 1 }->{ $y - 1 }){
+				#print "removing 4\n";
 				delete $part->{quadrants}->{4};
 			}
 			if ($self->{collisionMap}->{ $x + 1 }->{ $y }){
+				#print "removing 3\n";
 				delete $part->{quadrants}->{3};
 			}
 			if ($self->{collisionMap}->{ $x + 1 }->{ $y + 1 }){
+				#print "removing 2\n";
 				delete $part->{quadrants}->{2};
 			}
 			if ($self->{collisionMap}->{ $x }->{ $y + 1 }){
+				#print "removing 1\n";
 				delete $part->{quadrants}->{1};
 			}
 			if ($self->{collisionMap}->{ $x - 1 }->{ $y + 1 }){
+				#print "removing 8\n";
 				delete $part->{quadrants}->{8};
 			}
 			if ($self->{collisionMap}->{ $x - 1 }->{ $y }){
+				#print "removing 7\n";
 				delete $part->{quadrants}->{7};
 			}
 			if ($self->{collisionMap}->{ $x - 1 }->{ $y - 1 }){
+				#print "removing 6\n";
 				delete $part->{quadrants}->{6};
 			}
 		}
