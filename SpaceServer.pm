@@ -259,7 +259,7 @@ sub _recieveInputFromClients {
 			}
 			if ($chr eq 'p'){
 				my $map = $ship->{collisionMap};
-				print Dumper($map);
+				#print Dumper($map);
 				my $msg = {
 					ship_id => $ship->{id},
 					'map' => $map
@@ -317,7 +317,7 @@ sub _calculateBullets {
 
 				$ship->orphanParts();
 				print $ship->{id} . " lost parts.\n";
-				print $ship->getShipDisplay();
+				#print $ship->getShipDisplay();
 				#resend ship
 				my $map = $ship->{collisionMap};
 				my $msg = {

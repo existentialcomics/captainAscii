@@ -72,14 +72,15 @@ my %parts = (
 		powergen => 5,
 		weight => 10,
 		thrust  => 100,
-		shoots => "|",
+		shoots => color('BRIGHT_BLUE') . "๏",
 		damage => 1.5,
 		bulletspeed => 17,
-		poweruse => 1,
-		rate   => 0.9,
+		poweruse => -1,
+		quadrants => { 3 => 1, 7 => 1, 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # all directions
+		rate   => 0.8,
 		lastShot => 0,
 		'chr'  => color("BOLD") . 'X',
-		health => 15
+		health => 8
 	},
 	################## thrusters ###################
 	'^' => {
@@ -854,7 +855,7 @@ sub hyperdrive {
 	my $self = shift;
 	my $x = shift;
 	my $y = shift;
-	if ($self->{currentPower} < $self->{speed} || time() - $self->{lastHyperdrive} < 1){
+	if ($self->{currentPower} < $self->{speed} || time() - $self->{lastHyperdrive} < 15){
 		return 0;
 	}
 	$self->{x} += ($self->{speed} * $x * 2);
