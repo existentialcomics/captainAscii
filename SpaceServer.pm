@@ -306,34 +306,34 @@ sub _calculateBullets {
 					chr => $bullet->{chr}
 				}
 			);
-			if ($ship->pruneParts()){
-				if (! $ship->getCommandModule() ){
-					$self->removeShip($ship->{id});
-					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-					print "ship $ship->{id}'s command module destroyed!\n";
-					print "ships in game : " . $self->getShipCount() . "\n";
-					next;
-				}
-
-				$ship->orphanParts();
-				print $ship->{id} . " lost parts.\n";
-				#print $ship->getShipDisplay();
-				#resend ship
-				my $map = $ship->{collisionMap};
-				my $msg = {
-					ship_id => $ship->{id},
-					'map' => $map
-				};
-				foreach my $s ($self->getShips()){
-					$self->sendMsg($s->{conn}, 'shipchange', $msg);
-				}
-				print "ships in game : " . $self->getShipCount() . "\n";
-			}
 		}
 
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
+				if ($ship->pruneParts()){
+					if (! $ship->getCommandModule() ){
+						$self->removeShip($ship->{id});
+						$self->broadcastMsg('shipdelete', { id => $ship->{id} });
+						print "ship $ship->{id}'s command module destroyed!\n";
+						print "ships in game : " . $self->getShipCount() . "\n";
+						next;
+					}
+
+					#$ship->orphanParts();
+					print $ship->{id} . " lost parts.\n";
+					#print $ship->getShipDisplay();
+					#resend ship
+					my $map = $ship->{collisionMap};
+					my $msg = {
+						ship_id => $ship->{id},
+						'map' => $map
+					};
+					foreach my $s ($self->getShips()){
+						$self->sendMsg($s->{conn}, 'shipchange', $msg);
+					}
+					print "ships in game : " . $self->getShipCount() . "\n";
+				}
 				#if (! defined($data->{deflect})) {
 					foreach my $s ($self->getShips()){
 						$data->{bullet_del} = $bulletK;

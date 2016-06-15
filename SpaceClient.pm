@@ -282,6 +282,14 @@ sub _drawShips {
 			if (defined($part->{lastShot})){
 				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
 			}
+			my $time = int(time() * 2);
+			my $rainbow = ("RGB" . abs( 5 - ($time % 10)) . abs( 5 - (($time + 3) % 10)) . abs( 5 - (($time + 6) % 10)));
+
+			my $partColor = ( defined($part->{'part'}->{color}) ?
+				( $part->{'part'}->{color} eq 'rainbow' ? color($rainbow) : color($part->{'part'}->{color}) )
+				: $ship->{color}
+			);
+
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
 			if (! defined ($part->{x})){ $self->{debug} = Dumper($part); next; }
@@ -296,8 +304,7 @@ sub _drawShips {
 					$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
 				}
 			} else { 
-				$self->setMap($px, $py, $highlight . $bold . $ship->{color} . $part->{'chr'} . color('reset'));
-
+				$self->setMap($px, $py, $highlight . $bold . $ship->{color} . $partColor . $part->{'chr'} . color('reset'));
 			}
 			if ($ship->{shieldsOn}){
 				if ($part->{'part'}->{'type'} eq 'shield'){

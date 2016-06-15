@@ -151,6 +151,16 @@ my %parts = (
 		weight => 5,
 		health => 2
 	},
+	'o' => {
+		cost   => '2000',
+		'chr'  => '0',
+		'color'=> 'rainbow',
+		type   => 'power',
+		power  => 200,
+		powergen => 30,
+		weight => 5,
+		health => 2
+	},
 	################## plates ###################
 	'-' => {
 		cost   => '10',
@@ -247,6 +257,20 @@ my %parts = (
 		rate   => 0.3,
 		health => 10
 	},
+	'l' => {
+		chr    => "|",
+		color  => 'rainbow',
+		cost   => '2000',
+		type   => 'gun',
+		weight => 4,
+		poweruse => -10,
+		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+		damage => 4,
+		shoots => color('RGB550 ON_GREY3 bold') . "|" . color('reset'),
+		bulletspeed => 22,
+		rate   => 0.3,
+		health => 10
+	},
 	'~' => {
 		chr    => color('ON_GREY5 RGB530') . "—" . color('reset'),
 		cost   => '500',
@@ -332,6 +356,40 @@ my %parts = (
 );
 
 sub _loadPartConfig {
+	my $self = shift;
+	my $config = shift;
+	my $cfg = Config::IniFiles->new( -file => $config );
+
+	my @guns      = $cfg->GroupMembers('gun');
+	my @commands  = $cfg->GroupMembers('command');
+	my @plates    = $cfg->GroupMembers('plate');
+	my @sheilds   = $cfg->GroupMembers('shield');
+	my @powers    = $cfg->GroupMembers('power');
+	my @thrusters = $cfg->GroupMembers('thruster');
+	my @modules   = $cfg->GroupMembers('module');
+
+	my %parts;
+	foreach my $section (@guns){
+		my $group = 'gun';
+		my $ref = $cfg->value("$group $section", 'ref');
+		$parts{$ref}->{'type'}   = $group;
+		$parts{$ref}->{'chr'}    = $cfg->value("$group $section", 'chr', 'Z');
+		$parts{$ref}->{'cost'}   = $cfg->value("$group $section", 'cost', 0);
+		$parts{$ref}->{'color'}  = $cfg->value("$group $section", 'color', 'ship');
+		$parts{$ref}->{'health'} = $cfg->value("$group $section", 'health', 2);
+		$parts{$ref}->{'weight'} = $cfg->value("$group $section", 'weight', 2);
+
+		$parts{$ref}->{'shotChr'}     = $cfg->value("$group $section", 'shotChr', '.');
+		$parts{$ref}->{'shotColor'}   = $cfg->value("$group $section", 'shotColor', 'WHITE');
+		$parts{$ref}->{'bulletSpeed'} = $cfg->value("$group $section", 'bulletSpeed', 20);
+		$parts{$ref}->{'rate'}        = $cfg->value("$group $section", 'rate', 20);
+		$parts{$ref}->{'poweruse'}    = $cfg->value("$group $section", 'poweruse', -1);
+		my $quad = $cfg->value("$group $section", 'quadrants', '1,2,3,4,5,6,7,8');
+		foreach my $q (split(',', $quad)){
+			$parts{$ref}->{'quadrants'}->{$q} = 1;
+		}
+	}
+	
 
 }
 
@@ -356,6 +414,8 @@ sub _init {
 	my $direction = shift;
 	my $id = shift;
 	my $options = shift;
+
+	$self->_loadConfig('parts.ini');
 
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 
@@ -558,7 +618,16 @@ sub resolveCollision {
 	my $self = shift;
 	my $bullet = shift;
 	if ($bullet->{id} == $self->{id}){ return 0; }
-	my $i = 0;
+
+#	my $bx = int($bullet->{x} - $self->{y});
+#	my $by = int($bullet->{y} - $self->{x});
+#	my $partId = $self->{partMap}->{$bx}->{$by};
+#	if (!defined($partId)){ return 0; }
+#	my $part = $self->getPartById($partId);
+#	$part->{'health'} -= $bullet->{damage};
+#	$part->{'hit'} = time();
+#	return { id => $part->{id}, health => $part->{health} };
+
 	foreach my $part ($self->getParts()){
 		# x and y got mixed somehow
 		my $px = int($part->{y} + $self->{y});
@@ -643,7 +712,6 @@ sub resolveCollision {
 			$part->{'hit'} = time();
 			return { id => $part->{id}, health => $part->{health} };
 		}
-		$i++;
 	}
 	return undef;
 }
@@ -673,47 +741,6 @@ sub setPartDefs {
 	my $self = shift;
 }
 
-# OLD CODE TODO remove
-sub _orphanParts {
-	my $self = shift;
-	my %matched  = ();
-	my %bad = ();
-
-	my $command = $self->getCommandModule();
-	if (!$command){ return 0; }
-	my $cid = $command->{id};
-	$matched{$cid} = 1;
-	foreach my $p ($self->getPartIds()){
-		my %examined = ();
-		my @toExamine = $self->_getConnectedPartIds($self->{parts}->{$p});
-		my $pexam = $p;
-		if (defined($bad{$pexam})){ next; }
-		if (defined($matched{$pexam})){ next; }
-		{
-			do {
-				if (defined($matched{$pexam})){ 
-					$matched{$pexam} = 1;
-					while (my $pleft = pop @toExamine){
-						$matched{$pleft} = 1;
-					}
-					foreach my $k (keys %examined){
-						$matched{$k} = 1;
-					}
-					last;
-				} 
-				if (! defined($examined{$pexam})){
-					$examined{$pexam} = 1;
-					push @toExamine, $self->_getConnectedPartIds($self->getPartById($pexam));
-				}
-			} while (defined($pexam = shift @toExamine));
-			$bad{$p} = 1;
-		} # empty block for last; to apply to
-	}
-	foreach my $bad (keys %bad){
-		delete $self->{parts}->{$bad};
-	}
-}
-
 ####### new simpler algorithm
 # begins at command modules and works its way out
 # orphaned parts will never be reached, so deleted at the end
@@ -734,6 +761,7 @@ sub orphanParts {
 		$matched{$pexam} = 1;
 		foreach my $np ($self->_getConnectedPartIds($self->getPartById($pexam))){
 			if (! defined($matched{$np})){
+				$matched{$np} = 1;
 				push @next, $np;
 			}
 		}
@@ -872,6 +900,7 @@ sub hyperdrive {
 sub power {
 	my $self = shift;
 	if (!defined($self->{lastPower})){ $self->{lastPower} = time();}
+	if ((time() - $self->{lastPower}) < 0.2){ return 0; }
 	my $timeMod = time() - $self->{lastPower};
 
 	# if the thrusters are activated
@@ -941,6 +970,7 @@ sub _limitPower {
 sub move {
 	my $self = shift;
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
+	#if (time() - $self->{lastPower}) < 0.1)){ return 0; }
 	my $timeMod = time() - $self->{lastMove};
 
 	if (time - $self->{aimingPress} < 0.15){
@@ -984,12 +1014,15 @@ sub _loadPart {
 sub _recalculateCollisionMap {
 	my $self = shift;
 	$self->{collisionMap} = {};
+	$self->{partMap} = {};
+	$self->{shieldOnly} = [];
 	foreach my $part ($self->getParts()){
 		my $x = $part->{x};
 		my $y = $part->{y};
 		my $chr = $part->{defchr};
 		$self->{collisionMap}->{$x}->{$y} = $chr;
 		$self->{partMap}->{$x}->{$y} = $part->{id};
+		#push $self->{shieldsOnly}, $part->{id};
 	}
 }
 
@@ -1041,6 +1074,46 @@ sub _offsetByCommandModule {
 	}
 }
 
+sub _loadConfig {
+	my $self = shift;
+	my $config = shift;
+	print "loading config...\n";
+
+	my $cfg = Config::IniFiles->new( -file => $config );
+	my @guns = $cfg->GroupMembers('gun');
+	foreach my $section (@guns){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
+		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
+		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
+		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
+		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
+
+		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
+		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
+		$parts{$chr}->{'bulletspeed'} = $cfg->val($section, 'bulletspeed', 20);
+		$parts{$chr}->{'rate'}        = $cfg->val($section, 'rate', 0.3);
+		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
+		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
+		my $quads = $cfg->val($section, 'quadrangs', '1,2,3,4,5,6,7,8');
+		foreach my $q (split ',', $quads){
+			$parts{$chr}->{'quadrants'}->{$q} = 1;
+		}
+	}
+
+	my @thrusters = $cfg->GroupMembers('thruster');
+	foreach my $section (@thrusters){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
+		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
+		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
+		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
+		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
+
+		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
+	}
+}
+
 sub _loadShip {
 	my $self = shift;
 	my $ship = shift;
@@ -1048,6 +1121,7 @@ sub _loadShip {
 	$self->{parts} = {};
 	$self->{collisionMap} = {};
 	$self->{partMap} = {};
+	$self->{sheildsOnly} = [];
 
 	my $command = undef;
 	my @shipLines = split("\n", $ship);
