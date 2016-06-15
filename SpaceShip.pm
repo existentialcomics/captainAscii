@@ -825,20 +825,27 @@ sub _getConnectedPartIds {
 sub pruneParts {
 	my $self = shift;
 	my $deleted = 0;
+	my @deleted = ();
 	foreach my $key ($self->getPartIds()){
 		if ($self->{parts}->{$key}->{'health'} < 0){
 			$deleted++;
+			push @deleted, $key;
 			$self->_removePart($key);
 		}
 	}
 	# check if command module was destroyed!
 	my $command = $self->getCommandModule();
-	if (!$command){ return 1; }
+	if (!$command){
+		return \@deleted;
+		return 1;
+	}
 
 	if ($deleted > 0){
 		$self->_recalculate();
+		return \@deleted;
 		return 1;
 	}
+		return \@deleted;
 	return 0;
 }
 

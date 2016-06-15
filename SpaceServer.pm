@@ -311,7 +311,8 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-				if ($ship->pruneParts()){
+				my $partIds = $ship->pruneParts();
+				if ($#{$partIds} = 0){
 					if (! $ship->getCommandModule() ){
 						$self->removeShip($ship->{id});
 						$self->broadcastMsg('shipdelete', { id => $ship->{id} });
