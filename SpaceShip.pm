@@ -66,116 +66,67 @@ my %connectors2 = (
 );
 
 my %parts = (
-	'X' => {
-		cost   => '0',
-		type   => 'command',
-		power  => 50,
-		powergen => 5,
-		weight => 10,
-		thrust  => 100,
-		shoots => color('BRIGHT_BLUE') . "๏",
-		damage => 1.5,
-		bulletspeed => 17,
-		poweruse => -1,
-		quadrants => { 3 => 1, 7 => 1, 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # all directions
-		rate   => 0.8,
-		lastShot => 0,
-		'chr'  => color("BOLD") . 'X',
-		health => 8
-	},
-	################## thrusters ###################
-	'^' => {
-		cost   => '30',
-		type   => 'thrust',
-		weight => 1,
-		thrust  => 60,
-		'chr'  => '^',
-		health => 2
-	},
-	'v' => {
-		cost   => '30',
-		'chr'  => 'v',
-		type   => 'thrust',
-		weight => 1,
-		thrust  => 60,
-		health => 2
-	},
-	'(' => {
-		cost   => '70',
-		'chr'  => '(',
-		type   => 'thrust',
-		weight => 2,
-		thrust  => 100,
-		health => 4
-	},
-	')' => {
-		cost   => '70',
-		'chr'  => ')',
-		type   => 'thrust',
-		weight => 2,
-		thrust  => 100,
-		health => 4
-	},
-	'{' => {
-		cost   => '200',
-		'chr'  => color('ON_GREY5 RGB530 BOLD') . '{' . color('RESET'),
-		type   => 'thrust',
-		weight => 2,
-		thrust  => 250,
-		health => 8
-	},
-	'}' => {
-		cost   => '200',
-		'chr'  => color('ON_GREY5 RGB530 BOLD') . '}' . color('RESET'),
-		type   => 'thrust',
-		weight => 2,
-		thrust  => 250,
-		health => 8
-	},
+#	'X' => {
+#		cost   => '0',
+#		type   => 'command',
+#		power  => 50,
+#		powergen => 5,
+#		weight => 10,
+#		thrust  => 100,
+#		shoots => color('BRIGHT_BLUE') . "๏",
+#		damage => 1.5,
+#		bulletspeed => 17,
+#		poweruse => -1,
+#		quadrants => { 3 => 1, 7 => 1, 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # all directions
+#		rate   => 0.8,
+#		lastShot => 0,
+#		'chr'  => color("BOLD") . 'X',
+#		health => 8
+#	},
 	################## power cells ###################
-	'O' => {
-		cost   => '150',
-		'chr' => 'O',
-		type   => 'power',
-		power  => 30,
-		powergen => 4,
-		weight => 5,
-		health => 2
-	},
-	'0' => {
-		cost   => '500',
-		'chr'  => color('ON_GREY5 RGB530 BOLD') . '0' . color('ON_RGB000 RESET'),
-		type   => 'power',
-		power  => 60,
-		powergen => 10,
-		weight => 5,
-		health => 2
-	},
-	'o' => {
-		cost   => '2000',
-		'chr'  => '0',
-		'color'=> 'rainbow',
-		type   => 'power',
-		power  => 200,
-		powergen => 30,
-		weight => 5,
-		health => 2
-	},
+#	'O' => {
+#		cost   => '150',
+#		'chr' => 'O',
+#		type   => 'power',
+#		power  => 30,
+#		powergen => 4,
+#		weight => 5,
+#		health => 2
+#	},
+#	'0' => {
+#		cost   => '500',
+#		'chr'  => color('ON_GREY5 RGB530 BOLD') . '0' . color('ON_RGB000 RESET'),
+#		type   => 'power',
+#		power  => 60,
+#		powergen => 10,
+#		weight => 5,
+#		health => 2
+#	},
+#	'o' => {
+#		cost   => '2000',
+#		'chr'  => '0',
+#		'color'=> 'rainbow',
+#		type   => 'power',
+#		power  => 200,
+#		powergen => 30,
+#		weight => 5,
+#		health => 2
+#	},
 	################## plates ###################
-	'-' => {
-		cost   => '10',
-		type   => 'plate',
-		weight => 2,
-		'chr'  => color('white') . '—',
-		health => 10
-	},
-	'+' => {
-		cost   => '20',
-		type   => 'plate',
-		weight => 3,
-		'chr'  => color('white BOLD') . '[',
-		health => 20
-	},
+#	'-' => {
+#		cost   => '10',
+#		type   => 'plate',
+#		weight => 2,
+#		'chr'  => color('white') . '—',
+#		health => 10
+#	},
+#	'+' => {
+#		cost   => '20',
+#		type   => 'plate',
+#		weight => 3,
+#		'chr'  => color('white BOLD') . '[',
+#		health => 20
+#	},
 	################## weapons ###################
     #   quadrants
     #
@@ -192,206 +143,168 @@ my %parts = (
 	#	quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
 	#	quadrants => { 6 => 1, 3 => 1 }, # NW/SW tight
     ###################
-	'|' => {
-		cost   => '100',
-		type   => 'gun',
-		weight => 2,
-		poweruse => -1,
-		damage => 1,
-		shoots => color('RGB440') . "'" . color('white'),
-		quadrants => { 5 => 1, 1 => 1 }, # up/down tight
-		bulletspeed => 22,
-		rate   => 0.3,
-		'chr'  => '|',
-		health => 4,
-	},
-	'_' => {
-		'chr'  => '—',
-		cost   => '100',
-		type   => 'gun',
-		weight => 2,
-		poweruse => -1,
-		damage => 1,
-		shoots => color('RGB440') . "-" . color('white'),
-		quadrants => { 3 => 1, 7 => 1 }, # left/right
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 4,
-	},
-	'/' => {
-		'chr'  => '/',
-		cost   => '100',
-		type   => 'gun',
-		weight => 2,
-		poweruse => -1,
-		damage => 1,
-		shoots => color('RGB440') . "/" . color('white'),
-		quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 4,
-	},
-	'\\' => {
-		'chr'  => '\\',
-		cost   => '100',
-		type   => 'gun',
-		weight => 2,
-		poweruse => -1,
-		damage => 1,
-		shoots => color('RGB440') . "\\" . color('white'),
-		quadrants => { 6 => 1, 2 => 1 }, # NW/SW tight
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 4,
-	},
-	'I' => {
-		chr    => color('ON_GREY5 RGB530') . "|" . color('reset'),
-		cost   => '500',
-		type   => 'gun',
-		weight => 4,
-		poweruse => -4,
-		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
-		damage => 4,
-		shoots => color('RGB551 bold') . "|" . color('reset'),
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 10
-	},
-	'l' => {
-		chr    => "|",
-		color  => 'rainbow',
-		cost   => '2000',
-		type   => 'gun',
-		weight => 4,
-		poweruse => -10,
-		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
-		damage => 4,
-		shoots => color('RGB550 ON_GREY3 bold') . "|" . color('reset'),
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 10
-	},
-	'~' => {
-		chr    => color('ON_GREY5 RGB530') . "—" . color('reset'),
-		cost   => '500',
-		type   => 'gun',
-		weight => 4,
-		poweruse => -4,
-		quadrants => { 2 => 1, 3 => 1, 4 => 1, 6 => 1, 7 => 1, 8 => 1 }, # left/right
-		damage => 4,
-		shoots => color('RGB551 bold') . "—" . color('reset'),
-		bulletspeed => 22,
-		rate   => 0.3,
-		health => 10
-	},
-	'H' => {
-		cost   => '125',
-		'chr'  => 'H',
-		type   => 'gun',
-		weight => 2,
-		poweruse => -1.5,
-		damage => 1,
-		lifespan => 2.5,
-		shoots => color('RGB225') . ":" . color('reset'),
-		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
-		spread => 1,
-		bulletspeed => 20,
-		rate   => 0.2,
-		health => 5
-	},
-	'U' => {
-		cost   => '150',
-		'chr'  => 'U',
-		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
-		type   => 'gun',
-		weight => 2,
-		shipMomentum => 0.5,
-		damage => 2,
-		poweruse => -2,
-		shoots => color('RGB522') . "*" . color('white'),
-		bulletspeed => 14,
-		rate   => 0.8,
-		health => 5
-	},
-	'8' => {
-		cost   => '150',
-		type   => 'gun',
-		poweruse => -3,
-		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
-		shipMomentum => 1,
-		lifespan => 5,
-		weight => 6,
-		damage => 5,
-		shoots => "o",
-		bulletspeed => 6,
-		rate   => 1,
-		'chr'  => '8',
-		health => 5
-	},
+#	'|' => {
+#		cost   => '100',
+#		type   => 'gun',
+#		weight => 2,
+#		poweruse => -1,
+#		damage => 1,
+#		shoots => color('RGB440') . "'" . color('white'),
+#		quadrants => { 5 => 1, 1 => 1 }, # up/down tight
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		'chr'  => '|',
+#		health => 4,
+#	},
+#	'_' => {
+#		'chr'  => '—',
+#		cost   => '100',
+#		type   => 'gun',
+#		weight => 2,
+#		poweruse => -1,
+#		damage => 1,
+#		shoots => color('RGB440') . "-" . color('white'),
+#		quadrants => { 3 => 1, 7 => 1 }, # left/right
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 4,
+#	},
+#	'/' => {
+#		'chr'  => '/',
+#		cost   => '100',
+#		type   => 'gun',
+#		weight => 2,
+#		poweruse => -1,
+#		damage => 1,
+#		shoots => color('RGB440') . "/" . color('white'),
+#		quadrants => { 4 => 1, 8 => 1 }, # NE/SW tight
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 4,
+#	},
+#	'\\' => {
+#		'chr'  => '\\',
+#		cost   => '100',
+#		type   => 'gun',
+#		weight => 2,
+#		poweruse => -1,
+#		damage => 1,
+#		shoots => color('RGB440') . "\\" . color('white'),
+#		quadrants => { 6 => 1, 2 => 1 }, # NW/SW tight
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 4,
+#	},
+#	'I' => {
+#		chr    => color('ON_GREY5 RGB530') . "|" . color('reset'),
+#		cost   => '500',
+#		type   => 'gun',
+#		weight => 4,
+#		poweruse => -4,
+#		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+#		damage => 4,
+#		shoots => color('RGB551 bold') . "|" . color('reset'),
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 10
+#	},
+#	'l' => {
+#		chr    => "|",
+#		color  => 'rainbow',
+#		cost   => '2000',
+#		type   => 'gun',
+#		weight => 4,
+#		poweruse => -10,
+#		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+#		damage => 4,
+#		shoots => color('RGB550 ON_GREY3 bold') . "|" . color('reset'),
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 10
+#	},
+#	'~' => {
+#		chr    => color('ON_GREY5 RGB530') . "—" . color('reset'),
+#		cost   => '500',
+#		type   => 'gun',
+#		weight => 4,
+#		poweruse => -4,
+#		quadrants => { 2 => 1, 3 => 1, 4 => 1, 6 => 1, 7 => 1, 8 => 1 }, # left/right
+#		damage => 4,
+#		shoots => color('RGB551 bold') . "—" . color('reset'),
+#		bulletspeed => 22,
+#		rate   => 0.3,
+#		health => 10
+#	},
+#	'H' => {
+#		cost   => '125',
+#		'chr'  => 'H',
+#		type   => 'gun',
+#		weight => 2,
+#		poweruse => -1.5,
+#		damage => 1,
+#		lifespan => 2.5,
+#		shoots => color('RGB225') . ":" . color('reset'),
+#		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down
+#		spread => 1,
+#		bulletspeed => 20,
+#		rate   => 0.2,
+#		health => 5
+#	},
+#	'U' => {
+#		cost   => '150',
+#		'chr'  => 'U',
+#		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
+#		type   => 'gun',
+#		weight => 2,
+#		shipMomentum => 0.5,
+#		damage => 2,
+#		poweruse => -2,
+#		shoots => color('RGB522') . "*" . color('white'),
+#		bulletspeed => 14,
+#		rate   => 0.8,
+#		health => 5
+#	},
+#	'8' => {
+#		cost   => '150',
+#		type   => 'gun',
+#		poweruse => -3,
+#		quadrants => { 4 => 1, 5 => 1, 6 => 1, 1 => 1, 2 => 1, 8 => 1 }, # up/down loose
+#		shipMomentum => 1,
+#		lifespan => 5,
+#		weight => 6,
+#		damage => 5,
+#		shoots => "o",
+#		bulletspeed => 6,
+#		rate   => 1,
+#		'chr'  => '8',
+#		health => 5
+#	},
 	####################### shields #############################
-	'@' => {
-		cost   => '200',
-		type   => 'shield',
-		powergen => -1,
-		poweruse => -1.5,
-		weight => 20,
-		size => 'medium',
-		shield => 5,
-		shieldgen => 0.5,
-		'chr'  => color('ON_GREY2 WHITE') . '@' . color('ON_RGB000 RESET'),
-		health => 1
-	},
-	'$' => {
-		cost   => '600',
-		type   => 'shield',
-		powergen => -2.5,
-		poweruse => -4,
-		weight => 40,
-		size => 'large',
-		shield => 12,
-		shieldgen => 1,
-		'chr'  => color('ON_GREY5 RGB530 BOLD') . '@' . color('ON_RGB000 RESET'),
-		health => 1
-	},
+#	'@' => {
+#		cost   => '200',
+#		type   => 'shield',
+#		powergen => -1,
+#		poweruse => -1.5,
+#		weight => 20,
+#		size => 'medium',
+#		shield => 5,
+#		shieldgen => 0.5,
+#		'chr'  => color('ON_GREY2 WHITE') . '@' . color('ON_RGB000 RESET'),
+#		health => 1
+#	},
+#	'$' => {
+#		cost   => '600',
+#		type   => 'shield',
+#		powergen => -2.5,
+#		poweruse => -4,
+#		weight => 40,
+#		size => 'large',
+#		shield => 12,
+#		shieldgen => 1,
+#		'chr'  => color('ON_GREY5 RGB530 BOLD') . '@' . color('ON_RGB000 RESET'),
+#		health => 1
+#	},
 );
-
-sub _loadPartConfig {
-	my $self = shift;
-	my $config = shift;
-	my $cfg = Config::IniFiles->new( -file => $config );
-
-	my @guns      = $cfg->GroupMembers('gun');
-	my @commands  = $cfg->GroupMembers('command');
-	my @plates    = $cfg->GroupMembers('plate');
-	my @sheilds   = $cfg->GroupMembers('shield');
-	my @powers    = $cfg->GroupMembers('power');
-	my @thrusters = $cfg->GroupMembers('thruster');
-	my @modules   = $cfg->GroupMembers('module');
-
-	my %parts;
-	foreach my $section (@guns){
-		my $group = 'gun';
-		my $ref = $cfg->value("$group $section", 'ref');
-		$parts{$ref}->{'type'}   = $group;
-		$parts{$ref}->{'chr'}    = $cfg->value("$group $section", 'chr', 'Z');
-		$parts{$ref}->{'cost'}   = $cfg->value("$group $section", 'cost', 0);
-		$parts{$ref}->{'color'}  = $cfg->value("$group $section", 'color', 'ship');
-		$parts{$ref}->{'health'} = $cfg->value("$group $section", 'health', 2);
-		$parts{$ref}->{'weight'} = $cfg->value("$group $section", 'weight', 2);
-
-		$parts{$ref}->{'shotChr'}     = $cfg->value("$group $section", 'shotChr', '.');
-		$parts{$ref}->{'shotColor'}   = $cfg->value("$group $section", 'shotColor', 'WHITE');
-		$parts{$ref}->{'bulletSpeed'} = $cfg->value("$group $section", 'bulletSpeed', 20);
-		$parts{$ref}->{'rate'}        = $cfg->value("$group $section", 'rate', 20);
-		$parts{$ref}->{'poweruse'}    = $cfg->value("$group $section", 'poweruse', -1);
-		my $quad = $cfg->value("$group $section", 'quadrants', '1,2,3,4,5,6,7,8');
-		foreach my $q (split(',', $quad)){
-			$parts{$ref}->{'quadrants'}->{$q} = 1;
-		}
-	}
-	
-
-}
 
 sub new {
 	my $class = shift;
@@ -414,7 +327,7 @@ sub _init {
 	my $id = shift;
 	my $options = shift;
 
-	$self->_loadConfig('parts.ini');
+	$self->_loadPartConfig('parts.ini');
 
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 
@@ -500,7 +413,8 @@ sub shoot {
 				damage => $part->{part}->{damage},
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
-				'chr' => $part->{'part'}->{'shoots'},
+				'chr'   => color($part->{'part'}->{'shotColor'})
+						. $part->{'part'}->{'shotChr'},
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
@@ -559,7 +473,7 @@ sub _calculateCost {
 
 sub _calculatePower {
 	my $self = shift;
-	$self->{power} = 0;
+	$self->{power} = 1;
 	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{power})){
 			$self->{power} += $part->{part}->{power};
@@ -834,33 +748,6 @@ sub _getConnectedPartIds {
 	return @ids;
 }
 
-sub pruneParts {
-	my $self = shift;
-	my $deleted = 0;
-	my @deleted = ();
-	foreach my $key ($self->getPartIds()){
-		if ($self->{parts}->{$key}->{'health'} < 0){
-			$deleted++;
-			push @deleted, $key;
-			$self->_removePart($key);
-		}
-	}
-	# check if command module was destroyed!
-	my $command = $self->getCommandModule();
-	if (!$command){
-		return \@deleted;
-		return 1;
-	}
-
-	if ($deleted > 0){
-		$self->_recalculate();
-		return \@deleted;
-		return 1;
-	}
-		return \@deleted;
-	return 0;
-}
-
 sub keypress {
 	my $self = shift;
 	my $chr = shift;
@@ -919,7 +806,7 @@ sub hyperdrive {
 sub power {
 	my $self = shift;
 	if (!defined($self->{lastPower})){ $self->{lastPower} = time();}
-	if ((time() - $self->{lastPower}) < 0.2){ return 0; }
+	#if ((time() - $self->{lastPower}) < 0.2){ return 0; }
 	my $timeMod = time() - $self->{lastPower};
 
 	# if the thrusters are activated
@@ -1093,27 +980,33 @@ sub _offsetByCommandModule {
 	}
 }
 
-sub _loadConfig {
+sub _loadPartConfig {
 	my $self = shift;
 	my $config = shift;
 	print "loading config...\n";
 
 	my $cfg = Config::IniFiles->new( -file => $config );
-	my @guns = $cfg->GroupMembers('gun');
-	foreach my $section (@guns){
+	my @sections = $cfg->Sections();
+	foreach my $section (@sections){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
 		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
+	}
 
+	my @guns = $cfg->GroupMembers('gun');
+	foreach my $section (@guns){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'gun';
 		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
 		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
 		$parts{$chr}->{'bulletspeed'} = $cfg->val($section, 'bulletspeed', 20);
 		$parts{$chr}->{'rate'}        = $cfg->val($section, 'rate', 0.3);
 		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
 		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
+		$parts{$chr}->{'shipMomentum'}   = $cfg->val($section, 'shipMomentum', 0);
 		my $quads = $cfg->val($section, 'quadrangs', '1,2,3,4,5,6,7,8');
 		foreach my $q (split ',', $quads){
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
@@ -1123,18 +1016,39 @@ sub _loadConfig {
 	my @thrusters = $cfg->GroupMembers('thruster');
 	foreach my $section (@thrusters){
 		my $chr = $cfg->val($section, 'ref');
-		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
-		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
-		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
-		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
-		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
-
+		$parts{$chr}->{type} = 'thruster';
 		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
+	}
+
+	my @plates = $cfg->GroupMembers('plate');
+	foreach my $section (@plates){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'plate';
+	}
+
+	my @shields = $cfg->GroupMembers('shield');
+	foreach my $section (@shields){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'shield';
+		$parts{$chr}->{'shield'}    = $cfg->val($section, 'shield', 10);
+		$parts{$chr}->{'shieldgen'} = $cfg->val($section, 'shieldgen', 0.5);
+		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', -2.5);
+		$parts{$chr}->{'poweruse'}  = $cfg->val($section, 'poweruse', -4);
+		$parts{$chr}->{'size'}      = $cfg->val($section, 'size', 'medium');
 	}
 
 	my @powers = $cfg->GroupMembers('power');
 	foreach my $section (@powers){
 		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'power';
+		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
+		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
+	}
+
+	my @commands = $cfg->GroupMembers('command');
+	foreach my $section (@commands){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'command';
 		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
@@ -1143,7 +1057,22 @@ sub _loadConfig {
 
 		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
 		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
+		
+		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
+
+		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
+		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
+		$parts{$chr}->{'bulletspeed'} = $cfg->val($section, 'bulletspeed', 20);
+		$parts{$chr}->{'rate'}        = $cfg->val($section, 'rate', 0.3);
+		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
+		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
+		$parts{$chr}->{'shipMomentum'}   = $cfg->val($section, 'shipMomentum', 0);
+		my $quads = $cfg->val($section, 'quadrangs', '1,2,3,4,5,6,7,8');
+		foreach my $q (split ',', $quads){
+			$parts{$chr}->{'quadrants'}->{$q} = 1;
+		}
 	}
+
 }
 
 sub _loadShip {
@@ -1153,7 +1082,7 @@ sub _loadShip {
 	$self->{parts} = {};
 	$self->{collisionMap} = {};
 	$self->{partMap} = {};
-	$self->{sheildsOnly} = [];
+	$self->{shieldsOnly} = [];
 
 	my $command = undef;
 	my @shipLines = split("\n", $ship);

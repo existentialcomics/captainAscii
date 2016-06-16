@@ -18,7 +18,7 @@ print "---------------------" . " ship input" . "---------------------" . "\n\n"
 print $ship_str1;
 print "\n---------------------" . " ship output" . "--------------------" . "\n\n";
 
-my $ship = SpaceShip->new($ship_str1, 5, 5, 1, 1, { color => $color } );
+my $ship = SpaceShip->new($ship_str1, 5, 5, 1, { color => $color } );
 #$ship->orphanParts();
 #$ship->_recalculate();
 my $display = $ship->getShipDisplay($cloaked);

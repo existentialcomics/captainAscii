@@ -71,8 +71,9 @@ sub loop {
 	my $fps = 60;
 
 	while (1){
-		if ((time() - $time) < (1 / $fps)){
-			usleep(1_000_000 * ((1 / $fps) - (time() - $time)));
+		my $frametime = time() - $time;
+		if ($frametime < (1 / $fps)){
+			usleep(1_000_000 * ((1 / $fps) - $frametime));
 			next;
 		}
 		$self->{lastTime} = $time;
@@ -254,7 +255,7 @@ sub _recieveInputFromClients {
 	# recieve ship input
 	foreach my $ship ($self->getShips()){
 		my $socket = $ship->{conn};
-		if (defined(my $in = <$socket>)){
+		while (defined(my $in = <$socket>)){
 			chomp($in);
 			my $chr = $in;
 			$ship->keypress($chr);
@@ -326,30 +327,6 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-#				my $partIds = $ship->pruneParts();
-#				if ($#{$partIds} > 0){
-#					if (! $ship->getCommandModule() ){
-#						$self->removeShip($ship->{id});
-#						$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-#						print "ship $ship->{id}'s command module destroyed!\n";
-#						print "ships in game : " . $self->getShipCount() . "\n";
-#						next;
-#					}
-#
-#					#$ship->orphanParts();
-#					print $ship->{id} . " lost parts.\n";
-#					#print $ship->getShipDisplay();
-#					#resend ship
-#					my $map = $ship->{collisionMap};
-#					my $msg = {
-#						ship_id => $ship->{id},
-#						'map' => $map
-#					};
-#					foreach my $s ($self->getShips()){
-#						$self->sendMsg($s->{conn}, 'shipchange', $msg);
-#					}
-#					print "ships in game : " . $self->getShipCount() . "\n";
-#				}
 				#if (! defined($data->{deflect})) {
 				$data->{bullet_del} = $bulletK;
 				$data->{ship_id} = $ship->{id};
@@ -380,6 +357,13 @@ sub _calculateBullets {
 						);
 						$self->broadcastMsg('dam', \%data);
 					}
+				}
+				if (! $ship->getCommandModule() ){
+					$self->removeShip($ship->{id});
+					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
+					print "ship $ship->{id}'s command module destroyed!\n";
+					print "ships in game : " . $self->getShipCount() . "\n";
+					next;
 				}
 				$ship->_recalculate();
 				last;

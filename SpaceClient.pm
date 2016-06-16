@@ -112,7 +112,7 @@ sub loop {
 	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
-	my $fps = 60;
+	my $fps = 10;
 	$self->{fps} = 60;
 
 	my $height = 55;
@@ -137,6 +137,7 @@ sub loop {
 			$frames = 0;
 		}
 
+		$self->_sendKeystrokesToServer($scr);
 		$self->_getMessagesFromServer();
 
 		$self->{lighting} = {};
@@ -145,7 +146,6 @@ sub loop {
 		my $offx = $cenX - int($self->{ship}->{x});
 		my $offy = $cenY - int($self->{ship}->{y});
 
-		$self->_sendKeystrokesToServer($scr);
 		$self->{'map'} = $self->_resetMap($width, $height);
 
 		$self->_drawBullets($offx, $offy);
@@ -359,7 +359,7 @@ sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
 	# send keystrokes
-	if ($scr->key_pressed()) { 
+	while ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
 		print {$self->{socket}} "$chr\n";
 	}
