@@ -63,11 +63,26 @@ sub _bindSocket {
 
 sub loop {
 	my $self = shift;
-	$self->{lastTime} = time();
+
+	$self->{lastTime}  = time();
+	my $lastFrame = time();
+	my $frames = 0;
 	my $time = time();
+	my $fps = 60;
+
 	while (1){
+		if ((time() - $time) < (1 / $fps)){
+			usleep(1_000_000 * ((1 / $fps) - (time() - $time)));
+			next;
+		}
 		$self->{lastTime} = $time;
 		$time = time();
+		$frames++;
+		if ($time - $lastFrame > 1){
+			$lastFrame = $time;
+			print "fps: $frames\n";
+			$frames = 0;
+		}
 
 		$self->_loadNewPlayers();
 		$self->_calculateBullets();
@@ -142,7 +157,7 @@ sub _loadNewPlayers {
 			}
 		}
 		print "$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, -1, $self->{shipIds}++);
+		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, $self->{shipIds}++);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship->{conn}, 'newship', {
 				design => $newShipDesign,
@@ -228,8 +243,8 @@ sub _calculatePowerAndMovement {
 		# power first because it disables move
 		$ship->power($time - $self->{lastTime});
 		$ship->move($time - $self->{lastTime});
-		foreach (@{ $ship->shoot() }){
-			$self->addBullet($_);
+		foreach my $bul (@{ $ship->shoot() }){
+			$self->addBullet($bul);
 		}
 	}
 }
@@ -311,42 +326,62 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-				my $partIds = $ship->pruneParts();
-				if ($#{$partIds} = 0){
-					if (! $ship->getCommandModule() ){
-						$self->removeShip($ship->{id});
-						$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-						print "ship $ship->{id}'s command module destroyed!\n";
-						print "ships in game : " . $self->getShipCount() . "\n";
-						next;
-					}
-
-					#$ship->orphanParts();
-					print $ship->{id} . " lost parts.\n";
-					#print $ship->getShipDisplay();
-					#resend ship
-					my $map = $ship->{collisionMap};
-					my $msg = {
-						ship_id => $ship->{id},
-						'map' => $map
-					};
-					foreach my $s ($self->getShips()){
-						$self->sendMsg($s->{conn}, 'shipchange', $msg);
-					}
-					print "ships in game : " . $self->getShipCount() . "\n";
-				}
+#				my $partIds = $ship->pruneParts();
+#				if ($#{$partIds} > 0){
+#					if (! $ship->getCommandModule() ){
+#						$self->removeShip($ship->{id});
+#						$self->broadcastMsg('shipdelete', { id => $ship->{id} });
+#						print "ship $ship->{id}'s command module destroyed!\n";
+#						print "ships in game : " . $self->getShipCount() . "\n";
+#						next;
+#					}
+#
+#					#$ship->orphanParts();
+#					print $ship->{id} . " lost parts.\n";
+#					#print $ship->getShipDisplay();
+#					#resend ship
+#					my $map = $ship->{collisionMap};
+#					my $msg = {
+#						ship_id => $ship->{id},
+#						'map' => $map
+#					};
+#					foreach my $s ($self->getShips()){
+#						$self->sendMsg($s->{conn}, 'shipchange', $msg);
+#					}
+#					print "ships in game : " . $self->getShipCount() . "\n";
+#				}
 				#if (! defined($data->{deflect})) {
-					foreach my $s ($self->getShips()){
-						$data->{bullet_del} = $bulletK;
-						$data->{ship_id} = $ship->{id};
-						$self->sendMsg($s->{conn}, 'dam', $data); 
-					}
-					delete $self->{bullets}->{$bulletK};
-				#} else {
+				$data->{bullet_del} = $bulletK;
+				$data->{ship_id} = $ship->{id};
+				$self->broadcastMsg('dam', $data);
+				if (defined($data->{deflect})){
 					#$bullet->{dx} = (0 - $bullet->{dx});
+				# probably only hit a shield
 					#$bullet->{dy} = (0 - $bullet->{dy});
-					#$bullet->{ship_id} = $ship->{id};
+					#$bullet->{ship_id} = -1;
+				}
+				#} else {
+				delete $self->{bullets}->{$bulletK};
 				#}
+
+				if (!defined($data->{health})){
+					last;
+				}
+				if ($data->{health} <= 0){
+					print "part killed $data->{id} from $ship->{id}\n";
+					$ship->_removePart($data->{id});
+					my @orphaned = $ship->orphanParts();
+					print "orphaned: $#orphaned\n";
+					foreach my $partId (@orphaned){
+						my %data = (
+							ship_id => $ship->{id},
+							id => $partId,
+							health  => -1
+						);
+						$self->broadcastMsg('dam', \%data);
+					}
+				}
+				$ship->_recalculate();
 				last;
 			}
 		}

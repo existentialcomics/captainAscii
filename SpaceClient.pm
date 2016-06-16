@@ -43,6 +43,8 @@ sub _init {
 	$self->{height} = 55;
 	$self->{width}  = 130;
 
+	$self->{debug} = "";
+
 	$self->loop();
 
 	return 1;
@@ -68,7 +70,7 @@ sub _loadShip {
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
-	$self->{ship} = SpaceShip->new($shipStr, 5, 5, -1, 'self');
+	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self');
 	$self->_addShip($self->{ship});
 	
 	return 1;
@@ -99,19 +101,19 @@ sub _addShip {
 sub _getShip {
 	my $self = shift;
 	my $id = shift;
-	$self->{debug} = $id;
+	#$self->{debug} = $id;
 	return $self->{ships}->{$id};
 }
 
 sub loop {
 	my $self = shift;
 
-	#my $frame = 0;
-	#my $lastFrame = 0;
-	#my $fps = 20;
-	#my $framesInSec;
-	#my $lastTime = time();
-	#my $time = time();
+	my $lastTime  = time();
+	my $lastFrame = time();
+	my $frames = 0;
+	my $time = time();
+	my $fps = 60;
+	$self->{fps} = 60;
 
 	my $height = 55;
 	my $width = 130;
@@ -122,6 +124,19 @@ sub loop {
 
 	my $playing = 1;
 	while ($playing){
+		if ((time() - $time) < (1 / $fps)){
+			usleep(1_000_000 * ((1 / $fps) - (time() - $time)));
+			next;
+		}
+		$lastTime = $time;
+		$time = time();
+		$frames++;
+		if ($time - $lastFrame > 1){
+			$lastFrame = $time;
+			$self->{fps} = $frames;
+			$frames = 0;
+		}
+
 		$self->_getMessagesFromServer();
 
 		$self->{lighting} = {};
@@ -175,6 +190,7 @@ sub printInfo {
 	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->_getShipCount()) );
 	$scr->at($height + 3, 0);
 	$scr->puts(
+		"fps: " . $self->{fps} . "  " . 
 		"weight: " .  $ship->{weight} .
 		"  thrust: " . $ship->{thrust} .
 		"  speed: " . sprintf('%.1f', $ship->{speed}) . 
@@ -369,7 +385,7 @@ sub _getMessagesFromServer {
 				if (my $ship = $self->_getShip($data->{sid})){
 				$self->{debug} = "new bullet: $key $data->{sid}";
 					my $part = $ship->getPartById($data->{pid});
-					$self->{debug} = "part time: $data->{pid} *** " . time();
+					#$self->{debug} = "part time: $data->{pid} *** " . time();
 					$part->{'lastShot'} = time();
 				} else {
 					#$self->{debug} = "ship not found $data->{sid}";
@@ -391,11 +407,13 @@ sub _getMessagesFromServer {
 				$ship->{shieldHealth} = $data->{shieldHealth};
 			}
 		} elsif ($msg->{c} eq 'newship'){
-			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, -1, $data->{id});
+			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id});
 			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
 			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
-			delete $self->{bullets}->{$data->{bullet_del}};
+			if (defined($data->{bullet_del})){
+				delete $self->{bullets}->{$data->{bullet_del}};
+			}
 			foreach my $s ($self->_getShips()){
 					#$self->{debug} = Dumper($data);
 				if ($s->{id} eq $data->{ship_id}){
@@ -421,7 +439,7 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{'old_id'}){
 					$self->{ships}->{$data->{'new_id'}} = $self->{ships}->{$data->{'old_id'}};
 					$s->{id} = $data->{'new_id'};
-					$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
+					#$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
 				}
 			}
 		} elsif ($msg->{c} eq 'shipstatus'){

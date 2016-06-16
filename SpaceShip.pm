@@ -411,7 +411,6 @@ sub _init {
 	my $shipDesign = shift;
 	my $x = shift;
 	my $y = shift;
-	my $direction = shift;
 	my $id = shift;
 	my $options = shift;
 
@@ -603,7 +602,6 @@ sub _calculateHealth {
 
 sub _recalculate {
 	my $self = shift;
-	$self->orphanParts();
 	$self->_recalculateCollisionMap();
 	$self->_recalculatePower();
 	$self->_calculateWeight();
@@ -627,6 +625,8 @@ sub resolveCollision {
 #	$part->{'health'} -= $bullet->{damage};
 #	$part->{'hit'} = time();
 #	return { id => $part->{id}, health => $part->{health} };
+
+	my $partsRemoved = 0;
 
 	foreach my $part ($self->getParts()){
 		# x and y got mixed somehow
@@ -710,6 +710,9 @@ sub resolveCollision {
 		    int($bullet->{x}) == $px){
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
+			if ($part->{health} < 0){
+				$self->_removePart($part->{id});
+			}
 			return { id => $part->{id}, health => $part->{health} };
 		}
 	}
@@ -720,10 +723,16 @@ sub damagePart {
 	my $self = shift;
 	my ($partId, $health) = @_;
 	my $part = $self->getPartById($partId);
+	if ($health < 0){
+		$self->_removePart($partId);
+		return 1;
+	}
 	$part->{'hit'} = time();
 	$part->{health} = $health;
+	return 0;
 }
 
+# TODO have server periodically send out shield health for regen
 sub damageShield {
 	my $self = shift;
 	my ($partId, $health) = @_;
@@ -767,11 +776,14 @@ sub orphanParts {
 		}
 	} while (defined($pexam = shift @next));
 
+	my @parts;
 	foreach my $part ($self->getParts()){
 		if (!defined($matched{$part->{id}})){
+			push @parts, $part->{id};
 			$self->_removePart($part->{id});
 		}
 	}
+	return @parts;
 }
 
 sub _removePart {
@@ -1119,6 +1131,19 @@ sub _loadConfig {
 
 		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
 	}
+
+	my @powers = $cfg->GroupMembers('power');
+	foreach my $section (@powers){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
+		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
+		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
+		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
+		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
+
+		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
+		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
+	}
 }
 
 sub _loadShip {
@@ -1154,7 +1179,6 @@ sub _calculateParts {
 	$self->_offsetByCommandModule();
 	$self->_setPartConnections();
 	$self->_removeBlockedGunQuadrants();
-	#$self->pruneParts(); # will removed orphaned parts and recalc if necessary
 }
 
 sub _loadShipByMap {
