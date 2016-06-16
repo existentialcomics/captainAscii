@@ -290,6 +290,7 @@ sub _drawShips {
 	my $offx = shift;
 	my $offy = shift;
 
+	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
 		foreach my $part ($ship->getParts()){
@@ -298,11 +299,11 @@ sub _drawShips {
 			if (defined($part->{lastShot})){
 				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
 			}
-			my $time = int(time() * 2);
-			my $rainbow = ("RGB" . abs( 5 - ($time % 10)) . abs( 5 - (($time + 3) % 10)) . abs( 5 - (($time + 6) % 10)));
+			my $timeRainbow = int($time * 2);
+			my $rainbow = color("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
 
 			my $partColor = ( defined($part->{'part'}->{color}) ?
-				( $part->{'part'}->{color} eq 'rainbow' ? color($rainbow) : color($part->{'part'}->{color}) )
+				( $part->{'part'}->{color} eq 'rainbow' ? $rainbow : $part->{'part'}->{color} )
 				: $ship->{color}
 			);
 
@@ -313,14 +314,13 @@ sub _drawShips {
 			if ($ship->{cloaked}){
 				# remove coloring TODO change to color + chr
 				my $chr = $part->{chr};
-				$chr =~ s/\e\[\d+(?>(;\d+)*)m//g;
 				if ($ship->{id} eq $self->{ship}->{id}){
 					$self->setMap($px, $py, color('on_black GREY3') . $chr . color('reset'));
 				} else {
 					$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
 				}
 			} else { 
-				$self->setMap($px, $py, $highlight . $bold . $ship->{color} . $partColor . $part->{'chr'} . color('reset'));
+				$self->setMap($px, $py, $highlight . $bold . $partColor . $part->{'chr'} . color('reset'));
 			}
 			if ($ship->{shieldsOn}){
 				if ($part->{'part'}->{'type'} eq 'shield'){

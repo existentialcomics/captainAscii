@@ -993,7 +993,8 @@ sub _loadPartConfig {
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
-		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
+		my $color = $cfg->val($section, 'color', 'WHITE');
+		$parts{$chr}->{'color'}  = ($color eq 'rainbow' ? 'rainbow' : color($color));
 	}
 
 	my @guns = $cfg->GroupMembers('gun');
@@ -1049,11 +1050,6 @@ sub _loadPartConfig {
 	foreach my $section (@commands){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{type} = 'command';
-		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
-		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
-		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
-		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
-		$parts{$chr}->{'color'}  = $cfg->val($section, 'color', 'WHITE');
 
 		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
 		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
