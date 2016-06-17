@@ -9,6 +9,8 @@ use SpaceShip;
 #use Storable;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
+use Term::ReadKey;
+ReadMode 4;
 
 use IO::Socket::UNIX;
 
@@ -29,11 +31,11 @@ sub _init {
 	my $self = shift;
 	my $ship_file = shift;
 	my $socket = shift;
-	my $options = shift;
+	my $color = shift;
 	print "socket: $socket \n";
 	
 	$self->_bindSocket($socket);
-	$self->_loadShip($ship_file);
+	$self->_loadShip($ship_file, $color);
 
 	$self->{socket}->blocking(0);
 
@@ -53,6 +55,7 @@ sub _init {
 sub _loadShip {
 	my $self = shift;
 	my $ship_file = shift;
+	my $color = shift;
 	$| = 1;
 
 	open (my $fh, '<', $ship_file) or die "failed to open $ship_file\n";
@@ -70,7 +73,7 @@ sub _loadShip {
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
-	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self');
+	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self', $color);
 	$self->_addShip($self->{ship});
 	
 	return 1;
@@ -112,8 +115,8 @@ sub loop {
 	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
-	my $fps = 10;
-	$self->{fps} = 60;
+	my $fps = 15;
+	$self->{fps} = $fps;
 
 	my $height = 55;
 	my $width = 130;
@@ -358,6 +361,12 @@ sub _drawShips {
 sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
+	while (my $chr = ReadKey -1){
+		if ($chr =~ m/\cc/){ print color('reset'); exit; }
+		if ($chr =~ m/\e/ ){ print color('reset'); exit; }
+		print {$self->{socket}} "$chr\n";
+	}
+	return 1;
 	# send keystrokes
 	while ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
@@ -383,7 +392,7 @@ sub _getMessagesFromServer {
 				#$self->{ships}->{$data->{sid}}->{parts}->{$data->{pid}}->{'hit'} = time();
 				#$ships{'self'}->{parts}->{$data->{pid}}->{'hit'} = time();
 				if (my $ship = $self->_getShip($data->{sid})){
-				$self->{debug} = "new bullet: $key $data->{sid}";
+					#$self->{debug} = "new bullet: $key $data->{sid}";
 					my $part = $ship->getPartById($data->{pid});
 					#$self->{debug} = "part time: $data->{pid} *** " . time();
 					$part->{'lastShot'} = time();
@@ -407,7 +416,7 @@ sub _getMessagesFromServer {
 				$ship->{shieldHealth} = $data->{shieldHealth};
 			}
 		} elsif ($msg->{c} eq 'newship'){
-			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id});
+			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
 			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
 			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
