@@ -120,6 +120,7 @@ sub loop {
 
 	my $height = 55;
 	my $width = 130;
+	$self->{s} = 0;
 
 	my $scr = new Term::Screen;
 	$scr->clrscr();
@@ -137,6 +138,8 @@ sub loop {
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
 			$self->{fps} = $frames;
+			$self->{debug} = $self->{s} . "     ";
+			$self->{s} = 0;
 			$frames = 0;
 		}
 
@@ -403,6 +406,7 @@ sub _getMessagesFromServer {
 			$self->{bullets}->{$key} = $data;
 			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 's'){
+			$self->{s}++;
 			foreach my $ship ($self->_getShips()){
 				next if ($ship->{id} ne $data->{id});
 				$ship->{x} = $data->{x};

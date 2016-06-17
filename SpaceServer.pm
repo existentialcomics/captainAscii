@@ -37,7 +37,6 @@ sub _init {
 	
 	$self->_bindSocket($socket);
 	$self->{ships} = [];
-	$self->{fps} = 24;
 	$self->{shipIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
@@ -68,7 +67,7 @@ sub loop {
 	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
-	my $fps = 60;
+	my $fps = 20;
 
 	while (1){
 		my $frametime = time() - $time;
@@ -81,7 +80,10 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-			print "fps: $frames\n";
+#			print "fps: $frames\n";
+#			print "  bullets:";
+#			print $self->getBulletCount(0);
+#			print "\n";
 			$frames = 0;
 		}
 
@@ -293,16 +295,22 @@ sub getBullets {
 	return keys %{ $self->{bullets} };
 }
 
+sub getBulletCount {
+	my $self = shift;
+	return scalar $self->getBullets();
+}
+
 sub _calculateBullets {
 	my $self = shift;
-	my $time = time();
 	### calcuate bullets
 	foreach my $bulletK ( $self->getBullets() ){
-		my $bullet = $self->{bullets}->{$bulletK};
-		if ($bullet->{expires} < time()){
+		if ($self->{bullets}->{$bulletK}->{expires} < time()){
 			delete $self->{bullets}->{$bulletK};
-			next;
 		}
+	}
+	my $time = time();
+	foreach my $bulletK ( $self->getBullets() ){
+		my $bullet = $self->{bullets}->{$bulletK};
 		$bullet->{x} += ($bullet->{dx} * ($time - $self->{lastTime}));
 		$bullet->{y} += ($bullet->{dy} * ($time - $self->{lastTime}));
 
@@ -323,6 +331,8 @@ sub _calculateBullets {
 				}
 			);
 		}
+		print "here" . time() . "\n";
+		next;
 
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
