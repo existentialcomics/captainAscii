@@ -9,9 +9,6 @@ use SpaceShip;
 #use Storable;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
-use Term::ReadKey;
-ReadMode 4;
-
 use IO::Socket::UNIX;
 
 sub new {
@@ -120,7 +117,6 @@ sub loop {
 
 	my $height = 55;
 	my $width = 130;
-	$self->{s} = 0;
 
 	my $scr = new Term::Screen;
 	$scr->clrscr();
@@ -138,8 +134,6 @@ sub loop {
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
 			$self->{fps} = $frames;
-			$self->{debug} = $self->{s} . "     ";
-			$self->{s} = 0;
 			$frames = 0;
 		}
 
@@ -303,7 +297,7 @@ sub _drawShips {
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
 			if (defined($part->{lastShot})){
-				$bold = ((time() - $part->{'lastShot'} < .3) ? color('bold') : '');
+				$bold = (($time - $part->{'lastShot'} < .3) ? color('bold') : '');
 			}
 			my $timeRainbow = int($time * 2);
 			my $rainbow = color("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
@@ -328,6 +322,13 @@ sub _drawShips {
 			} else { 
 				$self->setMap($px, $py, $highlight . $bold . $partColor . $part->{'chr'} . color('reset'));
 			}
+			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
+ #			if (($part->{part}->{type} eq 'laser')){
+ #				#for (0 .. $part->{type}->{direction}){
+ #				for (0 .. 6){
+ #					$self->addLighting($px + $_, $py, 4); 
+ #				}
+ #			}
 			if ($ship->{shieldsOn}){
 				if ($part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
@@ -357,6 +358,13 @@ sub _drawShips {
 		my $py = ($offx + int($ship->{x})) + $aimy;
 		if ($self->{ship}->{id} eq $ship->{id}){
 			$self->setMap($px, $py, color('GREEN') . "+");
+		} else {
+			($aimx, $aimy) = $self->{ship}->getRadar($ship);
+			$px = ($offy + int($self->{ship}->{y})) + $aimx;
+			$py = ($offx + int($self->{ship}->{x})) + $aimy;
+			if (!$ship->{cloaked}){
+				$self->setMap($px, $py, color('RED') . "+");
+			}
 		}
 	}
 }
@@ -364,12 +372,12 @@ sub _drawShips {
 sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
-	while (my $chr = ReadKey -1){
-		if ($chr =~ m/\cc/){ print color('reset'); exit; }
-		if ($chr =~ m/\e/ ){ print color('reset'); exit; }
-		print {$self->{socket}} "$chr\n";
-	}
-	return 1;
+#	while (my $chr = ReadKey -1){
+#		if ($chr =~ m/\cc/){ print color('reset'); exit; }
+#		if ($chr =~ m/\e/ ){ print color('reset'); exit; }
+#		print {$self->{socket}} "$chr\n";
+#	}
+#	return 1;
 	# send keystrokes
 	while ($scr->key_pressed()) { 
 		my $chr = $scr->getch();
@@ -406,7 +414,6 @@ sub _getMessagesFromServer {
 			$self->{bullets}->{$key} = $data;
 			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 's'){
-			$self->{s}++;
 			foreach my $ship ($self->_getShips()){
 				next if ($ship->{id} ne $data->{id});
 				$ship->{x} = $data->{x};

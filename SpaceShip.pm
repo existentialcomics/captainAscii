@@ -9,14 +9,14 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
 		      clock_gettime clock_getres clock_nanosleep clock time);
 use Data::Dumper;
 use Config::IniFiles;
-#use Math::Trig;
+use Math::Trig ':radial';
 
 use constant {
-	ASPECTRATIO => 0.6,
+	ASPECTRATIO => 0.66666666,
 	PI => 3.1415
 };
 
-my $aspectRatio = 0.6;
+my $aspectRatio = 0.66666666;
 
 my %connectors= (
 	1 => {
@@ -131,6 +131,15 @@ sub _init {
 	return 1;
 }
 
+sub getRadar {
+	my $self = shift;
+	my $ship = shift;
+	my $y = ($ship->{x} - $self->{x});
+	my $x = ($ship->{y} - $self->{y});
+	my ($rho, $theta, $phi)   = cartesian_to_spherical($x, $y, 0);
+	return(cos($theta) * 20 * ASPECTRATIO, sin($theta) * 20);
+}
+
 sub getAimingCursor {
 	my $self = shift;
 	return(cos($self->{direction}) * 12 * ASPECTRATIO, sin($self->{direction}) * 12);
@@ -165,7 +174,7 @@ sub shoot {
 				}
 			}
 
-			if (defined($part->{part}->{spread})){
+			if ($part->{part}->{spread}){
 				$direction += (rand($part->{part}->{spread}) - ($part->{part}->{spread} / 2));
 			}
 			push @bullets, {
@@ -259,6 +268,7 @@ sub _calculateSpeed {
 	} else {
 		$self->{speed} = $self->{thrust} / $self->{weight} * 2;
 	}
+	if ($self->{speed} > 35){ $self->{speed} = 35; }
 }
 
 sub _calculateWeight {
@@ -520,10 +530,10 @@ sub keypress {
 	if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
 	if ($chr eq ' '){ $self->{shooting} = time();}
 	if ($chr eq 'p'){ $self->_recalculate(); }
-	if ($chr eq 'q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
-	if ($chr eq 'e'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
-	if ($chr eq 'Q'){ $self->{aimingPress} = time(); $self->{aimingDir} = 5}
-	if ($chr eq 'E'){ $self->{aimingPress} = time(); $self->{aimingDir} = -5}
+	if ($chr eq 'q' || $chr eq 'j'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
+	if ($chr eq 'e' || $chr eq 'k'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
+	if ($chr eq 'Q' || $chr eq 'J'){ $self->{aimingPress} = time(); $self->{aimingDir} = 5}
+	if ($chr eq 'E' || $chr eq 'E'){ $self->{aimingPress} = time(); $self->{aimingDir} = -5}
 	if ($chr eq 'S'){ $self->hyperdrive(0, 1); } 
 	if ($chr eq 'A'){ $self->hyperdrive(-1, 0); } 
 	if ($chr eq 'D'){ $self->hyperdrive(1, 0); } 
@@ -767,6 +777,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
 		$parts{$chr}->{'bulletspeed'} = $cfg->val($section, 'bulletspeed', 20);
 		$parts{$chr}->{'rate'}        = $cfg->val($section, 'rate', 0.3);
+		$parts{$chr}->{'spread'}      = $cfg->val($section, 'spread', 0);
 		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
 		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
 		$parts{$chr}->{'shipMomentum'}   = $cfg->val($section, 'shipMomentum', 0);
@@ -774,6 +785,16 @@ sub _loadPartConfig {
 		foreach my $q (split ',', $quads){
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
 		}
+	}
+
+	my @lasers = $cfg->GroupMembers('laser');
+	foreach my $section (@lasers){
+		my $chr = $cfg->val($section, 'ref');
+		$parts{$chr}->{type} = 'laser';
+		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
+		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
+		$parts{$chr}->{'direction'}   = $cfg->val($section, 'direction', 4);
+		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
 	}
 
 	my @thrusters = $cfg->GroupMembers('thruster');

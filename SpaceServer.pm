@@ -68,6 +68,7 @@ sub loop {
 	my $frames = 0;
 	my $time = time();
 	my $fps = 20;
+	$self->{shipSend} = 0;
 
 	while (1){
 		my $frametime = time() - $time;
@@ -84,6 +85,8 @@ sub loop {
 #			print "  bullets:";
 #			print $self->getBulletCount(0);
 #			print "\n";
+			#print "shipSend: $self->{shipSend}\n";
+			#$self->{shipSend} = 0;
 			$frames = 0;
 		}
 
@@ -131,7 +134,8 @@ sub sendMsg {
 		c => $category,
 		d => $data
 	};
-	print $socket (JSON::XS::encode_json($msg)) . "\n";
+	#print $socket (JSON::XS::encode_json($msg)) . "\n";
+	syswrite($socket, (JSON::XS::encode_json($msg)) . "\n");
 }
 
 sub broadcastMsg {
@@ -170,6 +174,7 @@ sub _loadNewPlayers {
 			});
 		}
 		$conntmp->blocking(0);
+		$conntmp->autoflush(1);
 		$shipNew->{conn} = $conntmp;
 
 		# set the new ship's id
@@ -197,6 +202,7 @@ sub _sendShipsToClients {
 		foreach my $shipInner ($self->getShips()) {
 			# send the inner loop ship the info of the outer loop ship
 			my $msg = {};
+			#$self->{shipSend}++;
 			if ($ship->{id} eq $shipInner->{id}){
 				$msg = {
 					#id => 'self' ,
@@ -331,8 +337,6 @@ sub _calculateBullets {
 				}
 			);
 		}
-		print "here" . time() . "\n";
-		next;
 
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
