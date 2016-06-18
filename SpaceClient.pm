@@ -66,11 +66,13 @@ sub _loadShip {
 		print {$self->{'socket'}} $line;
 	}
 	close ($fh);
-
+	if ($color){
+		print {$self->{socket}} "OPTION:color=$color\n";
+	}
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
-	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self', $color);
+	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self', {color => $color});
 	$self->_addShip($self->{ship});
 	
 	return 1;
@@ -302,7 +304,7 @@ sub _drawShips {
 			my $timeRainbow = int($time * 2);
 			my $rainbow = color("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
 
-			my $partColor = ( defined($part->{'part'}->{color}) ?
+			my $partColor = ( $part->{'part'}->{'color'} ne 'ship' ?
 				( $part->{'part'}->{color} eq 'rainbow' ? $rainbow : $part->{'part'}->{color} )
 				: $ship->{color}
 			);

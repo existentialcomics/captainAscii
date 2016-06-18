@@ -92,7 +92,9 @@ sub _init {
 
 	$self->_loadPartConfig('parts.ini');
 
+	print "init: $options->{color} \n";
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
+	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
 
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
@@ -765,8 +767,8 @@ sub _loadPartConfig {
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
-		my $color = $cfg->val($section, 'color', 'WHITE');
-		$parts{$chr}->{'color'}  = ($color eq 'rainbow' ? 'rainbow' : color($color));
+		my $color = $cfg->val($section, 'color', 'ship');
+		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : color($color));
 	}
 
 	my @guns = $cfg->GroupMembers('gun');

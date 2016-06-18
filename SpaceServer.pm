@@ -153,24 +153,29 @@ sub _loadNewPlayers {
 		my $newShipDesign = '';
 		my $waitShip = 1;
 		print "new ship entering...\n";
+		my %options = ();
 		while ($waitShip){
 			while(my $line = <$conntmp>){
 				if ($line =~ /DONE/){
 					$waitShip = 0;
 					last;
+				} elsif ($line =~ m/^OPTION:(.+)=(.+)$/){
+					print "option: $1 = $2\n";
+					$options{$1} = $2;
 				} else {
 					$newShipDesign .= $line;
 				}
 			}
 		}
 		print "$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, $self->{shipIds}++);
+		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, $self->{shipIds}++, \%options);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship->{conn}, 'newship', {
 				design => $newShipDesign,
-				x => 5,
-				y => 5,
+				x => $shipNew->{x},
+				y => $shipNew->{y},
 				id => $shipNew->{id},
+				options => \%options,
 			});
 		}
 		$conntmp->blocking(0);
@@ -180,12 +185,13 @@ sub _loadNewPlayers {
 		# set the new ship's id
 		$self->sendMsg($shipNew->{conn}, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
 		# send it to the other ships
-		foreach my $os ($self->getShips()){
+		foreach my $oldShip ($self->getShips()){
 			$self->sendMsg($shipNew->{conn}, 'newship', {
-				design => $os->{design},
-				x => $os->{x},
-				y => $os->{y},
-				id => $os->{id},
+				design => $oldShip->{design},
+				x => $oldShip->{x},
+				y => $oldShip->{y},
+				id => $oldShip->{id},
+				options => { color => $oldShip->{colorDef} }
 			});
 		}
 

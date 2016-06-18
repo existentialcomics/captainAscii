@@ -4,7 +4,7 @@ use SpaceClient;
 
 my $ship = shift;
 my $socket = '/tmp/captainAscii.sock';
-my $name = shift;
+my $color = shift;
 
 if (!$ship){
 	print "enter ship file\n";
@@ -16,6 +16,6 @@ if (! -f $ship){
 	exit;
 }
 
-my $client = SpaceClient->new($ship, $socket);
+my $client = SpaceClient->new($ship, $socket, $color);
 
 
