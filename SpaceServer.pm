@@ -196,6 +196,26 @@ sub _loadNewPlayers {
 	return 0;
 }
 
+sub _findClosestShip {
+	my $self = shift;
+	my ($x, $y, $skipId) = @_;
+	my $smallestDistance = 999999999;
+	my $id = -1;
+	my $dir = 0;
+	foreach my $ship ($self->getShips()){
+		next if ($ship->{id} eq $skipId);
+		my $dy = ($ship->{x} - $x);
+		my $dx = ($ship->{y} - $y);
+		my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
+		if ($rho < $smallestDistance){
+			$smallestDistance = $rho;
+			$dir = $theta;
+			$id = $ship->{id};
+		}
+	}
+	return ($id, $smallestDistance, $dir);
+}
+
 sub _sendShipsToClients {
 	my $self = shift;
 	foreach my $ship ($self->getShips()){
