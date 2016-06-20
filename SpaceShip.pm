@@ -652,25 +652,26 @@ sub move {
 	my $self = shift;
 	if (!defined($self->{lastMove})){ $self->{lastMove} = time();}
 	#if (time() - $self->{lastPower}) < 0.1)){ return 0; }
-	my $timeMod = time() - $self->{lastMove};
+	my $time = time();
+	my $timeMod = $time - $self->{lastMove};
 
-	if (time - $self->{aimingPress} < 0.15){
+	if ($time - $self->{aimingPress} < 0.15){
 		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
 		if ($self->{direction} > (PI * 2)){ $self->{direction} -= (PI * 2); }
 		if ($self->{direction} < 0){ $self->{direction} += (PI * 2); }
 	}
 	
-	if (time - $self->{movingHozPress} < 0.2){
+	if ($time - $self->{movingHozPress} < 0.2){
 		$self->{x} += ($self->{movingHoz} * $self->{speed} * $timeMod);
 	} else {
 		$self->{movingHoz} = 0;
 	}
-	if (time - $self->{movingVertPress} < 0.2){
+	if ($time - $self->{movingVertPress} < 0.2){
 		$self->{y} += ($self->{movingVert} * $self->{speed} * $timeMod * $aspectRatio);
 	} else {
 		$self->{movingVert} = 0;
 	}
-	$self->{lastMove} = time();
+	$self->{lastMove} = $time;
 }
 
 sub _loadPart {

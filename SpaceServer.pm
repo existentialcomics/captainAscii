@@ -13,8 +13,13 @@ use SpaceShip;
 use Storable;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
+use Math::Trig ':radial';
 
 use IO::Socket::UNIX;
+use constant {
+	ASPECTRATIO => 0.66666666,
+	PI => 3.1415
+};
 
 sub new {
 	my $class = shift;
@@ -90,12 +95,60 @@ sub loop {
 			$frames = 0;
 		}
 
+		$self->_ai();
 		$self->_loadNewPlayers();
 		$self->_calculateBullets();
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 	}
+}
+
+sub _ai {
+	my $self = shift;
+	foreach my $ship ($self->getShips()){
+		next if (!$ship->{isBot});
+		#if ($ship->{ai}){
+		my ($id, $distance, $dir) = $self->_findClosestShip(
+			$ship->{'x'},
+			$ship->{'y'},
+			$ship->{'id'}
+			);
+		#}
+		if ($id ne '-1' && $ship->{isBot}){
+			$ship->{direction} = $dir;
+			if ($distance < 25){
+				$ship->{shooting} = time();
+			} else {
+				$ship->{movingHoz}  = sin($dir);
+				$ship->{movingVert} = cos($dir);
+				$ship->{movingHozPress} = time();
+				$ship->{movingVertPress} = time();
+			}
+		}
+		#print "$id, $distance, $dir\n";
+	}
+}
+
+sub _findClosestShip {
+	my $self = shift;
+	my ($x, $y, $skipId) = @_;
+	my $smallestDistance = 999999999;
+	my $id = -1;
+	my $dir = 0;
+	foreach my $ship ($self->getShips()){
+		next if ($ship->{id} eq $skipId);
+		next if ($ship->{cloaked} && !$ship->{shieldsOn} && (time() - $ship->{shooting} > 3));
+		my $dy = ($ship->{x} - $x) * ASPECTRATIO;
+		my $dx = ($ship->{y} - $y);
+		my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
+		if ($rho < $smallestDistance){
+			$smallestDistance = $rho;
+			$dir = $theta;
+			$id = $ship->{id};
+		}
+	}
+	return ($id, $smallestDistance, $dir);
 }
 
 sub getShips {
@@ -121,6 +174,7 @@ sub removeShip {
 sub addShip {
 	my $self = shift;
 	my $ship = shift;
+	$ship->{lastMsg} = time();
 
 	push @{ $self->{ships} }, $ship;
 	my $id = $#{ $self->{ships} };
@@ -191,6 +245,7 @@ sub _loadNewPlayers {
 				x => $oldShip->{x},
 				y => $oldShip->{y},
 				id => $oldShip->{id},
+				#'map' => $oldShip->{collisionMap},
 				options => { color => $oldShip->{colorDef} }
 			});
 		}
@@ -200,26 +255,6 @@ sub _loadNewPlayers {
 		return $id;
 	}
 	return 0;
-}
-
-sub _findClosestShip {
-	my $self = shift;
-	my ($x, $y, $skipId) = @_;
-	my $smallestDistance = 999999999;
-	my $id = -1;
-	my $dir = 0;
-	foreach my $ship ($self->getShips()){
-		next if ($ship->{id} eq $skipId);
-		my $dy = ($ship->{x} - $x);
-		my $dx = ($ship->{y} - $y);
-		my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
-		if ($rho < $smallestDistance){
-			$smallestDistance = $rho;
-			$dir = $theta;
-			$id = $ship->{id};
-		}
-	}
-	return ($id, $smallestDistance, $dir);
 }
 
 sub _sendShipsToClients {
@@ -292,6 +327,11 @@ sub _recieveInputFromClients {
 		while (defined(my $in = <$socket>)){
 			chomp($in);
 			my $chr = $in;
+			# ping message
+			if ($chr eq 'z'){
+				$ship->{lastMsg} = time();
+				next;
+			}
 			$ship->keypress($chr);
 			if ($chr eq 'c'){
 				my $msg = {
@@ -318,6 +358,14 @@ sub _recieveInputFromClients {
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
 				}
 			}
+		}
+		if (! $ship->{isBot} && time() - $ship->{lastMsg} > 5){
+			print "AI takeover of ship $ship->{id}!\n";
+			$ship->{aiMode} = 'pursue';
+			$ship->{aiState} = 'direct';
+			$ship->{aiModeChange} = time();
+			$ship->{aiStateChange} = time();
+			$ship->{isBot} = 1;
 		}
 	}
 }

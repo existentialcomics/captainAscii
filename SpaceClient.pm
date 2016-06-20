@@ -123,6 +123,7 @@ sub loop {
 	my $scr = new Term::Screen;
 	$scr->clrscr();
 	$scr->noecho();
+	my $lastPing = time();
 
 	my $playing = 1;
 	while ($playing){
@@ -137,6 +138,10 @@ sub loop {
 			$lastFrame = $time;
 			$self->{fps} = $frames;
 			$frames = 0;
+		}
+
+		if (time() - $lastPing > 1){
+			print {$self->{socket}} "z\n";
 		}
 
 		$self->_sendKeystrokesToServer($scr);
@@ -387,6 +392,7 @@ sub _sendKeystrokesToServer {
 	}
 }
 
+# get messages from the server
 sub _getMessagesFromServer {
 	my $self = shift;
 	my $socket = $self->{socket};
@@ -430,6 +436,9 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
+			if ($data->{'map'}){
+				$shipNew->_loadShipByMap($data->{'map'});
+			}
 			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
 			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
