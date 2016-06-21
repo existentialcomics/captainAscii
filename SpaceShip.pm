@@ -92,7 +92,6 @@ sub _init {
 
 	$self->_loadPartConfig('parts.ini');
 
-	print "init: $options->{color} \n";
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
 
@@ -133,6 +132,16 @@ sub _init {
 	return 1;
 }
 
+sub becomeAi {
+	my $self = shift;
+	$self->{aiMode} = 'explore';
+	$self->{aiState} = 'random';
+	$self->{aiModeChange} = 0;
+	$self->{aiStateChange} = 0;
+	$self->{aiTowardsShipId} = 0;
+	$self->{isBot} = 1;
+}
+
 sub getRadar {
 	my $self = shift;
 	my $ship = shift;
@@ -149,7 +158,7 @@ sub getAimingCursor {
 
 sub shoot {
 	my $self = shift;
-	if (time() - $self->{shooting} > 0.5){ return []; }
+	if (time() - $self->{shooting} > 0.4){ return []; }
 
 	my $quad = $self->getQuadrant();
 
@@ -397,6 +406,7 @@ sub resolveCollision {
 		}
 		if (int($bullet->{y}) == $py &&
 		    int($bullet->{x}) == $px){
+			$self->{aiMode} = 'attack';
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
 			if ($part->{health} < 0){

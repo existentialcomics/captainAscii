@@ -128,7 +128,10 @@ sub loop {
 	my $playing = 1;
 	while ($playing){
 		if ((time() - $time) < (1 / $fps)){
-			usleep(1_000_000 * ((1 / $fps) - (time() - $time)));
+			my $sleep = 1_000_000 * ((1 / $fps) - (time() - $time));
+			if ($sleep > 0){
+				usleep($sleep);
+			}
 			next;
 		}
 		$lastTime = $time;

@@ -18,7 +18,11 @@ use Math::Trig ':radial';
 use IO::Socket::UNIX;
 use constant {
 	ASPECTRATIO => 0.66666666,
-	PI => 3.1415
+	PI          => 3.1415,
+	LEFT        => -200,
+	RIGHT       => 200,
+	TOP         => -200,
+	BOTTOM      => 200
 };
 
 sub new {
@@ -101,13 +105,44 @@ sub loop {
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
+		$self->_spawnShips();
+	}
+}
+
+sub _spawnShips {
+	my $self = shift;
+	if ($self->getShipCount() < 10){
+		my $rand = rand();
+		my $newShipDesign = '(-|X|-)';
+		if ($rand < 2.2){
+			$newShipDesign = '
+      H 
+_(@OXO@)_
+   H   
+';
+		}
+		my $shipNew = SpaceShip->new($newShipDesign, rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+		$shipNew->{conn} = undef;
+		$shipNew->becomeAi();
+		$self->broadcastMsg('newship', {
+			design => $newShipDesign,
+			x => $shipNew->{x},
+			y => $shipNew->{y},
+			id => $shipNew->{id},
+			#'map' => $oldShip->{collisionMap},
+			options => { color => 'red' }
+		});
+		$self->addShip($shipNew);
 	}
 }
 
 sub _ai {
 	my $self = shift;
+	my $time = time();
 	foreach my $ship ($self->getShips()){
 		next if (!$ship->{isBot});
+		my $modeDiff  = $time - $ship->{aiModeChange};
+		my $stateDiff = $time - $ship->{aiStateChange};
 		#if ($ship->{ai}){
 		my ($id, $distance, $dir) = $self->_findClosestShip(
 			$ship->{'x'},
@@ -115,30 +150,80 @@ sub _ai {
 			$ship->{'id'}
 			);
 		#}
-		if ($id ne '-1' && $ship->{isBot}){
-			$ship->{direction} = $dir;
-			if ($distance < 25){
-				$ship->{shooting} = time();
-			} else {
-				$ship->{movingHoz}  = sin($dir);
-				$ship->{movingVert} = cos($dir);
-				$ship->{movingHozPress} = time();
-				$ship->{movingVertPress} = time();
+		if ($id eq '-1'){
+			$ship->{aiMode} = 'explore';
+		} else {
+			if ($distance < 20){
+				$ship->{aiMode} = 'attack';	
 			}
 		}
-		#print "$id, $distance, $dir\n";
+		if ($ship->{aiMode} eq 'explore'){
+			if ($stateDiff > 6){
+				my $move = rand(2 * PI);
+				$ship->{movingHoz}  = sin($move) * .3;
+				$ship->{movingVert} = cos($move) * .3;
+				$ship->{aiStateChange} = $time;
+			}
+			$ship->{movingHozPress} = time();
+			$ship->{movingVertPress} = time();
+		} elsif ($ship->{aiMode} eq 'attack'){
+			if ($id ne '-1'){
+				if ($distance < 30){
+					$ship->{direction} = $dir + (rand(.3) - .15);
+					$ship->{shooting} = time();
+					if ($stateDiff > 0.7){
+						my $move = $dir + (rand() < .5 ? (PI / 2) : -(PI / 2));
+						$ship->{movingHoz}  = sin($move) * .3;
+						$ship->{movingVert} = cos($move) * .3;
+						$ship->{aiStateChange} = $time;
+						if (rand() < .8){
+							$ship->{movingHozPress} = time();
+							$ship->{movingVertPress} = time();
+						}
+					}
+				} else {
+					if ($stateDiff > 0.5){
+						my $move = $dir + (rand(.3) - .15);
+						$ship->{movingHoz}  = sin($move) * .7;
+						$ship->{movingVert} = cos($move) * .7;
+						$ship->{aiStateChange} = $time;
+					}
+					$ship->{movingHozPress} = time();
+					$ship->{movingVertPress} = time();
+				}
+			}
+		} elsif ($ship->{aiMode} eq 'flee'){
+
+		} else {
+
+		}
+		#print "$ship->{id} - $id, $distance, $dir\n";
+		#print "mode: $ship->{aiMode}\n";
+	}
+}
+
+sub _aiDodge {
+	my $self = shift;
+	my $ship = shift;
+	if (time() - $ship->{aiModeChange} > 2){
+		$ship->{direction} = rand(2 * PI);
+		$ship->{aiModeChange} = time();
 	}
 }
 
 sub _findClosestShip {
 	my $self = shift;
-	my ($x, $y, $skipId) = @_;
+	my ($x, $y, $skipId, $onlyId) = @_;
 	my $smallestDistance = 999999999;
 	my $id = -1;
 	my $dir = 0;
 	foreach my $ship ($self->getShips()){
 		next if ($ship->{id} eq $skipId);
-		next if ($ship->{cloaked} && !$ship->{shieldsOn} && (time() - $ship->{shooting} > 3));
+		next if (
+			$ship->{cloaked} 
+			#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0)
+			&& (time() - $ship->{shooting} > 3)
+		);
 		my $dy = ($ship->{x} - $x) * ASPECTRATIO;
 		my $dx = ($ship->{y} - $y);
 		my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
@@ -184,6 +269,7 @@ sub addShip {
 sub sendMsg {
 	my $self = shift;
 	my ($socket, $category, $data) = @_;
+	if (!$socket){ return 0; }
 	my $msg = {
 		c => $category,
 		d => $data
@@ -222,7 +308,7 @@ sub _loadNewPlayers {
 			}
 		}
 		print "$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, 5, 5, $self->{shipIds}++, \%options);
+		my $shipNew = SpaceShip->new($newShipDesign, rand(100) - 50, rand(100) - 50, $self->{shipIds}++, \%options);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship->{conn}, 'newship', {
 				design => $newShipDesign,
@@ -313,9 +399,27 @@ sub _calculatePowerAndMovement {
 		# power first because it disables move
 		$ship->power($time - $self->{lastTime});
 		$ship->move($time - $self->{lastTime});
+		$self->_forceInBounds($ship);
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
 		}
+	}
+}
+
+sub _forceInBounds {
+	my $self = shift;
+	my $ship = shift;
+	if ($ship->{x} < LEFT){
+		$ship->{x} = LEFT;
+	}
+	if ($ship->{x} > RIGHT){
+		$ship->{x} = RIGHT;
+	}
+	if ($ship->{y} < TOP){
+		$ship->{y} = TOP;
+	}
+	if ($ship->{y} > BOTTOM){
+		$ship->{y} = BOTTOM;
 	}
 }
 
@@ -323,6 +427,7 @@ sub _recieveInputFromClients {
 	my $self = shift;
 	# recieve ship input
 	foreach my $ship ($self->getShips()){
+		next if ($ship->{isBot});
 		my $socket = $ship->{conn};
 		while (defined(my $in = <$socket>)){
 			chomp($in);
@@ -361,11 +466,7 @@ sub _recieveInputFromClients {
 		}
 		if (! $ship->{isBot} && time() - $ship->{lastMsg} > 5){
 			print "AI takeover of ship $ship->{id}!\n";
-			$ship->{aiMode} = 'pursue';
-			$ship->{aiState} = 'direct';
-			$ship->{aiModeChange} = time();
-			$ship->{aiStateChange} = time();
-			$ship->{isBot} = 1;
+			$ship->becomeAi();
 		}
 	}
 }
