@@ -44,10 +44,43 @@ sub _init {
 
 	$self->{debug} = "";
 
+	$self->designShip();
+
 	$self->loop();
 
 	return 1;
 }
+
+sub designShip {
+	my $self = shift;
+	my $scr = new Term::Screen;
+	$scr->clrscr();
+	$scr->noecho();
+	my $designing = 1;
+	my $x = 5;
+	my $y = 5;
+	my @ship;
+	push @ship, [' ' x 20] for 1 .. 20;
+	while ($designing == 1){
+		my $px = 0;
+		for my $row (@ship){
+			$px++;
+			$scr->at($px, 0);
+			$scr->puts(join "", @{$row});
+			$scr->at($x, $y);
+			$scr->puts('X');
+			my $chr = undef;
+			while ($chr = undef){
+				if ($scr->key_pressed()) { 
+					my $chr = $scr->getch();
+					print {$self->{socket}} "$chr\n";
+				}
+				usleep(1000);
+			}
+		}
+	}
+}
+
 
 sub _loadShip {
 	my $self = shift;

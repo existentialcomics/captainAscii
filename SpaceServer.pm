@@ -49,8 +49,49 @@ sub _init {
 	$self->{shipIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
+	$self->{level} = 2;
+	$self->{highestEnemy} = 1;
+
+	$self->loadEnemyDir('ships/enemy1', 1);
+	$self->loadEnemyDir('ships/enemy2', 2);
+	$self->loadEnemyDir('ships/enemy3', 3);
 
 	return 1;
+}
+
+sub loadEnemyDir {
+	my $self  = shift;
+	my $dir   = shift;
+	my $level = shift;
+	opendir(my $dh, $dir) or die "Failed to open enemy dir\n";
+	my @ships = grep { /\.ascii$/ && -f "$dir/$_" } readdir($dh);
+	foreach my $file (@ships){
+		open my $fh, '<', "$dir/$file";
+		my $shipDesign = "";
+		while (<$fh>){
+			$shipDesign .= $_;
+		}
+		$self->addEnemyDesign($level, $shipDesign);
+	}
+
+}
+
+sub getEnemyDesign {
+	my $self = shift;
+	my $level = shift;
+	return $self->{enemies}->{$level}->[
+		rand($#{ $self->{enemies}->{$level} } + 1)
+		];
+}
+
+sub addEnemyDesign {
+	my $self = shift;
+	my $level = shift;
+	if ($level > $self->{highestEnemy}){
+		$self->{highestEnemy} = $level;
+	}
+	my $shipDesign = shift;
+	push @{ $self->{enemies}->{$level} }, $shipDesign;
 }
 
 sub _bindSocket {
@@ -113,14 +154,15 @@ sub _spawnShips {
 	my $self = shift;
 	if ($self->getShipCount() < 10){
 		my $rand = rand();
-		my $newShipDesign = '(-|X|-)';
-		if ($rand < 2.2){
-			$newShipDesign = '
-      H 
-_(@OXO@)_
-   H   
-';
+		my $level = $self->{level};
+		if ($rand < 0.2){
+			$level++;
 		}
+		if ($level > $self->{highestEnemy}){
+			$level = $self->{highestEnemy};
+		}
+		my $newShipDesign = $self->getEnemyDesign($level);
+		print "adding enemy:\n$newShipDesign\n";
 		my $shipNew = SpaceShip->new($newShipDesign, rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
 		$shipNew->{conn} = undef;
 		$shipNew->becomeAi();
@@ -383,6 +425,25 @@ sub _sendShipsToClients {
 			}
 		}
 	}
+}
+
+sub sendFullShipStatus {
+	my $self = shift;
+	my $ship = shift;
+
+	$self->broadcastMsg('shipstatus', {
+		cloaked => $ship->{cloaked},
+		shieldsOn => $ship->{shieldsOn},
+		isBot => $ship->{isBot},
+	});
+}
+
+sub sendLivingParts {
+	my $self = shift;
+	my $ship = shift;
+	$self->broadcastMsg('partsleft', {
+		ids => $ship->getPartIds(),
+	});
 }
 
 sub addBullet {
