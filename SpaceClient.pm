@@ -3,8 +3,7 @@ package SpaceClient;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 require Term::Screen;
 use List::MoreUtils qw(zip);
-use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
-		      clock_gettime clock_getres clock_nanosleep clock time);
+use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use SpaceShip;
 #use Storable;
 use Data::Dumper;
@@ -29,64 +28,12 @@ sub _init {
 	my $ship_file = shift;
 	my $socket = shift;
 	my $color = shift;
-	print "socket: $socket \n";
-	
-	$self->_bindSocket($socket);
-	$self->_loadShip($ship_file, $color);
 
-	$self->{socket}->blocking(0);
-
-	$self->{ships}->{ $self->{ship}->{id} } = $self->{ship};
-	$self->{bullets} = {};
-
-	$self->{height} = 55;
+	$self->{height} = 45;
 	$self->{width}  = 130;
 
 	$self->{debug} = "";
-
-	$self->designShip();
-
-	$self->loop();
-
-	return 1;
-}
-
-sub designShip {
-	my $self = shift;
-	my $scr = new Term::Screen;
-	$scr->clrscr();
-	$scr->noecho();
-	my $designing = 1;
-	my $x = 5;
-	my $y = 5;
-	my @ship;
-	push @ship, [' ' x 20] for 1 .. 20;
-	while ($designing == 1){
-		my $px = 0;
-		for my $row (@ship){
-			$px++;
-			$scr->at($px, 0);
-			$scr->puts(join "", @{$row});
-			$scr->at($x, $y);
-			$scr->puts('X');
-			my $chr = undef;
-			while ($chr = undef){
-				if ($scr->key_pressed()) { 
-					my $chr = $scr->getch();
-					print {$self->{socket}} "$chr\n";
-				}
-				usleep(1000);
-			}
-		}
-	}
-}
-
-
-sub _loadShip {
-	my $self = shift;
-	my $ship_file = shift;
-	my $color = shift;
-	$| = 1;
+	$self->{fps} = 24;
 
 	open (my $fh, '<', $ship_file) or die "failed to open $ship_file\n";
 
@@ -96,9 +43,109 @@ sub _loadShip {
 	while(my $line = <$fh>){
 		print $line;
 		$shipStr .= $line;
-		print {$self->{'socket'}} $line;
 	}
 	close ($fh);
+
+	$shipStr = $self->designShip($shipStr);
+
+	print "socket: $socket \n";
+	
+	$self->_bindSocket($socket);
+	$self->_loadShip($shipStr, $color);
+
+	$self->{socket}->blocking(0);
+
+	$self->{ships}->{ $self->{ship}->{id} } = $self->{ship};
+	$self->{bullets} = {};
+
+
+
+	$self->loop();
+
+	return 1;
+}
+
+sub designShip {
+	my $self = shift;
+	my $inputDesign = shift;
+	my $cash = 1500;
+	my $scr = new Term::Screen;
+
+	my $ship = new SpaceShip($inputDesign, 0, 0, 1);
+	$self->{ship} = $ship;
+
+	$scr->clrscr();
+	$scr->noecho();
+	my $designing = 1;
+	my $shipDesign = "X";
+	my $x = 15;
+	my $y = 30;
+	my @ship;
+	foreach my $x (0 .. 30){
+		foreach my $y (0 .. 60){
+			$ship[$x][$y] = ' ';
+		}
+	}
+	$ship[15][30] = 'X';
+
+	while ($designing == 1){
+		my $px = 0;
+		$self->printInfo($scr);
+		for my $row (@ship){
+			$px++;
+			$scr->at($px, 0);
+			my $rowPrint = join "", @{$row};
+			$scr->puts(color('ON_GREY3') . $rowPrint . color('RESET'));
+			$scr->at($x, $y);
+		}
+		my $chr = undef;
+		while (!defined($chr)){
+			if ($scr->key_pressed()) { 
+				$chr = $scr->getch();
+				if ($chr eq 'a'){ $y--; }
+				elsif ($chr eq 'd'){ $y++; }
+				elsif ($chr eq 's'){ $x++; }
+				elsif ($chr eq 'w'){ $x--; }
+				elsif (defined($ship->getPartDef($chr))){
+					$ship[$x - 1][$y] = $chr;	
+				} elsif ($chr eq ' '){
+					$ship[$x - 1][$y] = $chr;	
+				} elsif ($chr eq 'r'){
+					$shipDesign = "";
+					for my $row (@ship){
+						$shipDesign .= join "", @{$row};
+						$shipDesign .= "\n";
+					}
+					$ship = SpaceShip->new($shipDesign, 0, 0, 'self');
+					$self->{ship} = $ship;
+				} elsif ($chr eq 'q'){
+					$designing = 0;
+				}
+			}
+			usleep(1000);
+		}
+	}
+	return $shipDesign;
+}
+
+
+sub _loadShip {
+	my $self = shift;
+	my $shipStr = shift;
+	my $color = shift;
+	$| = 1;
+
+#	open (my $fh, '<', $ship_file) or die "failed to open $ship_file\n";
+	# TODO don't send the ship until it successfully loads locally
+#	while(my $line = <$fh>){
+#		print $line;
+#		$shipStr .= $line;
+#		print {$self->{'socket'}} $line;
+#	}
+#	close ($fh);
+
+	print {$self->{socket}} $shipStr;
+
 	if ($color){
 		print {$self->{socket}} "OPTION:color=$color\n";
 	}
@@ -150,7 +197,7 @@ sub loop {
 	my $fps = 15;
 	$self->{fps} = $fps;
 
-	my $height = 55;
+	my $height = 45;
 	my $width = 130;
 
 	my $scr = new Term::Screen;
@@ -415,12 +462,6 @@ sub _drawShips {
 sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
-#	while (my $chr = ReadKey -1){
-#		if ($chr =~ m/\cc/){ print color('reset'); exit; }
-#		if ($chr =~ m/\e/ ){ print color('reset'); exit; }
-#		print {$self->{socket}} "$chr\n";
-#	}
-#	return 1;
 	# send keystrokes
 	while ($scr->key_pressed()) { 
 		my $chr = $scr->getch();

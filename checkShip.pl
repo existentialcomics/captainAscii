@@ -21,8 +21,16 @@ print "\n---------------------" . " ship output" . "--------------------" . "\n\
 my $ship = SpaceShip->new($ship_str1, 5, 5, 1, { color => $color } );
 #$ship->orphanParts();
 #$ship->_recalculate();
-my $display = $ship->getShipDisplay($cloaked);
+#my $display = $ship->getShipDisplay($cloaked);
+my $display = $ship->getDisplayArray($cloaked);
 
+foreach my $row (@$display){
+	print join @$row;
+	print "\n";
+}
+print Dumper($display);
+
+exit;
 print $display . "\n";
 
 print color('reset');

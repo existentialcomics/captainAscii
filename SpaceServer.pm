@@ -7,10 +7,9 @@ package SpaceServer;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 require Term::Screen;
 use List::MoreUtils qw(zip);
-use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
-		      clock_gettime clock_getres clock_nanosleep clock time);
 use SpaceShip;
 use Storable;
+use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use Math::Trig ':radial';
@@ -49,7 +48,7 @@ sub _init {
 	$self->{shipIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
-	$self->{level} = 2;
+	$self->{level} = 1;
 	$self->{highestEnemy} = 1;
 
 	$self->loadEnemyDir('ships/enemy1', 1);
@@ -523,6 +522,14 @@ sub _recieveInputFromClients {
 				foreach my $s ($self->getShips()){
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
 				}
+			}
+			if ($chr eq '+'){
+				$self->{level}++;
+				print "level changed to $self->{level}\n";
+			}
+			if ($chr eq '-'){
+				$self->{level}--;
+				print "level changed to $self->{level}\n";
 			}
 		}
 		if (! $ship->{isBot} && time() - $ship->{lastMsg} > 5){

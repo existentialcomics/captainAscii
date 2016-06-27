@@ -5,8 +5,7 @@
 use strict; use warnings;
 package SpaceShip;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
-use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep
-		      clock_gettime clock_getres clock_nanosleep clock time);
+use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
@@ -919,6 +918,12 @@ sub _loadShipByMap {
 	$self->_calculateParts();
 }
 
+sub getPartDef {
+	my $ship = shift;
+	my $chr  = shift;
+	return $parts{$chr};
+}
+
 sub _setPartConnections {
 	my $self = shift;
 	# TODO put command link calc here, start with command and work out
@@ -1035,18 +1040,42 @@ sub getQuadrant {
 	return undef;
 }
 
+sub getDisplayArray {
+	my $self = shift;
+	#my ($w, $h, $offset) = @_;
+	my @shipArr;
+	my $i = 0;
+	my $j = 0;
+	foreach my $x ($self->{bottommost} .. $self->{topmost}){
+		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
+			my $chr = $self->{collisionMap}->{$x}->{$y};
+			if (!defined($chr)){ $chr = ' ';}
+			print "$i, $j: ";
+			print $chr . "\n";
+			$shipArr[$j][$i] = $chr;
+			$i++;
+		}
+		$j++;
+	}
+	return \@shipArr;
+}
+
 # TODO VERY SLOW, redo with collision map
 sub getShipDisplay {
 	my $self = shift;	
-	my $cloaked = shift;
+	my $design = shift;
 	my $shipStr = "";
 	foreach my $x ($self->{bottommost} .. $self->{topmost}){
 		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
 			my $chr = ' ';
 				foreach my $part ($self->getParts()){
 					if ($part->{x} == $y && $part->{y} == $x){
-						my $partcolor = ($part->{part}->{color} eq 'rainbow' ? color('MAGENTA ON_RGB112') : $part->{part}->{color});
-						$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
+						if ($design){
+							$chr = $part->{defchr};
+						} else {
+							my $partcolor = ($part->{part}->{color} eq 'rainbow' ? color('MAGENTA ON_RGB112') : $part->{part}->{color});
+							$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
+						}
 						last;
 					}
 				}
