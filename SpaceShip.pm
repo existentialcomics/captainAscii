@@ -93,6 +93,7 @@ sub _init {
 
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
+	$self->{cash} = 0;
 
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
@@ -1044,10 +1045,10 @@ sub getDisplayArray {
 	my $self = shift;
 	#my ($w, $h, $offset) = @_;
 	my @shipArr;
-	my $i = 0;
-	my $j = 0;
-	foreach my $x ($self->{bottommost} .. $self->{topmost}){
-		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
+	my $j = 5;
+	foreach my $x ($self->{bottommost} - 3 .. $self->{topmost} + 3){
+		my $i = 5;
+		foreach my $y ($self->{leftmost} - 3 .. $self->{rightmost} + 3){
 			my $chr = $self->{collisionMap}->{$x}->{$y};
 			if (!defined($chr)){ $chr = ' ';}
 			print "$i, $j: ";

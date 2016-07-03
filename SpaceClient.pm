@@ -73,20 +73,21 @@ sub designShip {
 
 	my $ship = new SpaceShip($inputDesign, 0, 0, 1);
 	$self->{ship} = $ship;
+	my @shipArr = @{ $ship->getDisplayArray(5, 5) };
+	#print Dumper(@ship); exit;
 
 	$scr->clrscr();
 	$scr->noecho();
 	my $designing = 1;
-	my $shipDesign = "X";
+	my $shipDesign = $inputDesign;
 	my $x = 15;
 	my $y = 30;
 	my @ship;
 	foreach my $x (0 .. 30){
 		foreach my $y (0 .. 60){
-			$ship[$x][$y] = ' ';
+			$ship[$x][$y] = (defined($shipArr[$y][$x]) ? $shipArr[$y][$x] : ' ');
 		}
 	}
-	$ship[15][30] = 'X';
 
 	while ($designing == 1){
 		my $px = 0;
@@ -119,6 +120,13 @@ sub designShip {
 					$ship = SpaceShip->new($shipDesign, 0, 0, 'self');
 					$self->{ship} = $ship;
 				} elsif ($chr eq 'q'){
+					$shipDesign = "";
+					for my $row (@ship){
+						$shipDesign .= join "", @{$row};
+						$shipDesign .= "\n";
+					}
+					$ship = SpaceShip->new($shipDesign, 0, 0, 'self');
+					$self->{ship} = $ship;
 					$designing = 0;
 				}
 			}
@@ -269,9 +277,10 @@ sub printScreen {
 sub printInfo {
 	my $self = shift;
 	my $scr  = shift;
+	my $options = shift;
 
 	my $ship = $self->{ship};
-	my $height = $self->{height};
+	my $height = (defined($options->{height}) ? $options->{height} : $self->{height});
 	my $width = $self->{width};
 
 	#### ----- ship info ------ ####
@@ -285,6 +294,7 @@ sub printInfo {
 		"  thrust: " . $ship->{thrust} .
 		"  speed: " . sprintf('%.1f', $ship->{speed}) . 
 		"  cost: \$" . $ship->{cost} . 
+		"  cash: \$" . $ship->{cash} . 
 		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
 		);
 	# power
@@ -559,6 +569,10 @@ sub _getMessagesFromServer {
 					if (defined($data->{shieldsOn})){
 						$s->{shieldsOn} = $data->{shieldsOn};
 					}
+					if (defined($data->{cash})){
+						$s->{cash} = $data->{cash};
+					}
+					
 				}
 			}
 		}

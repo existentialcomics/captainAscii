@@ -431,9 +431,11 @@ sub sendFullShipStatus {
 	my $ship = shift;
 
 	$self->broadcastMsg('shipstatus', {
+		ship_id => $ship->{id},
 		cloaked => $ship->{cloaked},
+		cash    => $ship->{cash},
 		shieldsOn => $ship->{shieldsOn},
-		isBot => $ship->{isBot},
+		isBot   => $ship->{isBot},
 	});
 }
 
@@ -616,6 +618,15 @@ sub _calculateBullets {
 					}
 				}
 				if (! $ship->getCommandModule() ){
+					foreach my $claimShip ($self->getShips){
+						if ($claimShip->{id} eq $bullet->{id}){
+							$claimShip->{cash} += '500';
+							$self->sendFullShipStatus($claimShip);
+							print "$claimShip->{id} granted \$500\n";
+
+						}
+
+					}
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
 					print "ship $ship->{id}'s command module destroyed!\n";
