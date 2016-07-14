@@ -1,6 +1,6 @@
 use strict; use warnings;
 package SpaceClient;
-use Term::ANSIColor 4.00 qw(RESET color :constants256);
+use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
 require Term::Screen;
 use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
@@ -34,6 +34,10 @@ sub _init {
 
 	$self->{debug} = "";
 	$self->{fps} = 24;
+	$self->{mode} = 'drive';
+
+	$self->{cursorx} = 0;
+	$self->{cursory} = 0;
 
 	open (my $fh, '<', $ship_file) or die "failed to open $ship_file\n";
 
@@ -286,7 +290,7 @@ sub printInfo {
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, 0);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
-	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->_getShipCount()) );
+	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
 	$scr->at($height + 3, 0);
 	$scr->puts(
 		"fps: " . $self->{fps} . "  " . 
@@ -393,6 +397,13 @@ sub _drawShips {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
+		#if (($self->{'mode'} eq "build") && ($self->{ship}->{id} eq $ship->{id})){
+		if (($self->{ship}->{id} eq $ship->{id})){
+			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
+			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
+			print "$cx, $cy\n";
+			$self->setMap($cx, $cy, color("BLACK ON_WHITE") . '+');
+		}
 		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
@@ -473,9 +484,33 @@ sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
 	# send keystrokes
-	while ($scr->key_pressed()) { 
-		my $chr = $scr->getch();
-		print {$self->{socket}} "$chr\n";
+	if ($self->{mode} eq 'drive'){
+		while ($scr->key_pressed()){ 
+			my $chr = $scr->getch();
+			if ($chr eq '`'){
+				$self->{'mode'} = 'build';
+				$self->{'cursorx'} = 0;
+				$self->{'cursory'} = 0;
+			} else {
+				print {$self->{socket}} "$chr\n";
+			}
+		}
+	} elsif($self->{mode} eq 'build') {
+		while ($scr->key_pressed()){ 
+			my $chr = $scr->getch();
+			if ($chr eq '`'){
+				$self->{'mode'} = 'drive';
+			} elsif ($chr eq 'a'){ $self->{'cursory'}--; }
+			elsif ($chr eq 'd'){ $self->{'cursory'}++; }
+			elsif ($chr eq 's'){ $self->{'cursorx'}++; }
+			elsif ($chr eq 'w'){ $self->{'cursorx'}--; }
+			elsif (defined($self->{ship}->getPartDef($chr))){
+				#add part
+				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}:$chr\n";
+			} elsif ($chr eq ' '){
+				#remove part
+			}
+		}
 	}
 }
 
@@ -595,6 +630,15 @@ sub setMap {
 	my ($x, $y, $chr) = @_;
 	if ( ! $self->onMap($x, $y) ){ return 0; }
 	$self->{map}->[$x]->[$y] = $chr;
+}
+
+sub colorMap {
+	my $self = shift;
+	my ($x, $y, $color) = @_;
+	if ( ! $self->onMap($x, $y) ){ return 0; }
+	my $chr = color($color) . colorstrip($self->{map}->[$x]->[$y]);
+	$self->{map}->[$x]->[$y] = $chr;
+
 }
 
 sub addLighting {

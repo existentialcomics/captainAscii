@@ -494,6 +494,24 @@ sub _recieveInputFromClients {
 		while (defined(my $in = <$socket>)){
 			chomp($in);
 			my $chr = $in;
+			if ($chr =~ m/B:(\d+?):(\d+?):(.)/){
+				print "******** loading part: $3, $1, $2\n";
+				my $id = $ship->_loadPart($3, $1, $2);
+				print $ship->getShipDisplay();
+				if ($id != 0){
+					my $map = $ship->{collisionMap};
+					#print Dumper($map);
+					my $msg = {
+						ship_id => $ship->{id},
+						'map' => $map
+					};
+					foreach my $s ($self->getShips()){
+						$self->sendMsg($s->{conn}, 'shipchange', $msg);
+					}
+				}
+				next;
+
+			}
 			# ping message
 			if ($chr eq 'z'){
 				$ship->{lastMsg} = time();
