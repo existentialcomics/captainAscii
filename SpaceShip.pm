@@ -307,6 +307,8 @@ sub _recalculate {
 	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateHealth();
+	$self->_setPartConnections();
+	$self->_removeBlockedGunQuadrants();
 }
 
 
@@ -1075,7 +1077,8 @@ sub getShipDisplay {
 							$chr = $part->{defchr};
 						} else {
 							my $partcolor = ($part->{part}->{color} eq 'rainbow' ? color('MAGENTA ON_RGB112') : $part->{part}->{color});
-							$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
+							#$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
+							$chr = $part->{chr} . color('reset');
 						}
 						last;
 					}

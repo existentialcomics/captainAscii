@@ -151,7 +151,7 @@ sub loop {
 
 sub _spawnShips {
 	my $self = shift;
-	if ($self->getShipCount() < 10){
+	if ($self->getShipCount() < 4){
 		my $rand = rand();
 		my $level = $self->{level};
 		if ($rand < 0.2){
@@ -496,7 +496,9 @@ sub _recieveInputFromClients {
 			my $chr = $in;
 			if ($chr =~ m/B:(\d+?):(\d+?):(.)/){
 				print "******** loading part: $3, $1, $2\n";
-				my $id = $ship->_loadPart($3, $1, $2);
+				my $id = $ship->_loadPart($3, $2, $1);
+				print "******** id: $id\n";
+				$ship->_recalculate();
 				print $ship->getShipDisplay();
 				if ($id != 0){
 					my $map = $ship->{collisionMap};
@@ -622,10 +624,10 @@ sub _calculateBullets {
 					last;
 				}
 				if ($data->{health} <= 0){
-					print "part killed $data->{id} from $ship->{id}\n";
+					#print "part killed $data->{id} from $ship->{id}\n";
 					$ship->_removePart($data->{id});
 					my @orphaned = $ship->orphanParts();
-					print "orphaned: $#orphaned\n";
+					#print "orphaned: $#orphaned\n";
 					foreach my $partId (@orphaned){
 						my %data = (
 							ship_id => $ship->{id},
