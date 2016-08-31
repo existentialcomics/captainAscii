@@ -408,7 +408,7 @@ sub resolveCollision {
 		}
 		if (int($bullet->{y}) == $py &&
 		    int($bullet->{x}) == $px){
-			$self->{aiMode} = 'attack';
+			$self->changeAiMode('attack');
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
 			if ($part->{health} < 0){
@@ -418,6 +418,30 @@ sub resolveCollision {
 		}
 	}
 	return undef;
+}
+
+sub getAiModeState {
+	my $self = shift;
+	return ($self->{aiMode}, $self->{aiState});
+}
+
+sub changeAiMode {
+	my $self = shift;
+	my $mode = shift;
+	my $state = shift;
+	$self->{aiMode} = $mode;
+	$self->{aiModeChange} = time();
+	$self->{aiStateChange} = time();
+	$self->{aiTick} = time();
+	if (defined($state)){
+		$self->{aiState} = $state;
+	} else{
+		if ($mode eq 'attack'){
+			$self->{aiState} = 'aggressive';
+		} elsif ($mode eq 'explore'){
+			$self->{aiState} = 'random';
+		}
+	}
 }
 
 sub damagePart {
@@ -686,6 +710,18 @@ sub move {
 	$self->{lastMove} = $time;
 }
 
+sub purchasePart {
+	my $self = shift;
+	my ($chr, $x, $y) = @_;
+	if (!defined($parts{$chr})){
+		return undef;
+	}
+	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
+		return undef;
+	}
+	return $self->_loadPart($chr, $x, $y);
+}
+
 sub _loadPart {
 	my $self = shift;
 	my ($chr, $x, $y) = @_;
@@ -763,7 +799,7 @@ sub _offsetByCommandModule {
 		# ground parts to cm as 0,1
 		$part->{x} -= $offx;
 		$part->{y} -= $offy;
-		$self->{collisionMap}->{$part->{x}}->{$part->{y}} = $part->{chr};
+		$self->{collisionMap}->{$part->{x}}->{$part->{y}} = $part->{defchr};
 		$self->{partMap}->{$part->{x}}->{$part->{y}} = $part->{id};
 	}
 }
@@ -1053,8 +1089,6 @@ sub getDisplayArray {
 		foreach my $y ($self->{leftmost} - 3 .. $self->{rightmost} + 3){
 			my $chr = $self->{collisionMap}->{$x}->{$y};
 			if (!defined($chr)){ $chr = ' ';}
-			print "$i, $j: ";
-			print $chr . "\n";
 			$shipArr[$j][$i] = $chr;
 			$i++;
 		}

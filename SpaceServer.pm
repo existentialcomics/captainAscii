@@ -151,7 +151,7 @@ sub loop {
 
 sub _spawnShips {
 	my $self = shift;
-	if ($self->getShipCount() < 4){
+	if ($self->getShipCount() < 8){
 		my $rand = rand();
 		my $level = $self->{level};
 		if ($rand < 0.2){
@@ -182,8 +182,10 @@ sub _ai {
 	my $time = time();
 	foreach my $ship ($self->getShips()){
 		next if (!$ship->{isBot});
+		my ($mode, $state) = $ship->getAiModeState();
 		my $modeDiff  = $time - $ship->{aiModeChange};
 		my $stateDiff = $time - $ship->{aiStateChange};
+		my $tickDiff = $time  - $ship->{aiTick};
 		#if ($ship->{ai}){
 		my ($id, $distance, $dir) = $self->_findClosestShip(
 			$ship->{'x'},
@@ -192,30 +194,52 @@ sub _ai {
 			);
 		#}
 		if ($id eq '-1'){
-			$ship->{aiMode} = 'explore';
+			$self->setAiMode('explore');
 		} else {
 			if ($distance < 20){
-				$ship->{aiMode} = 'attack';	
+				$ship->changeAiMode('attack', 'passive');
 			}
 		}
-		if ($ship->{aiMode} eq 'explore'){
-			if ($stateDiff > 6){
+		if ($mode eq 'explore'){
+			if ($tickDiff > 6){
 				my $move = rand(2 * PI);
 				$ship->{movingHoz}  = sin($move) * .3;
 				$ship->{movingVert} = cos($move) * .3;
-				$ship->{aiStateChange} = $time;
+				$ship->{aiTick} = $time;
 			}
 			$ship->{movingHozPress} = time();
 			$ship->{movingVertPress} = time();
-		} elsif ($ship->{aiMode} eq 'attack'){
+		} elsif ($mode eq 'attack'){
+			if (!defined($ship->{aiState})){
+				$ship->{aiState} = 'aggressive';
+			}
+			if ($modeDiff > 2 && $ship->{aiState} eq 'aggressive'){
+				print "changing $ship->{id} to passive\n";
+				$ship->{aiStateChange} = $time;
+				$ship->{aiState} = 'passive';
+			}
+			if ($modeDiff > 5){
+				print "changing $ship->{id} to explore\n";
+				$ship->{aiModeChange} = $time;
+				$ship->{aiMode} = 'explore';
+			}
 			if ($id ne '-1'){
 				if ($distance < 30){
 					$ship->{direction} = $dir + (rand(.3) - .15);
-					$ship->{shooting} = time();
-					if ($stateDiff > 0.7){
+					if ($ship->{aiState} eq 'aggressive'){
+						$ship->{shooting} = time();
+					} else {
+						if ($stateDiff > 0.85){
+							$ship->{shooting} = time();
+						} else {
+							$ship->{shooting} = 0;
+						}
+					}
+					if ($stateDiff > 1){
 						my $move = $dir + (rand() < .5 ? (PI / 2) : -(PI / 2));
-						$ship->{movingHoz}  = sin($move) * .3;
-						$ship->{movingVert} = cos($move) * .3;
+						my $factor = ($state eq 'aggressive' ? .4 : .1);
+						$ship->{movingHoz}  = sin($move) * $factor;
+						$ship->{movingVert} = cos($move) * $factor;
 						$ship->{aiStateChange} = $time;
 						if (rand() < .8){
 							$ship->{movingHozPress} = time();
@@ -225,16 +249,25 @@ sub _ai {
 				} else {
 					if ($stateDiff > 0.5){
 						my $move = $dir + (rand(.3) - .15);
-						$ship->{movingHoz}  = sin($move) * .7;
-						$ship->{movingVert} = cos($move) * .7;
+						my $factor = ($state eq 'aggressive' ? .7 : .2);
+						$ship->{movingHoz}  = sin($move) * $factor;
+						$ship->{movingVert} = cos($move) * $factor;
 						$ship->{aiStateChange} = $time;
 					}
 					$ship->{movingHozPress} = time();
 					$ship->{movingVertPress} = time();
 				}
 			}
-		} elsif ($ship->{aiMode} eq 'flee'){
-
+		} elsif ($mode eq 'flee'){
+			if ($stateDiff > 0.5){
+				my $move = $dir + (rand(.3) - .15);
+				my $factor = 0.8;
+				$ship->{movingHoz}  = -sin($move) * $factor;
+				$ship->{movingVert} = -cos($move) * $factor;
+				$ship->{aiStateChange} = $time;
+			}
+			$ship->{movingHozPress} = time();
+			$ship->{movingVertPress} = time();
 		} else {
 
 		}
@@ -496,20 +529,27 @@ sub _recieveInputFromClients {
 			my $chr = $in;
 			if ($chr =~ m/B:(\d+?):(\d+?):(.)/){
 				print "******** loading part: $3, $1, $2\n";
-				my $id = $ship->_loadPart($3, $2, $1);
-				print "******** id: $id\n";
-				$ship->_recalculate();
-				print $ship->getShipDisplay();
-				if ($id != 0){
-					my $map = $ship->{collisionMap};
-					#print Dumper($map);
-					my $msg = {
-						ship_id => $ship->{id},
-						'map' => $map
-					};
-					foreach my $s ($self->getShips()){
-						$self->sendMsg($s->{conn}, 'shipchange', $msg);
+				my $chr = $3;
+				my $x   = $2;
+				my $y   = $1;
+				my $id = $ship->purchasePart($chr, $x, $y);
+				if (defined($id)){
+					print "******** id: $id\n";
+					$ship->_recalculate();
+					print $ship->getShipDisplay();
+					if ($id != 0){
+						my $map = $ship->{collisionMap};
+						#print Dumper($map);
+						my $msg = {
+							ship_id => $ship->{id},
+							'map' => $map
+						};
+						foreach my $s ($self->getShips()){
+							$self->sendMsg($s->{conn}, 'shipchange', $msg);
+						}
 					}
+				} else {
+					print "Can't load part $chr, not enough money or not defined\n";	
 				}
 				next;
 
