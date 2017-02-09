@@ -113,6 +113,7 @@ sub _init {
 	$self->{lastHyperdrive} = 0;
 	$self->{'parts'} = {};
 	$self->{'idCount'} = 0;
+	$self->{aiTick} = time();
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
