@@ -103,6 +103,8 @@ sub _init {
 	$self->{'direction'} = PI;
 	$self->{'id'} = $id;
 
+	$self->{'modules'} = {};
+
 	$self->{'movingHoz'}   = 0;
 	$self->{'movingVert'}   = 0;
 	$self->{'movingHozPress'}   = 0;
@@ -916,7 +918,8 @@ sub _loadShip {
 	$self->{shieldsOnly} = [];
 
 	my $command = undef;
-	my @shipLines = split("\n", $ship);
+	my ($shipParts, $shipModules) = split("MODULES\n", $ship);
+	my @shipLines = split("\n", $shipParts);
 	my $y = 0;
 	foreach my $line (@shipLines){
 		my @chrs = split('', $line);
@@ -932,6 +935,24 @@ sub _loadShip {
 
 	$self->_calculateParts();
 	return 1;
+}
+
+sub _installModule {
+	my $self = shift;
+	my $module = shift;
+
+	if ( $self->_hasModule($module->name()) ){
+		return 1;
+	}
+	$self->{modules}->{$module->name()} = $module;
+	return 1;
+}
+
+sub _hasModule {
+	my $self = shift;
+	my $module = shift;
+
+	return defined($self->{modules}->{$module->name()});
 }
 
 sub _calculateParts {

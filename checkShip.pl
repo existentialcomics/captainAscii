@@ -28,9 +28,8 @@ foreach my $row (@$display){
 	print join @$row;
 	print "\n";
 }
-print Dumper($display);
+#print Dumper($display);
 
-exit;
 print $display . "\n";
 
 print color('reset');

@@ -10,6 +10,11 @@ use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 
+use Module;
+use Module::Cloak;
+use Module::Warp;
+use Module::Radar;
+
 sub new {
 	my $class = shift;
 
