@@ -9,6 +9,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
+use ShipModule;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -95,6 +96,8 @@ sub _init {
 	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
 	$self->{cash} = 0;
 
+	$self->{'aspectRatio'} = $aspectRatio;
+
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
  
@@ -103,7 +106,12 @@ sub _init {
 	$self->{'direction'} = PI;
 	$self->{'id'} = $id;
 
-	$self->{'modules'} = {};
+	my $shipModule = ShipModule->new();
+	my @modules = $shipModule->plugins();
+	$self->{'modules'} = [];
+	foreach my $moduleName (@modules){
+		push @{ $self->{'modules'} }, $moduleName->new();
+	}
 
 	$self->{'movingHoz'}   = 0;
 	$self->{'movingVert'}   = 0;
@@ -423,6 +431,15 @@ sub resolveCollision {
 	return undef;
 }
 
+sub lightShip {
+	my $self = shift;
+	my $duration = shift;
+	if (!defined($duration)){ $duration = 0; } # really add 0.5 seconds
+	foreach my $part ($self->getParts()){
+		$part->{'hit'} = time() + $duration;
+	}
+}
+
 sub getAiModeState {
 	my $self = shift;
 	return ($self->{aiMode}, $self->{aiState});
@@ -562,6 +579,18 @@ sub _getConnectedPartIds {
 	return @ids;
 }
 
+
+#######################
+# Resolve keypress
+# returns:
+# {
+#    'msgType' => 'shipstatus',
+#    'msg' => {
+#		ship_id => $self->{id},
+#		cloaked => $self->{cloaked}
+#	 }
+# }
+# OR undef
 sub keypress {
 	my $self = shift;
 	my $chr = shift;
@@ -575,21 +604,38 @@ sub keypress {
 	if ($chr eq 'e' || $chr eq 'k'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
 	if ($chr eq 'Q' || $chr eq 'J'){ $self->{aimingPress} = time(); $self->{aimingDir} = 5}
 	if ($chr eq 'E' || $chr eq 'E'){ $self->{aimingPress} = time(); $self->{aimingDir} = -5}
-	if ($chr eq 'S'){ $self->hyperdrive(0, 1); } 
-	if ($chr eq 'A'){ $self->hyperdrive(-1, 0); } 
-	if ($chr eq 'D'){ $self->hyperdrive(1, 0); } 
-	if ($chr eq 'W'){ $self->hyperdrive(0, -1); } 
-	if ($chr eq 'c'){ $self->cloak(); } 
+	if ($chr eq 'l'){ $self->lightShip() }
 	if ($chr eq '@'){ $self->toggleShield(); } 
+	return $self->_resolveModuleKeypress($chr);
 }
 
-sub cloak {
+sub _resolveModuleKeypress {
 	my $self = shift;
-	if ($self->{cloaked}){
-		$self->{cloaked} = 0;
-	} else {
-		$self->{cloaked} = 1;
+	my $chr = shift;
+	foreach my $module (@{$self->{modules}}){
+		foreach my $mKey ($module->getKeys()){
+			if ($chr eq $mKey){
+				return $module->active($self, $chr);
+			}
+		}
 	}
+	return undef;
+}
+
+sub moduleTick {
+	my $self = shift;
+	foreach my $module (@{$self->{modules}}){
+		$module->tick($self);
+	}
+}
+
+sub _resolveModulePower {
+	my $self = shift;
+	my $powerUse = 0;
+	foreach my $module (@{$self->{modules}}){
+		$powerUse += $module->power($self);
+	}
+	return $powerUse;
 }
 
 sub toggleShield {
@@ -634,11 +680,9 @@ sub power {
 	} else {
 		$self->{currentPowerGen} = $self->{powergen};
 	}
-	
-	if ($self->{cloaked}){
-		$self->{currentPowerGen} -= ($self->getParts() / 3);
-	}
 
+	$self->{currentPowerGen} += $self->_resolveModulePower();
+	
 	$self->{shieldHealth} = 0;
 	# if shields are regenerating
 	if ($self->{shieldsOn}){
@@ -939,20 +983,29 @@ sub _loadShip {
 
 sub _installModule {
 	my $self = shift;
-	my $module = shift;
+	my $moduleName = shift;
 
-	if ( $self->_hasModule($module->name()) ){
-		return 1;
+	if ( $self->_hasModule($moduleName) ){
+		return 0;
 	}
-	$self->{modules}->{$module->name()} = $module;
+	foreach my $module (@{$self->{modules}}){
+		if ($module->name() eq $moduleName){
+
+		}
+	}
 	return 1;
 }
 
 sub _hasModule {
 	my $self = shift;
-	my $module = shift;
+	my $moduleName = shift;
 
-	return defined($self->{modules}->{$module->name()});
+	foreach my $module (@{$self->{modules}}){
+		if ($module->name() eq $moduleName){
+			return 1;
+		}
+	}
+	return 0;
 }
 
 sub _calculateParts {

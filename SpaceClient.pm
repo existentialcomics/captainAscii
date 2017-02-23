@@ -5,15 +5,11 @@ require Term::Screen;
 use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use SpaceShip;
-#use Storable;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 
-use Module;
-use Module::Cloak;
-use Module::Warp;
-use Module::Radar;
+use ShipModule;
 
 sub new {
 	my $class = shift;
@@ -605,6 +601,9 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{'ship_id'}){
 					if (defined($data->{cloaked})){
 						$s->{cloaked} = $data->{cloaked};
+					}
+					if (defined($data->{light})){
+						$s->lightShip($data->{light});
 					}
 					if (defined($data->{shieldsOn})){
 						$s->{shieldsOn} = $data->{shieldsOn};

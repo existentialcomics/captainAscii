@@ -488,12 +488,12 @@ sub addBullet {
 
 sub _calculatePowerAndMovement {
 	my $self = shift;
-	my $time = time();
 	# calculate power and movement
 	foreach my $ship ($self->getShips()){
 		# power first because it disables move
-		$ship->power($time - $self->{lastTime});
-		$ship->move($time - $self->{lastTime});
+		$ship->power();
+		$ship->move();
+		$ship->moduleTick();
 		$self->_forceInBounds($ship);
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
@@ -559,7 +559,10 @@ sub _recieveInputFromClients {
 				$ship->{lastMsg} = time();
 				next;
 			}
-			$ship->keypress($chr);
+			my $return = $ship->keypress($chr);
+			if (defined($return)){
+				$self->broadcastMsg($return->{'msgType'}, $return->{'msg'})
+			}
 			if ($chr eq 'c'){
 				my $msg = {
 					ship_id => $ship->{id},
