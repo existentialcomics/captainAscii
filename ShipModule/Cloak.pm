@@ -1,35 +1,28 @@
 #!/usr/bin/perl
-#
-#
-#
+
 package ShipModule::Cloak;
 use parent ShipModule;
+
+sub _init {
+	my $self = shift;
+
+	$self->SUPER::_init();
+	$self->{powerActive} = 5;
+	$self->{powerPerPart} = 1;
+	return 1;
+}
 
 sub active {
 	my $self = shift;
 	my $ship = shift;
-	if ($ship->{cloaked}){
-		$ship->{cloaked} = 0;
-		$self->{active}  = 1
-	} else {
-		$ship->{cloaked} = 1;
-		$self->{active}  = 0
-	}
+	return $self->_statusActive($ship, 'cloaked');
 }
 
-sub power {
+sub tick {
 	my $self = shift;
 	my $ship = shift;
-
-	if ($self->{active} == 0){
-		return 0;
-	}
-	if ($ship->{currentPower} < ($ship->getParts() / 3)){
-		$ship->{cloaked} = 0;
-		return 1;
-	}
-	$ship->{cloaked} = 1;
-	$ship->{currentPowerGen} -= ($ship->getParts() / 3);
+	$self->_setTick();
+	$self->_statusTick($ship, 'cloaked');
 }
 
 sub getKeys {

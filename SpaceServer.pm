@@ -130,11 +130,6 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-#			print "fps: $frames\n";
-#			print "  bullets:";
-#			print $self->getBulletCount(0);
-#			print "\n";
-			#print "shipSend: $self->{shipSend}\n";
 			#$self->{shipSend} = 0;
 			$frames = 0;
 		}
@@ -145,7 +140,19 @@ sub loop {
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
+		$self->_sendShipStatuses();
 		$self->_spawnShips();
+	}
+}
+
+sub _sendShipStatuses {
+	my $self = shift;
+
+	foreach my $ship ($self->getShips()){
+		foreach my $msg ($ship->getStatusMsgs()){
+			$self->broadcastMsg('shipstatus', $msg);
+		}
+		$ship->clearStatusMsgs();
 	}
 }
 
@@ -166,12 +173,13 @@ sub _spawnShips {
 		$shipNew->{conn} = undef;
 		$shipNew->becomeAi();
 		$self->broadcastMsg('newship', {
-			design => $newShipDesign,
-			x => $shipNew->{x},
-			y => $shipNew->{y},
-			id => $shipNew->{id},
+			'design' => $newShipDesign,
+			'x' => $shipNew->{x},
+			'y' => $shipNew->{y},
+			'id' => $shipNew->{id},
+			'ai' => 1,
 			#'map' => $oldShip->{collisionMap},
-			options => { color => 'red' }
+			'options' => { color => 'red' }
 		});
 		$self->addShip($shipNew);
 	}
@@ -396,6 +404,10 @@ sub _loadNewPlayers {
 		$conntmp->autoflush(1);
 		$shipNew->{conn} = $conntmp;
 
+		if ($shipNew->{cost} > 5000){
+			$self->sendMsg($shipNew->{conn}, 'exit', { msg => "Your ship exceeds the maximum cost of 5000" });
+		}
+
 		# set the new ship's id
 		$self->sendMsg($shipNew->{conn}, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
 		# send it to the other ships
@@ -437,6 +449,8 @@ sub _sendShipsToClients {
 					powergen     => $ship->{currentPowerGen},
 					direction    => $ship->{direction},
 					cloaked      => $ship->{cloaked},
+					shieldsOn    => $ship->{shieldsOn},
+					isBot        => $ship->{isBot},
 				};
 				$self->sendMsg($shipInner->{conn}, 's', $msg);
 			} else {
@@ -451,6 +465,8 @@ sub _sendShipsToClients {
 					powergen     => $ship->{currentPowerGen},
 					direction    => $ship->{direction},
 					cloaked      => $ship->{cloaked},
+					shieldsOn    => $ship->{shieldsOn},
+					isBot        => $ship->{isBot},
 				};
 				$self->sendMsg($shipInner->{conn}, 's', $msg);
 				# we only need to know location
@@ -552,7 +568,9 @@ sub _recieveInputFromClients {
 					print "Can't load part $chr, not enough money or not defined\n";	
 				}
 				next;
-
+			}
+			if ($chr =~ m/M:(.+?):(.+)/){
+				$self->broadcastMsg('msg', { 'user' => $1, 'msg' => $2 });
 			}
 			# ping message
 			if ($chr eq 'z'){
@@ -562,13 +580,6 @@ sub _recieveInputFromClients {
 			my $return = $ship->keypress($chr);
 			if (defined($return)){
 				$self->broadcastMsg($return->{'msgType'}, $return->{'msg'})
-			}
-			if ($chr eq 'c'){
-				my $msg = {
-					ship_id => $ship->{id},
-					cloaked => $ship->{cloaked},
-				};
-				$self->broadcastMsg('shipstatus', $msg);
 			}
 			if ($chr eq '@'){
 				my $msg = {

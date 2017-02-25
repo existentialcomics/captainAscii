@@ -23,7 +23,10 @@ sub _init {
 	my $self = shift;
 
 	$self->{active} = 0;
-	$self->{powerPassive} = 0;
+	$self->{powerPassive}  = 0;
+	$self->{powerActive}   = 0;
+	$self->{powerPerPart}  = 0;
+	$self->{powerPerSpeed} = 0;
 	$self->{lastTick} = time();
 	return 1;
 }
@@ -40,22 +43,38 @@ sub getName {
 	return "Name goes here";
 }
 
+sub _powerRequired {
+	my $self = shift;
+	my $ship = shift;
+
+	my $power = $self->{powerPassive};
+	$power += ($self->isActive() ? $self->{powerActive} : 0);
+	$power += ($self->isActive() ? $self->{powerPerPart} * $ship->getParts() : 0);
+	$power += ($self->isActive() ? $self->{powerPerSpeed} * $ship->{speed} : 0);
+	
+	return $power;
+}
+
 sub power {
 	my $self = shift;
 	my $ship = shift;
 
 	if ($self->{active}){
-		return ($self->_hasPower($ship) ? $self->{powerPassive} : 0);
+		return ($self->_hasPower($ship) ? -$self->_powerRequired($ship) : -$self->{powerPassive});
 	}
-	return 0;
+	return -$self->{powerPassive};
+}
+
+sub isActive {
+	my $self = shift;
+	return $self->{active};
 }
 
 sub _hasPower {
 	my $self = shift;
 	my $ship = shift;
 	
-	if ($self->{powerPassive} > 0){ return 1; }
-	return ($ship->{currentPower} > $self->{powerPassive}); 
+	return ($ship->{currentPower} > $self->_powerRequired($ship)); 
 }
 
 sub _setTick {
@@ -65,8 +84,44 @@ sub _setTick {
 	$self->{lastTick} = $time;
 }
 
+sub _statusActive {
+	my $self = shift;
+	my $ship = shift;
+	my $status = shift;
+	if ($self->{active} == 1){
+		$ship->{$status} = 0;
+		$self->{active}  = 0;
+	} else {
+		$ship->{$status} = ($self->_hasPower($ship) ? 1 : 0);
+		$self->{active}  = 1;
+	}
+	my $return = {
+		'msgType' => 'shipstatus',
+		'msg' => {
+			'ship_id' => $ship->{id},
+			$status => $ship->{$status}
+		}
+	};
+	return $return;
+}
+
+sub _statusTick {
+	my $self = shift;
+	my $ship = shift;
+	my $status = shift;
+	if (!$self->{active}){ return 0; }
+	if (!$self->_hasPower($ship)){
+		$ship->setStatus($status, 0);
+		return 1;
+	} else {
+		$ship->setStatus($status, 1);
+		return 0;
+	}
+	
+}
+
 sub tick {
-	return undef;
+	return 1;
 }
 
 sub getKeys {
@@ -74,6 +129,13 @@ sub getKeys {
 }
 
 sub active {
+	my $self = shift;
+	my $ship = shift;
+	if ($self->{active}){
+		$self->{active}  = 0
+	} else {
+		$self->{active}  = 1
+	}
 	return undef;
 }
 

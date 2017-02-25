@@ -30,8 +30,12 @@ sub _init {
 	my $socket = shift;
 	my $color = shift;
 
+	$self->{msg} = '';
+	$self->{msgs} = ();
 	$self->{height} = 45;
 	$self->{width}  = 130;
+
+	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
 	$self->{fps} = 24;
@@ -51,9 +55,8 @@ sub _init {
 	}
 	close ($fh);
 
-	$shipStr = $self->designShip($shipStr);
-
-	print "socket: $socket \n";
+	#$shipStr = $self->designShip($shipStr);
+	#print "socket: $socket \n";
 	
 	$self->_bindSocket($socket);
 	$self->_loadShip($shipStr, $color);
@@ -79,7 +82,6 @@ sub designShip {
 	my $ship = new SpaceShip($inputDesign, 0, 0, 1);
 	$self->{ship} = $ship;
 	my @shipArr = @{ $ship->getDisplayArray(5, 5) };
-	#print Dumper(@ship); exit;
 
 	$scr->clrscr();
 	$scr->noecho();
@@ -216,6 +218,8 @@ sub loop {
 	my $scr = new Term::Screen;
 	$scr->clrscr();
 	$scr->noecho();
+
+	$self->{scr} = $scr;
 	my $lastPing = time();
 
 	my $playing = 1;
@@ -324,8 +328,23 @@ sub printInfo {
 			color('RESET') . " " x (60 - ( 60 * ($ship->{shieldHealth} / $ship->{shield}))) ) . "|"
 		);
 	}
+	#$scr->at($height + 6, 0);
+	#$scr->puts($self->{debug});
 	$scr->at($height + 6, 0);
-	$scr->puts($self->{debug});
+	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim.\n");
+	$scr->at($height + 7, 0);
+	$scr->puts("Modules:\n\r");
+	foreach my $module ($ship->getModules){
+		$scr->puts($module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r");
+	}
+	my $h = 0;
+	foreach my $msg (@{ $self->{msgs} }){
+		$scr->at(3 + $h, $width + 2);
+		$h ++;
+		$scr->puts($msg);
+	}
+	$scr->at($height, $width + 2);
+	$scr->puts($self->{'msg'});
 }
 
 sub _resetMap {
@@ -398,11 +417,10 @@ sub _drawShips {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
-		#if (($self->{'mode'} eq "build") && ($self->{ship}->{id} eq $ship->{id})){
-		if (($self->{ship}->{id} eq $ship->{id})){
+		if (($self->{'mode'} eq "build") && ($self->{ship}->{id} eq $ship->{id})){
+		#if (($self->{ship}->{id} eq $ship->{id})){
 			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
 			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
-			print "$cx, $cy\n";
 			$self->setMap($cx, $cy, color("BLACK ON_WHITE") . '+');
 		}
 		foreach my $part ($ship->getParts()){
@@ -468,14 +486,18 @@ sub _drawShips {
 		my ($aimx, $aimy) = $ship->getAimingCursor();
 		my $px = ($offy + int($ship->{y})) + $aimx;
 		my $py = ($offx + int($ship->{x})) + $aimy;
-		if ($self->{ship}->{id} eq $ship->{id}){
+		if ($self->{ship}->{id} eq $ship->{id}){ # draw the aiming dot for yourself
 			$self->setMap($px, $py, color('GREEN') . "+");
-		} else {
+		} elsif ($self->{ship}->{radar}){ # if your radar is active
 			($aimx, $aimy) = $self->{ship}->getRadar($ship);
 			$px = ($offy + int($self->{ship}->{y})) + $aimx;
 			$py = ($offx + int($self->{ship}->{x})) + $aimy;
 			if (!$ship->{cloaked}){
-				$self->setMap($px, $py, color('RED') . "+");
+				if ($ship->{isBot}){
+					$self->setMap($px, $py, color('red') . "+");
+				} else {
+					$self->setMap($px, $py, color('BOLD BRIGHT_BLUE') . "+");
+				}
 			}
 		}
 	}
@@ -492,6 +514,8 @@ sub _sendKeystrokesToServer {
 				$self->{'mode'} = 'build';
 				$self->{'cursorx'} = 0;
 				$self->{'cursory'} = 0;
+			} elsif ($chr eq '/'){
+				$self->{'mode'} = 'type';
 			} else {
 				print {$self->{socket}} "$chr\n";
 			}
@@ -501,7 +525,8 @@ sub _sendKeystrokesToServer {
 			my $chr = $scr->getch();
 			if ($chr eq '`'){
 				$self->{'mode'} = 'drive';
-			} elsif ($chr eq 'a'){ $self->{'cursory'}--; }
+			} elsif ($chr eq '/'){ $self->{mode} = 'type'; }
+			elsif ($chr eq 'a'){ $self->{'cursory'}--; }
 			elsif ($chr eq 'd'){ $self->{'cursory'}++; }
 			elsif ($chr eq 's'){ $self->{'cursorx'}++; }
 			elsif ($chr eq 'w'){ $self->{'cursorx'}--; }
@@ -510,6 +535,17 @@ sub _sendKeystrokesToServer {
 				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}:$chr\n";
 			} elsif ($chr eq ' '){
 				#remove part
+			}
+		}
+	} elsif($self->{mode} eq 'type'){
+		while ($scr->key_pressed()){ 
+			my $chr = $scr->getch();
+			if ($chr eq "/"){
+				print {$self->{socket}} "M:$self->{ship}->{color}$self->{username}:$self->{ship}->{color}$self->{'msg'}" . color('RESET') . "\n";
+				$self->{'msg'} = '';
+				$self->{mode} = 'drive';
+			} else {
+				$self->{'msg'} .= $chr;
 			}
 		}
 	}
@@ -556,11 +592,15 @@ sub _getMessagesFromServer {
 				$ship->{currentPower} = $data->{currentPower};
 				$ship->{currentPowerGen} = $data->{powergen};
 				$ship->{shieldHealth} = $data->{shieldHealth};
+				$ship->{isBot} = $data->{isBot};
 			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
 			if ($data->{'map'}){
 				$shipNew->_loadShipByMap($data->{'map'});
+			}
+			if ($data->{'isBot'}){
+				$shipNew->{'isBot'} = $data->{'isBot'};
 			}
 			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
@@ -598,25 +638,25 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'shipstatus'){
 			foreach my $s ($self->_getShips()){
-				if ($s->{id} eq $data->{'ship_id'}){
-					if (defined($data->{cloaked})){
-						$s->{cloaked} = $data->{cloaked};
-					}
-					if (defined($data->{light})){
-						$s->lightShip($data->{light});
-					}
-					if (defined($data->{shieldsOn})){
-						$s->{shieldsOn} = $data->{shieldsOn};
-					}
-					if (defined($data->{cash})){
-						$s->{cash} = $data->{cash};
-					}
-					
-				}
+				$s->recieveShipStatusMsg($data);
 			}
+		} elsif ($msg->{c} eq 'msg'){
+			push @{ $self->{msgs} }, "$data->{'user'}:  $data->{'msg'}";
+		} elsif($msg->{c} eq 'exit'){
+			$self->exitGame($data->{'msg'});
 		}
 	}
 
+}
+
+sub exitGame {
+	my $self = shift;
+	my $msg = shift;
+	$self->{scr}->clrscr();
+	$self->{scr}->at( $self->{height} / 2, $self->{width} / 2);
+	$self->{scr}->puts($msg);
+	print "\r\n\n\n\n\n\n";
+	exit;
 }
 
 sub _bindSocket {

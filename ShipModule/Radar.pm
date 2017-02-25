@@ -1,35 +1,28 @@
 #!/usr/bin/perl
-#
-#
-#
+
 package ShipModule::Radar;
 use parent ShipModule;
+
+sub _init {
+	my $self = shift;
+
+	$self->SUPER::_init();
+	#$self->{powerPassive} = 4;
+	$self->{powerActive} = 5;
+	return 1;
+}
 
 sub active {
 	my $self = shift;
 	my $ship = shift;
-	if ($ship->{radar}){
-		$ship->{radar} = 0;
-		$self->{active}  = 1
-	} else {
-		$ship->{radar} = 1;
-		$self->{active}  = 0
-	}
+	return $self->_statusActive($ship, 'radar');
 }
 
-sub power {
+sub tick {
 	my $self = shift;
 	my $ship = shift;
-
-	if ($self->{active} == 0){
-		return 0;
-	}
-	if ($ship->{currentPower} < 2){
-		$ship->{radar} = 0;
-		return 1;
-	}
-	$ship->{radar} = 1;
-	$ship->{currentPowerGen} -= 2;
+	$self->_setTick();
+	$self->_statusTick($ship, 'radar');
 }
 
 sub getKeys {

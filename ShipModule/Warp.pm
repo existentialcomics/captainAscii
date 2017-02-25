@@ -6,10 +6,10 @@ package ShipModule::Warp;
 use parent ShipModule;
 use Data::Dumper;
 
-my $warpTimeDelay = 2;      # seconds
-my $lightLength   = 2.5;    # seconds
-my $warpDistanceFactor = 2; # multiplied by ship speed
-my $warpDistance = 5;       # minimum distance
+my $warpTimeDelay = 1.7;      # seconds
+my $lightLength   = 2.5;      # seconds
+my $warpDistanceFactor = 1.5; # multiplied by ship speed
+my $warpDistance = 12;        # minimum distance
 
 sub active {
 	my $self = shift;
@@ -26,7 +26,7 @@ sub active {
 	if ($key eq 'D'){ $x = 1; }
 
 	#if ($ship->{currentPower} < $ship->{speed} || time() - $ship->{lastHyperdrive} < 15){
-	if ($ship->{currentPower} < $self->_powerNeccesary){
+	if ($ship->{currentPower} < $self->_powerNeccesary($ship)){
 		my $return = {
 			'msgType' => 'shipstatus',
 			'msg' => {
@@ -41,7 +41,7 @@ sub active {
 		'x'    => $ship->{x} + ( ( $ship->{speed} * $x * $warpDistanceFactor ) + ($x * $warpDistance) ),
 		'y'    => $ship->{y} + ( ( ( $ship->{speed} * $y * $warpDistanceFactor) + ($y * $warpDistance)) * $ship->{'aspectRatio'})
 	};
-	$ship->{currentPower} -= $self->_powerNeccesary();
+	$ship->{currentPower} -= $self->_powerNeccesary($ship);
 	$ship->{lastHyperdrive} = time();
 
 	my $return = {
@@ -57,8 +57,7 @@ sub active {
 sub _powerNeccesary{
 	my $self = shift;
 	my $ship = shift;
-	return 100;
-
+	return ($ship->{weight} * 0.8);
 }
 
 sub tick {

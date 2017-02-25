@@ -120,10 +120,14 @@ sub _init {
 	$self->{'shooting'} = 0;
 	$self->{'aimingPress'} = 0;
 	$self->{'aimingDir'} = 1;
-	$self->{lastHyperdrive} = 0;
 	$self->{'parts'} = {};
 	$self->{'idCount'} = 0;
-	$self->{aiTick} = time();
+	$self->{'radar'} = 0;
+	$self->{'cloaked'} = 0;
+	$self->{'aiTick'} = time();
+	$self->{'isBot'} = 0;
+
+	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
@@ -575,7 +579,6 @@ sub _getConnectedPartIds {
 	foreach my $k (keys %{$part->{connected}}){
 		push @ids, $part->{connected}->{$k};
 	}
-	#print "  $part->{id} $part->{chr} ids: " . (join ",", @ids) . "\n";
 	return @ids;
 }
 
@@ -622,6 +625,61 @@ sub _resolveModuleKeypress {
 	return undef;
 }
 
+sub setStatus {
+	my $self = shift;
+	my $status = shift;
+	my $value = shift;
+
+	if ($status eq 'light'){
+		$self->lightShip($value);
+	} else {
+		#print time() . " status update: $status = $value\n";
+		if ($self->{$status} ne $value){
+			$self->{$status} = $value;
+			$self->{'statusChange'}->{$status} = $value;
+		}
+	}
+}
+
+sub getStatus {
+	my $self = shift;
+	my $status = shift;
+#	if (defined($self->{'_status'}->{$status})){
+#		return $self->{'_status'}->{$status};
+#	}
+	if (defined($self->{$status})){
+		return $self->{$status};
+	}
+	return 0;
+}
+
+sub clearStatusMsgs {
+	my $self = shift;
+	$self->{'statusChange'} = {};
+}
+
+sub getStatusMsgs {
+	my $self = shift;
+	my @msgs = ();
+	foreach my $key (keys %{ $self->{'statusChange'} }){
+		push @msgs, {
+			'ship_id' => $self->{id},
+			$key => $self->{'statusChange'}->{$key}
+		};
+	}
+	return @msgs;
+}
+
+sub recieveShipStatusMsg {
+	my $self = shift;
+	my $data = shift;
+	if ($data->{'ship_id'} ne $self->{'id'}){ return 0; }
+	foreach my $status (keys %{$data}){
+		if ($status eq 'ship_id'){ next; }
+		$self->setStatus($status, $data->{$status});
+	}
+}
+
 sub moduleTick {
 	my $self = shift;
 	foreach my $module (@{$self->{modules}}){
@@ -646,21 +704,6 @@ sub toggleShield {
 		# TODO shields must regenerate from scratch!
 		$self->{shieldsOn} = 1;
 	}
-
-}
-
-sub hyperdrive {
-	my $self = shift;
-	my $x = shift;
-	my $y = shift;
-	if ($self->{currentPower} < $self->{speed} || time() - $self->{lastHyperdrive} < 15){
-		return 0;
-	}
-	$self->{x} += ($self->{speed} * $x * 2);
-	$self->{y} += ($self->{speed} * $y * 2 * $aspectRatio);
-	$self->{currentPower} -= $self->{speed};
-	$self->{lastHyperdrive} = time();
-	return 1;
 }
 
 sub power {
@@ -715,8 +758,7 @@ sub power {
 		}
 	}
 
-	my $powerFactor = $self->{currentPowerGen};
-	$self->{currentPower} += ($powerFactor * $timeMod * 0.2);
+	$self->{currentPower} += ($self->{currentPowerGen} * $timeMod * 0.2);
 	$self->_limitPower();
 	$self->{lastPower} = time();
 }
@@ -994,6 +1036,11 @@ sub _installModule {
 		}
 	}
 	return 1;
+}
+
+sub getModules {
+	my $self = shift;
+	return @{ $self->{modules} };
 }
 
 sub _hasModule {
