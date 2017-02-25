@@ -32,8 +32,8 @@ sub _init {
 
 	$self->{msg} = '';
 	$self->{msgs} = ();
-	$self->{height} = 45;
-	$self->{width}  = 130;
+	$self->{height} = 35;
+	$self->{width}  = 120;
 
 	$self->{username} = getpwuid($<);
 
@@ -337,14 +337,20 @@ sub printInfo {
 	foreach my $module ($ship->getModules){
 		$scr->puts($module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r");
 	}
-	my $h = 0;
-	foreach my $msg (@{ $self->{msgs} }){
-		$scr->at(3 + $h, $width + 2);
-		$h ++;
-		$scr->puts($msg);
+	my $lastMsg = $#{ $self->{msgs} } + 1;
+	my $term = $lastMsg - $height - 4;
+	my $count = 2;
+	if ($term < 0){ $term = 0; }
+	while ($lastMsg > $term){
+		$scr->at($height - $count, $width + 2);
+		$count++;
+		$lastMsg--;
+		$scr->puts(sprintf('%-200s', $self->{msgs}->[$lastMsg]));
 	}
+	my $boxColor = color('ON_BLACK');
+	if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
 	$scr->at($height, $width + 2);
-	$scr->puts($self->{'msg'});
+	$scr->puts(sprintf('%-200s', $boxColor . "> " . $self->{'msg'} . color('reset')));
 }
 
 sub _resetMap {
@@ -539,13 +545,18 @@ sub _sendKeystrokesToServer {
 		}
 	} elsif($self->{mode} eq 'type'){
 		while ($scr->key_pressed()){ 
-			my $chr = $scr->getch();
-			if ($chr eq "/"){
-				print {$self->{socket}} "M:$self->{ship}->{color}$self->{username}:$self->{ship}->{color}$self->{'msg'}" . color('RESET') . "\n";
-				$self->{'msg'} = '';
-				$self->{mode} = 'drive';
-			} else {
-				$self->{'msg'} .= $chr;
+			{
+				local $/ = undef;
+				my $chr = $scr->getch();
+				if ($chr eq "\r"){
+					print {$self->{socket}} "M:$self->{ship}->{color}$self->{username}:$self->{ship}->{color}$self->{'msg'}" . color('RESET') . "\n";
+					$self->{'msg'} = '';
+					$self->{mode} = 'drive';
+				} else {
+					if (length($self->{'msg'}) < 100){
+						$self->{'msg'} .= $chr;
+					}
+				}
 			}
 		}
 	}

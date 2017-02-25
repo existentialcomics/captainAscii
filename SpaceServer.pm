@@ -51,11 +51,18 @@ sub _init {
 	$self->{level} = 1;
 	$self->{highestEnemy} = 1;
 
+	$self->{lastPlayerColor} = 'green';
+	$self->{playerColors} = qw(red  green  yellow  blue  magenta  cyan  white);
+
 	$self->loadEnemyDir('ships/enemy1', 1);
 	$self->loadEnemyDir('ships/enemy2', 2);
 	$self->loadEnemyDir('ships/enemy3', 3);
 
 	return 1;
+}
+
+sub getNextPlayerColor {
+	my $self = shift;
 }
 
 sub loadEnemyDir {
