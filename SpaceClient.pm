@@ -164,6 +164,7 @@ sub _loadShip {
 	if ($color){
 		print {$self->{socket}} "OPTION:color=$color\n";
 	}
+	print {$self->{socket}} "OPTION:name=" . getpwuid( $< ) . "\n";
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
@@ -648,6 +649,7 @@ sub _getMessagesFromServer {
 				}
 			}
 		} elsif ($msg->{c} eq 'shipstatus'){
+			# TODO just get the ship by id
 			foreach my $s ($self->_getShips()){
 				$s->recieveShipStatusMsg($data);
 			}

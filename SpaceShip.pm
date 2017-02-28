@@ -92,6 +92,9 @@ sub _init {
 
 	$self->_loadPartConfig('parts.ini');
 
+	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white);
+	$self->{allowedColors} = \@allowedColors;
+
 	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
 	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
 	$self->{cash} = 0;
@@ -155,6 +158,23 @@ sub becomeAi {
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
+}
+
+sub setColor {
+	my $self = shift;
+	my $color = shift;
+	if (!$self->isValidColor($color)){ return 0; }
+	$self->{colorDef} = $color;
+	$self->{color} = color($color);
+}
+
+sub isValidColor{
+	my $self = shift;
+	my $color = shift;
+	foreach my $valid (@{$self->{allowedColors}}){
+		if ($color eq $valid){ return 1; }
+	}
+	return 0;
 }
 
 sub getRadar {
@@ -421,8 +441,8 @@ sub resolveCollision {
 					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => undef };
 			}
 		}
-		if (int($bullet->{y}) == $py &&
-		    int($bullet->{x}) == $px){
+		if ((abs($bullet->{y} - $py) < 1.5 ) &&
+		    (abs($bullet->{x} - $px) < 1.5 )){
 			$self->changeAiMode('attack');
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
@@ -632,6 +652,8 @@ sub setStatus {
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
+	} elsif($status eq 'color'){
+		$self->setColor($value);
 	} else {
 		#print time() . " status update: $status = $value\n";
 		if ($self->{$status} ne $value){
@@ -713,7 +735,7 @@ sub power {
 	my $timeMod = time() - $self->{lastPower};
 
 	# if the thrusters are activated
-	if ($self->{movingHoz} != 0 && $self->{movingVert} != 0){
+	if ($self->{movingHoz} != 0 || $self->{movingVert} != 0){
 		if (int($self->{currentPower} < 2)){
 			$self->{currentPowerGen} = $self->{powergen};
 			$self->{moving} = 0;

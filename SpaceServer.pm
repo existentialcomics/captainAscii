@@ -42,6 +42,9 @@ sub _init {
 	my $socket = shift;
 	my $options = shift;
 	print "socket: $socket \n";
+
+	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white);
+	$self->{colors} = \@allowedColors;
 	
 	$self->_bindSocket($socket);
 	$self->{ships} = [];
@@ -50,15 +53,23 @@ sub _init {
 	$self->{bullets} = {};
 	$self->{level} = 1;
 	$self->{highestEnemy} = 1;
+	if (defined($options->{maxInitialCost})){
+		$self->{maxInitialCost} = $options->{maxInitialCost};
+	}
 
 	$self->{lastPlayerColor} = 'green';
-	$self->{playerColors} = qw(red  green  yellow  blue  magenta  cyan  white);
 
 	$self->loadEnemyDir('ships/enemy1', 1);
 	$self->loadEnemyDir('ships/enemy2', 2);
 	$self->loadEnemyDir('ships/enemy3', 3);
 
 	return 1;
+}
+
+sub getColorById {
+	my $self = shift;
+	my $id = shift;
+	return $self->{colors}->[ $id % scalar @{$self->{colors}} ];
 }
 
 sub getNextPlayerColor {
@@ -397,6 +408,11 @@ sub _loadNewPlayers {
 			}
 		}
 		print "$newShipDesign\n";
+		#if (!defined($options{color})){
+			$options{color} = $self->getColorById($self->{shipIds} + 1);
+			print "color from id " . ($self->{shipIds} + 1 ) . ": $options{color}\n";
+		#}
+
 		my $shipNew = SpaceShip->new($newShipDesign, rand(100) - 50, rand(100) - 50, $self->{shipIds}++, \%options);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship->{conn}, 'newship', {
@@ -411,12 +427,17 @@ sub _loadNewPlayers {
 		$conntmp->autoflush(1);
 		$shipNew->{conn} = $conntmp;
 
-		if ($shipNew->{cost} > 5000){
-			$self->sendMsg($shipNew->{conn}, 'exit', { msg => "Your ship exceeds the maximum cost of 5000" });
+		if (defined($self->{maxInitialCost})){
+			if ($shipNew->{cost} > $self->{maxInitialCost}){
+				$self->sendMsg($shipNew->{conn}, 'exit', { msg => "Your ship exceeds the maximum cost of $self->{maxInitialCost}" });
+			}
 		}
 
 		# set the new ship's id
 		$self->sendMsg($shipNew->{conn}, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
+		# set the color
+		$self->sendMsg($shipNew->{conn}, 'shipstatus', { 'ship_id' => $shipNew->{id}, 'color' => $options{'color'} });
+
 		# send it to the other ships
 		foreach my $oldShip ($self->getShips()){
 			$self->sendMsg($shipNew->{conn}, 'newship', {
@@ -431,6 +452,7 @@ sub _loadNewPlayers {
 
 		my $id = $self->addShip($shipNew);
 		print "player loaded, " . $self->getShipCount() . " in game.\n";
+		$self->broadcastMsg('msg', { 'user' => '<SYSTEM>', 'msg' => "Player " . color($shipNew->{colorDef}) . "$options{name} " . color('reset') . " has entered the game\n"});
 		return $id;
 	}
 	return 0;
