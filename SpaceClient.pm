@@ -32,12 +32,17 @@ sub _init {
 
 	$self->{msg} = '';
 	$self->{msgs} = ();
-	$self->{height} = 35;
-	$self->{width}  = 120;
+	$self->{chatWidth} = 80;
+	#$self->{height} = 35;
+	#$self->{width}  = 120;
+
+	$self->resize();
 
 	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
+	$self->{maxFps} = 24;
+	$self->{maxGackgroundFps} = 6;
 	$self->{fps} = 24;
 	$self->{mode} = 'drive';
 
@@ -210,11 +215,7 @@ sub loop {
 	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
-	my $fps = 15;
-	$self->{fps} = $fps;
-
-	my $height = 45;
-	my $width = 130;
+	my $fps = $self->{maxFps};
 
 	my $scr = new Term::Screen;
 	$scr->clrscr();
@@ -222,6 +223,9 @@ sub loop {
 
 	$self->{scr} = $scr;
 	my $lastPing = time();
+
+	$self->setHandlers();
+	$self->printBorder($scr);
 
 	my $playing = 1;
 	while ($playing){
@@ -249,12 +253,12 @@ sub loop {
 		$self->_getMessagesFromServer();
 
 		$self->{lighting} = {};
-		my $cenX = int($width / 2);
-		my $cenY = int($height / 2);
+		my $cenX = int($self->{width} / 2);
+		my $cenY = int($self->{height} / 2);
 		my $offx = $cenX - int($self->{ship}->{x});
 		my $offy = $cenY - int($self->{ship}->{y});
 
-		$self->{'map'} = $self->_resetMap($width, $height);
+		$self->{'map'} = $self->_resetMap($self->{width}, $self->{height});
 
 		$self->_drawBullets($offx, $offy);
 		$self->_drawShips($offx, $offy);
@@ -274,7 +278,7 @@ sub printScreen {
 
 	### draw the screen to Term::Screen
 	foreach my $i (0 .. $height){
-		$scr->at($i + 1, 0);
+		$scr->at($i + 1, 1);
 		my $row = '';
 		foreach my $j (0 .. $width){
 			my $color = (defined($self->{lighting}->{$i}->{$j}) ? color('ON_GREY' . ($self->{lighting}->{$i}->{$j} <= 23 ? $self->{lighting}->{$i}->{$j} : 23 )) : color('ON_BLACK'));
@@ -290,14 +294,15 @@ sub printInfo {
 	my $options = shift;
 
 	my $ship = $self->{ship};
-	my $height = (defined($options->{height}) ? $options->{height} : $self->{height});
+	my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
 	my $width = $self->{width};
+	my $left = 2;
 
 	#### ----- ship info ------ ####
-	$scr->at($height + 2, 0);
+	$scr->at($height + 2, $left);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
 	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
-	$scr->at($height + 3, 0);
+	$scr->at($height + 3, $left);
 	$scr->puts(
 		"fps: " . $self->{fps} . "  " . 
 		"weight: " .  $ship->{weight} .
@@ -308,7 +313,7 @@ sub printInfo {
 		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
 		);
 	# power
-	$scr->at($height + 4, 0);
+	$scr->at($height + 4, $left);
 	$scr->puts(sprintf('%-10s|', $ship->{power} . ' / ' . int($ship->{currentPower})). 
 	(color('ON_RGB' .
 		5 . 
@@ -319,7 +324,7 @@ sub printInfo {
 	);
 	# display shield
 	if ($ship->{shield} > 0){
-		$scr->at($height + 5, 0);
+		$scr->at($height + 5, $left);
 		$scr->puts(sprintf('%-10s|', $ship->{shield} . ' / ' . int($ship->{shieldHealth})). 
 		(color('ON_RGB' .
 			0 . 
@@ -329,34 +334,38 @@ sub printInfo {
 			color('RESET') . " " x (60 - ( 60 * ($ship->{shieldHealth} / $ship->{shield}))) ) . "|"
 		);
 	}
-	#$scr->at($height + 6, 0);
+	#$scr->at($height + 20, $left);
 	#$scr->puts($self->{debug});
-	$scr->at($height + 6, 0);
+	$scr->at($height + 6, $left);
 	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim.\n");
-	$scr->at($height + 7, 0);
+	$scr->at($height + 7, $left);
+
+	########## modules #############
 	$scr->puts("Modules:\n\r");
 	foreach my $module ($ship->getModules){
 		$scr->puts($module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r");
 	}
+
+	######### chat #################
 	my $lastMsg = $#{ $self->{msgs} } + 1;
 	my $term = $lastMsg - $height - 4;
 	my $count = 2;
 	if ($term < 0){ $term = 0; }
 	while ($lastMsg > $term){
-		$scr->at($height - $count, $width + 2);
+		$scr->at($height - $count, $width + 4);
 		$count++;
 		$lastMsg--;
-		$scr->puts(sprintf('%-200s', $self->{msgs}->[$lastMsg]));
+		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $self->{msgs}->[$lastMsg]));
 	}
 	my $boxColor = color('ON_BLACK');
 	if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
-	$scr->at($height, $width + 2);
-	$scr->puts(sprintf('%-200s', $boxColor . "> " . $self->{'msg'} . color('reset')));
+	$scr->at($height, $width + 4);
+	$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . $self->{'msg'} . color('reset')));
+	$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
 }
 
 sub _resetMap {
 	my $self = shift;
-	#my ($height, $width) = @_;
 	my ($width, $height) = @_;
 
 	my @map;
@@ -415,6 +424,43 @@ sub _drawBullets {
 	}
 }
 
+#signal(SIDWINCH, do_resize);
+sub setHandlers {
+	my $self = shift;
+	$SIG{SIDWINCH} = sub { $self->resize() };
+	$SIG{WINCH} = sub { $self->resize() };
+}
+
+sub resize {
+	my $self = shift;
+	use Term::ReadKey;
+	my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
+	$self->{width} = $wchar - $self->{chatWidth};
+	$self->{height} = $hchar - 20;
+	if (defined($self->{scr})){
+		$self->{scr}->clrscr();
+		$self->printBorder();
+	}
+}
+
+sub printBorder {
+	my $self = shift;
+	my $scr = $self->{scr};
+	$scr->at(0, 0);
+	$scr->puts("╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗");
+	$scr->at($self->{height} + 2, 0);
+	$scr->puts("╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝");
+	foreach my $i (1 .. $self->{height} + 1){
+		$scr->at($i, 0);
+		$scr->puts("║");
+		$scr->at($i, $self->{width} + 2);
+		$scr->puts("║");
+		$scr->at($i, $self->{width} + $self->{chatWidth});
+		$scr->puts("║");
+	}
+}
+
+
 sub _drawShips {
 	my $self = shift;	
 
@@ -446,18 +492,20 @@ sub _drawShips {
 
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
-			if (! defined ($part->{x})){ $self->{debug} = Dumper($part); next; }
+
+			my $chr = $part->{chr};
+			if ( (rand() - 0.3) > ($part->{'health'} / $part->{'part'}->{'health'} ) ){ $chr = ' '; }
 			# TODO have it fade to black?
 			if ($ship->{cloaked}){
 				# remove coloring TODO change to color + chr
-				my $chr = $part->{chr};
+
 				if ($ship->{id} eq $self->{ship}->{id}){
 					$self->setMap($px, $py, color('on_black GREY3') . $chr . color('reset'));
 				} else {
 					$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
 				}
 			} else { 
-				$self->setMap($px, $py, $highlight . $bold . $partColor . $part->{'chr'} . color('reset'));
+				$self->setMap($px, $py, $highlight . $bold . $partColor . $chr . color('reset'));
 			}
 			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
  #			if (($part->{part}->{type} eq 'laser')){
@@ -554,7 +602,7 @@ sub _sendKeystrokesToServer {
 					$self->{'msg'} = '';
 					$self->{mode} = 'drive';
 				} else {
-					if (length($self->{'msg'}) < 100){
+					if (length($self->{'msg'}) < $self->{chatWidth} - 4){
 						$self->{'msg'} .= $chr;
 					}
 				}
@@ -592,6 +640,8 @@ sub _getMessagesFromServer {
 			}
 			$self->{bullets}->{$key} = $data;
 			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
+		} elsif($msg->{c} eq 'exit'){
+			$self->exitGame($data->{'msg'});
 		} elsif ($msg->{c} eq 's'){
 			foreach my $ship ($self->_getShips()){
 				next if ($ship->{id} ne $data->{id});
@@ -655,8 +705,6 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'msg'){
 			push @{ $self->{msgs} }, "$data->{'user'}:  $data->{'msg'}";
-		} elsif($msg->{c} eq 'exit'){
-			$self->exitGame($data->{'msg'});
 		}
 	}
 
@@ -668,7 +716,7 @@ sub exitGame {
 	$self->{scr}->clrscr();
 	$self->{scr}->at( $self->{height} / 2, $self->{width} / 2);
 	$self->{scr}->puts($msg);
-	print "\r\n\n\n\n\n\n";
+	print "\r\n" . "\n" x ($self->{height} / 3);
 	exit;
 }
 

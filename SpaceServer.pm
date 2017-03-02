@@ -174,6 +174,14 @@ sub _sendShipStatuses {
 	}
 }
 
+# remove ships that are too far away from any player
+sub _despawnShips {
+	my $self = shift;
+	foreach my $ship ($self->getShips()){
+		next if (!$ship->{isBot});
+	}
+}
+
 sub _spawnShips {
 	my $self = shift;
 	if ($self->getShipCount() < 8){
@@ -197,8 +205,9 @@ sub _spawnShips {
 			'id' => $shipNew->{id},
 			'ai' => 1,
 			#'map' => $oldShip->{collisionMap},
-			'options' => { color => 'red' }
+			'options' => { color => $shipNew->getColorName() }
 		});
+		print "newShipColor " . $shipNew->getColorName() .  "\n";
 		$self->addShip($shipNew);
 	}
 }
@@ -295,10 +304,14 @@ sub _ai {
 			$ship->{movingHozPress} = time();
 			$ship->{movingVertPress} = time();
 		} else {
-
+			print "NULL ai mode\n";
 		}
 		#print "$ship->{id} - $id, $distance, $dir\n";
 		#print "mode: $ship->{aiMode}\n";
+		if ($ship->setAiColor()){
+			print "change AI $ship->{id} color to " . $ship->getColorName() . "\n";
+			$self->broadcastMsg('shipstatus', { 'ship_id' => $ship->{id}, 'color' => $ship->{color} });
+		}
 	}
 }
 
@@ -313,7 +326,7 @@ sub _aiDodge {
 
 sub _findClosestShip {
 	my $self = shift;
-	my ($x, $y, $skipId, $onlyId) = @_;
+	my ($x, $y, $skipId) = @_;
 	my $smallestDistance = 999999999;
 	my $id = -1;
 	my $dir = 0;
@@ -324,9 +337,7 @@ sub _findClosestShip {
 			#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0)
 			&& (time() - $ship->{shooting} > 3)
 		);
-		my $dy = ($ship->{x} - $x) * ASPECTRATIO;
-		my $dx = ($ship->{y} - $y);
-		my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
+		my ($rho, $theta, $phi) = $self->_findShipDistanceDirection($x, $y, $ship);
 		if ($rho < $smallestDistance){
 			$smallestDistance = $rho;
 			$dir = $theta;
@@ -334,6 +345,17 @@ sub _findClosestShip {
 		}
 	}
 	return ($id, $smallestDistance, $dir);
+}
+
+sub _findShipDistanceDirection {
+	my $self = shift;
+	my ($x, $y, $ship) = @_;
+
+	my $dy = ($ship->{x} - $x) * ASPECTRATIO;
+	my $dx = ($ship->{y} - $y);
+	my ($rho, $theta, $phi)   = cartesian_to_spherical($dx, $dy, 0);
+	# rho is distance, theta is direction
+	return ($rho, $theta, $phi);
 }
 
 sub getShips {
@@ -729,6 +751,9 @@ sub _calculateBullets {
 
 						}
 
+					}
+					if (!$ship->{isBot}){
+						$self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
 					}
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });

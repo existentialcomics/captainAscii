@@ -95,8 +95,8 @@ sub _init {
 	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white);
 	$self->{allowedColors} = \@allowedColors;
 
-	$self->{color} = color( (defined($options->{color}) ? $options->{color} : 'RGB113') );
-	$self->{colorDef} = (defined($options->{color}) ? $options->{color} : 'RGB113');
+	$self->{color} = color((defined($options->{color}) ? $options->{color} : 'RGB113'));
+	$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
 	$self->{cash} = 0;
 
 	$self->{'aspectRatio'} = $aspectRatio;
@@ -158,6 +158,7 @@ sub becomeAi {
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
+	$self->setAiColor();
 }
 
 sub setColor {
@@ -166,6 +167,11 @@ sub setColor {
 	if (!$self->isValidColor($color)){ return 0; }
 	$self->{colorDef} = $color;
 	$self->{color} = color($color);
+}
+
+sub getColorName {
+	my $self = shift;
+	return $self->{colorDef};
 }
 
 sub isValidColor{
@@ -443,7 +449,8 @@ sub resolveCollision {
 		}
 		if ((abs($bullet->{y} - $py) < 1.5 ) &&
 		    (abs($bullet->{x} - $px) < 1.5 )){
-			$self->changeAiMode('attack');
+			$self->changeAiMode('attack', 'aggressive');
+			$self->aiTarget($bullet->{id});
 			$part->{'health'} -= $bullet->{damage};
 			$part->{'hit'} = time();
 			if ($part->{health} < 0){
@@ -473,7 +480,10 @@ sub changeAiMode {
 	my $self = shift;
 	my $mode = shift;
 	my $state = shift;
-	$self->{aiMode} = $mode;
+	if ($mode ne $self->{aiMode}){
+		$self->{aiMode} = $mode;
+		$self->{_aiVars} = {};
+	}
 	$self->{aiModeChange} = time();
 	$self->{aiStateChange} = time();
 	$self->{aiTick} = time();
@@ -486,6 +496,37 @@ sub changeAiMode {
 			$self->{aiState} = 'random';
 		}
 	}
+}
+
+sub setAiColor {
+	my $self = shift;
+	if (! $self->isBot()){ return 0; }
+	my $newColor = $self->getColorName();
+	if ($self->{aiMode} eq 'attack'){
+		$newColor = 'red';
+	} elsif ($self->{aiMode} eq 'explore'){
+		$newColor = 'blue';
+	} elsif ($self->{aiMode} eq 'flue'){
+		$newColor = 'green';
+	}
+	if ($newColor ne $self->getColorName()){
+		print "new ai Color: $newColor, $self->{aiMode}\n";
+		$self->setColor($newColor);
+		return 1;
+	}
+	return 0;
+}
+
+sub isBot {
+	my $self = shift;
+	return $self->{isBot};
+}
+
+sub aiTarget {
+	my $self = shift;
+	my $targetId = shift;
+
+	$self->{_aiVars}->{target} = $targetId;
 }
 
 sub damagePart {
