@@ -7,16 +7,10 @@ sub _init {
 	my $self = shift;
 
 	$self->SUPER::_init();
-	$self->{activeActive} = 40;
+	$self->{powerActive} = 10;
+	$self->{powerPerPart} = 4;
+	$self->{status} = 'heal';
 	return 1;
-}
-
-sub tick {
-	my $self = shift;
-	my $ship = shift;
-	$self->_setTick();
-	$self->_statusTick($ship, 'heal');
-	return undef;
 }
 
 sub getKeys {
@@ -24,7 +18,7 @@ sub getKeys {
 }
 
 sub name {
-	return 'Heal';
+	return '[+] Heal';
 }
 
 1;

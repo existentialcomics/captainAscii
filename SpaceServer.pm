@@ -159,7 +159,7 @@ sub loop {
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
-		$self->_spawnShips();
+		#$self->_spawnShips();
 	}
 }
 
@@ -219,15 +219,12 @@ sub _ai {
 		next if (!$ship->{isBot});
 		my ($mode, $state) = $ship->getAiModeState();
 		my $modeDiff  = $time - $ship->{aiModeChange};
-		my $stateDiff = $time - $ship->{aiStateChange};
 		my $tickDiff = $time  - $ship->{aiTick};
-		#if ($ship->{ai}){
 		my ($id, $distance, $dir) = $self->_findClosestShip(
 			$ship->{'x'},
 			$ship->{'y'},
 			$ship->{'id'}
 			);
-		#}
 		if ($id eq '-1'){
 			$ship->changeAiMode('explore');
 		} else {
@@ -236,11 +233,10 @@ sub _ai {
 			}
 		}
 		if ($mode eq 'explore'){
-			if ($tickDiff > 6){
+			if ($ship->aiStateRequest(4, 'directionChange')){
 				my $move = rand(2 * PI);
 				$ship->{movingHoz}  = sin($move) * .3;
 				$ship->{movingVert} = cos($move) * .3;
-				$ship->{aiTick} = $time;
 			}
 			$ship->{movingHozPress} = time();
 			$ship->{movingVertPress} = time();
@@ -250,7 +246,6 @@ sub _ai {
 			}
 			if ($modeDiff > 2 && $ship->{aiState} eq 'aggressive'){
 				print "changing $ship->{id} to passive\n";
-				$ship->{aiStateChange} = $time;
 				$ship->{aiState} = 'passive';
 			}
 			if ($modeDiff > 5){
@@ -262,44 +257,41 @@ sub _ai {
 				if ($distance < 30){
 					$ship->{direction} = $dir + (rand(.3) - .15);
 					if ($ship->{aiState} eq 'aggressive'){
-						$ship->{shooting} = time();
-					} else {
-						if ($stateDiff > 0.85){
+						if ($ship->aiStateRequest(rand(), 'shoot')){
 							$ship->{shooting} = time();
-						} else {
-							$ship->{shooting} = 0;
+						}
+					} else {
+						if ($ship->aiStateRequest(2, 'shoot')){
+							$ship->{shooting} = time();
 						}
 					}
-					if ($stateDiff > 1){
+					if ($ship->aiStateRequest(1, 'move')){
 						my $move = $dir + (rand() < .5 ? (PI / 2) : -(PI / 2));
 						my $factor = ($state eq 'aggressive' ? .4 : .1);
 						$ship->{movingHoz}  = sin($move) * $factor;
 						$ship->{movingVert} = cos($move) * $factor;
-						$ship->{aiStateChange} = $time;
 						if (rand() < .8){
 							$ship->{movingHozPress} = time();
 							$ship->{movingVertPress} = time();
 						}
 					}
 				} else {
-					if ($stateDiff > 0.5){
+					if ($ship->aiStateRequest('1', 'pursue')){
 						my $move = $dir + (rand(.3) - .15);
 						my $factor = ($state eq 'aggressive' ? .7 : .2);
 						$ship->{movingHoz}  = sin($move) * $factor;
 						$ship->{movingVert} = cos($move) * $factor;
-						$ship->{aiStateChange} = $time;
 					}
 					$ship->{movingHozPress} = time();
 					$ship->{movingVertPress} = time();
 				}
 			}
 		} elsif ($mode eq 'flee'){
-			if ($stateDiff > 0.5){
+			if ($ship->aiStateRequest('1', 'pursue')){
 				my $move = $dir + (rand(.3) - .15);
 				my $factor = 0.8;
 				$ship->{movingHoz}  = -sin($move) * $factor;
 				$ship->{movingVert} = -cos($move) * $factor;
-				$ship->{aiStateChange} = $time;
 			}
 			$ship->{movingHozPress} = time();
 			$ship->{movingVertPress} = time();
@@ -309,8 +301,7 @@ sub _ai {
 		#print "$ship->{id} - $id, $distance, $dir\n";
 		#print "mode: $ship->{aiMode}\n";
 		if ($ship->setAiColor()){
-			print "change AI $ship->{id} color to " . $ship->getColorName() . "\n";
-			$self->broadcastMsg('shipstatus', { 'ship_id' => $ship->{id}, 'color' => $ship->{color} });
+			$self->broadcastMsg('shipstatus', { 'ship_id' => $ship->{id}, 'color' => $ship->getColorName() });
 		}
 	}
 }
@@ -374,7 +365,7 @@ sub removeShip {
 	my $id = shift;
 
     my @ships = grep { $_->{id} != $id } $self->getShips();
-
+						
 	$self->{ships} = \@ships; 
 }
 
@@ -385,8 +376,13 @@ sub addShip {
 
 	push @{ $self->{ships} }, $ship;
 	my $id = $#{ $self->{ships} };
+
+	### this is so the connect stays alive after we remove the ship
+	# so the client doesn't crash
+	$self->{shipConn}->{$id} = $ship->{conn};
 	return $id;
 }
+
 ### transmit a msg to the clients
 sub sendMsg {
 	my $self = shift;
@@ -594,7 +590,7 @@ sub _recieveInputFromClients {
 		while (defined(my $in = <$socket>)){
 			chomp($in);
 			my $chr = $in;
-			if ($chr =~ m/B:(\d+?):(\d+?):(.)/){
+			if ($chr =~ m/B:([\-\d]+?):([\-\d]+?):(.)/){
 				print "******** loading part: $3, $1, $2\n";
 				my $chr = $3;
 				my $x   = $2;
@@ -752,9 +748,9 @@ sub _calculateBullets {
 						}
 
 					}
-					if (!$ship->{isBot}){
+					#if (!$ship->isBot()){
 						$self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
-					}
+					#}
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
 					print "ship $ship->{id}'s command module destroyed!\n";

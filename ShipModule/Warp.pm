@@ -4,7 +4,6 @@
 #
 package ShipModule::Warp;
 use parent ShipModule;
-use Data::Dumper;
 
 my $warpTimeDelay = 1.7;      # seconds
 my $lightLength   = 2.5;      # seconds
@@ -76,7 +75,7 @@ sub getKeys {
 }
 
 sub name {
-	return 'Warp';
+	return '[^] Warp';
 }
 
 1;

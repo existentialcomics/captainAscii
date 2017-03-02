@@ -121,6 +121,12 @@ sub _statusTick {
 }
 
 sub tick {
+	my $self = shift;
+	my $ship = shift;
+	if (defined($self->{status})){
+		$self->_setTick();
+		return $self->_statusTick($ship, $self->{status});
+	}
 	return 1;
 }
 
@@ -131,12 +137,10 @@ sub getKeys {
 sub active {
 	my $self = shift;
 	my $ship = shift;
-	if ($self->{active}){
-		$self->{active}  = 0
-	} else {
-		$self->{active}  = 1
+	if (defined($self->{status})){
+		return $self->_statusActive($ship, $self->{status});
 	}
-	return undef;
+	return 1;
 }
 
 1;

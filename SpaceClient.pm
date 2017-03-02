@@ -337,31 +337,76 @@ sub printInfo {
 	#$scr->at($height + 20, $left);
 	#$scr->puts($self->{debug});
 	$scr->at($height + 6, $left);
-	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim.\n");
+	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
 	$scr->at($height + 7, $left);
 
 	########## modules #############
 	$scr->puts("Modules:\n\r");
 	foreach my $module ($ship->getModules){
-		$scr->puts($module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r");
+		my $color = "";
+		if (defined($module->{status})){
+			if ($ship->getStatus($module->{status})){
+				$color = color('bold');
+			}
+		}
+		$scr->puts("    " . $color . $module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r" . color('reset'));
 	}
 
-	######### chat #################
-	my $lastMsg = $#{ $self->{msgs} } + 1;
-	my $term = $lastMsg - $height - 4;
-	my $count = 2;
-	if ($term < 0){ $term = 0; }
-	while ($lastMsg > $term){
-		$scr->at($height - $count, $width + 4);
-		$count++;
-		$lastMsg--;
-		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $self->{msgs}->[$lastMsg]));
+	######### chat or parts #########
+	if ($self->{mode} eq 'build'){ # parts
+		my $sprintf = '%-3s │ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
+		if (!defined($self->{partsDisplay})){
+			my %parts = %{ $ship->getAllPartDefs() };
+			$self->{partsDisplay} = [];
+			foreach my $ref (keys %parts){
+				my $part = $parts{$ref};
+				push(@{ $self->{partsDisplay} },
+					sprintf($sprintf,
+						$ref,
+						'$' . $part->{cost},
+						(defined($part->{thrust}) ? $part->{thrust} : ''),
+						(defined($part->{power}) ? $part->{power} : ''),
+						(defined($part->{damage}) ? $part->{damage} : ''),
+						(defined($part->{rate}) ? $part->{rate} : ''),
+						(defined($part->{shield}) ? $part->{shield} : ''),
+					)
+				);
+			}
+			$self->{partOffset} = 0;
+		}
+
+		$scr->at(1, $width + 3);
+		$scr->puts(sprintf($sprintf,
+			'chr', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield'));
+		for my $line (3 .. $height){
+			$scr->at($line, $width + 3);
+			my $partLine = $self->{partsDisplay}->[$line - 3];
+			$scr->puts(sprintf(' %-' . ($self->{chatWidth} - 4) . 's',
+				(defined($partLine) ? $partLine : "")
+				)
+			);
+		}
+	} else { # chat
+		for my $line (1 .. $height){
+			$scr->at($line, $width + 3);
+			$scr->puts(' ' x ($self->{chatWidth} - 4));
+		}
+		my $lastMsg = $#{ $self->{msgs} } + 1;
+		my $term = $lastMsg - $height - 4;
+		my $count = 2;
+		if ($term < 0){ $term = 0; }
+		while ($lastMsg > $term){
+			$scr->at($height - $count, $width + 4);
+			$count++;
+			$lastMsg--;
+			$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $self->{msgs}->[$lastMsg]));
+		}
+		my $boxColor = color('ON_BLACK');
+		if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
+		$scr->at($height, $width + 4);
+		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . $self->{'msg'} . color('reset')));
+		$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
 	}
-	my $boxColor = color('ON_BLACK');
-	if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
-	$scr->at($height, $width + 4);
-	$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . $self->{'msg'} . color('reset')));
-	$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
 }
 
 sub _resetMap {
@@ -470,12 +515,6 @@ sub _drawShips {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
-		if (($self->{'mode'} eq "build") && ($self->{ship}->{id} eq $ship->{id})){
-		#if (($self->{ship}->{id} eq $ship->{id})){
-			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
-			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
-			$self->setMap($cx, $cy, color("BLACK ON_WHITE") . '+');
-		}
 		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
 			my $bold = '';
@@ -555,6 +594,12 @@ sub _drawShips {
 				}
 			}
 		}
+		if (($self->{'mode'} eq "build") && ($self->{ship}->{id} eq $ship->{id})){
+		#if (($self->{ship}->{id} eq $ship->{id})){
+			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
+			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
+			$self->setMap($cx, $cy, color("BLACK ON_WHITE") . '+');
+		}
 	}
 }
 
@@ -601,6 +646,8 @@ sub _sendKeystrokesToServer {
 					print {$self->{socket}} "M:$self->{ship}->{color}$self->{username}:$self->{ship}->{color}$self->{'msg'}" . color('RESET') . "\n";
 					$self->{'msg'} = '';
 					$self->{mode} = 'drive';
+				} elsif($chr eq "\b" || ord($chr) == 127){ # 127 is delete
+					chop($self->{'msg'});
 				} else {
 					if (length($self->{'msg'}) < $self->{chatWidth} - 4){
 						$self->{'msg'} .= $chr;

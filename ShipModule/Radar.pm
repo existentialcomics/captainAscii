@@ -9,20 +9,8 @@ sub _init {
 	$self->SUPER::_init();
 	#$self->{powerPassive} = 4;
 	$self->{powerActive} = 5;
+	$self->{status} = 'radar';
 	return 1;
-}
-
-sub active {
-	my $self = shift;
-	my $ship = shift;
-	return $self->_statusActive($ship, 'radar');
-}
-
-sub tick {
-	my $self = shift;
-	my $ship = shift;
-	$self->_setTick();
-	$self->_statusTick($ship, 'radar');
 }
 
 sub getKeys {
@@ -30,7 +18,7 @@ sub getKeys {
 }
 
 sub name {
-	return 'Radar';
+	return  '[O] Radar';
 }
 
 1;

@@ -476,16 +476,36 @@ sub getAiModeState {
 	return ($self->{aiMode}, $self->{aiState});
 }
 
+# governs whether or not to take intermittent action
+# pass in the time
+sub aiStateRequest {
+	my $self = shift;
+	my $timeRequested = shift;
+	my $action = shift;
+	$action = "_action$action";
+	if (! defined( $self->{_aiVars}->{$action})){
+		$self->{_aiVars}->{$action} = time();
+		return 1;
+	} 
+	if ((time() - $self->{_aiVars}->{$action}) > $timeRequested){
+		$self->{_aiVars}->{$action} = time();
+		return 1;
+	}
+	return 0;
+}
+
 sub changeAiMode {
 	my $self = shift;
 	my $mode = shift;
 	my $state = shift;
+	if (!defined($self->{aiMode})){
+		print "mode not defined! $mode\n";
+	}
 	if ($mode ne $self->{aiMode}){
 		$self->{aiMode} = $mode;
 		$self->{_aiVars} = {};
 	}
 	$self->{aiModeChange} = time();
-	$self->{aiStateChange} = time();
 	$self->{aiTick} = time();
 	if (defined($state)){
 		$self->{aiState} = $state;
@@ -550,14 +570,6 @@ sub damageShield {
 	$part->{'hit'} = time();
 	$part->{shieldHealth} = $health;
 	return $part->{shieldHealth};
-}
-
-sub getPartDefs {
-	my $self = shift;
-}
-
-sub setPartDefs {
-	my $self = shift;
 }
 
 ####### new simpler algorithm
@@ -716,6 +728,7 @@ sub getStatus {
 	return 0;
 }
 
+
 sub clearStatusMsgs {
 	my $self = shift;
 	$self->{'statusChange'} = {};
@@ -868,9 +881,9 @@ sub purchasePart {
 	if (!defined($parts{$chr})){
 		return undef;
 	}
-	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
-		return undef;
-	}
+#	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
+#		return undef;
+#	}
 	return $self->_loadPart($chr, $x, $y);
 }
 
@@ -1140,12 +1153,17 @@ sub _loadShipByMap {
 	}
 
 	$self->_calculateParts();
+	$self->_recalculate();
 }
 
 sub getPartDef {
 	my $ship = shift;
 	my $chr  = shift;
 	return $parts{$chr};
+}
+
+sub getAllPartDefs {
+	return \%parts;
 }
 
 sub _setPartConnections {
