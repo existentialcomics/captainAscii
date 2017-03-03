@@ -720,7 +720,7 @@ sub setStatus {
 	} elsif($status eq 'm_active'){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $value->{name}){
-                $module->{active} = $value->{active};
+                $module->{active} = defined($value->{active} ? $value->{active} : 0);
             }
         }
 	} else {
