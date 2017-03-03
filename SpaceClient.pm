@@ -301,7 +301,8 @@ sub printInfo {
 	#### ----- ship info ------ ####
 	$scr->at($height + 2, $left);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
-	$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
+    #$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
+	$scr->puts(sprintf('coordinates: %3s,%3s      ships detected: %-3s  ', int($ship->{x}), int($ship->{y}), $self->_getShipCount()) );
 	$scr->at($height + 3, $left);
 	$scr->puts(
 		"fps: " . $self->{fps} . "  " . 
@@ -338,19 +339,20 @@ sub printInfo {
 	#$scr->puts($self->{debug});
 	$scr->at($height + 6, $left);
 	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
-	$scr->at($height + 7, $left);
 
 	########## modules #############
-	$scr->puts("Modules:\n\r");
-	foreach my $module ($ship->getModules){
-		my $color = "";
-		if (defined($module->{status})){
-			if ($ship->getStatus($module->{status})){
-				$color = color('bold');
-			}
-		}
-		$scr->puts("    " . $color . $module->name() . ", keys: " . join (',', $module->getKeys()) . "\n\r" . color('reset'));
+    my $mHeight = $height + 3;
+	$scr->at($mHeight - 1, $width + 2);
+    $scr->puts('┌────────────────────┬───────────┐');
+	foreach my $module ( sort $ship->getModules){
+	    $scr->at($mHeight, $width + 2);
+        # TODO grey for you don't even have the module
+		my $color = color($module->getColor($ship));
+        $scr->puts(sprintf('│ ' . $color . '%-18s ' . color('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys())) );
+        $mHeight++;
 	}
+    $scr->at($mHeight, $width + 2);
+    $scr->puts('└────────────────────┴───────────┘');
 
 	######### chat or parts #########
 	if ($self->{mode} eq 'build'){ # parts
@@ -358,7 +360,15 @@ sub printInfo {
 		if (!defined($self->{partsDisplay})){
 			my %parts = %{ $ship->getAllPartDefs() };
 			$self->{partsDisplay} = [];
-			foreach my $ref (keys %parts){
+			foreach my $ref (
+            sort {
+                defined($parts{$a}->{damage}) <=> defined($parts{$b}->{damage}) ||
+                defined($parts{$a}->{thrust}) <=> defined($parts{$b}->{thrust}) ||
+                defined($parts{$a}->{power}) <=> defined($parts{$b}->{power}) ||
+                defined($parts{$a}->{shield}) <=> defined($parts{$b}->{shield}) ||
+                $parts{$a}->{cost} <=> $parts{$b}->{cost}
+            }
+            keys %parts){
 				my $part = $parts{$ref};
 				push(@{ $self->{partsDisplay} },
 					sprintf($sprintf,
@@ -469,10 +479,8 @@ sub _drawBullets {
 	}
 }
 
-#signal(SIDWINCH, do_resize);
 sub setHandlers {
 	my $self = shift;
-	$SIG{SIDWINCH} = sub { $self->resize() };
 	$SIG{WINCH} = sub { $self->resize() };
 }
 
@@ -557,7 +565,7 @@ sub _drawShips {
 				if ($part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
 						my $shieldLevel = ($highlight ne '' ? 5 : 2);
-						### TODO add more lighting if shields in deflector mode, maybe just on the borders
+                        if ($ship->getStatus('deflector')){ $shieldLevel += 2; }
 						if ($part->{'part'}->{'size'} eq 'medium'){
 							$self->addLighting($px - 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
 							$self->addLighting($px - 1, $py + $_, $shieldLevel) foreach (-3 .. 3);

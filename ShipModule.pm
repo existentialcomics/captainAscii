@@ -39,8 +39,17 @@ sub getDescription {
 	return "Description goes here";
 }
 
-sub getName {
+sub name {
 	return "Name goes here";
+}
+
+sub getDisplay {
+    return "[M]";
+}
+
+sub getFullDisplay {
+    my $self = shift;
+    return $self->getDisplay() . " " . $self->name();
 }
 
 sub _powerRequired {
@@ -99,7 +108,11 @@ sub _statusActive {
 		'msgType' => 'shipstatus',
 		'msg' => {
 			'ship_id' => $ship->{id},
-			$status => $ship->{$status}
+			$status => $ship->{$status},
+            'm_active' => {
+                'name'   => $self->name(),
+                'active' => $self->isActive()
+            }
 		}
 	};
 	return $return;
@@ -118,6 +131,18 @@ sub _statusTick {
 		return 0;
 	}
 	
+}
+
+sub getColor {
+    my $self = shift;
+    my $ship = shift;
+    if (!defined($self->{status})){ return "white"; }
+    if (!$self->isActive()       ){ return "grey10" }
+    if ($self->_hasPower($ship)){
+        return 'green';
+    } else {
+        return 'red';
+    }
 }
 
 sub tick {

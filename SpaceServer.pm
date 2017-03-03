@@ -159,7 +159,7 @@ sub loop {
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
-		#$self->_spawnShips();
+		$self->_spawnShips();
 	}
 }
 
@@ -207,7 +207,6 @@ sub _spawnShips {
 			#'map' => $oldShip->{collisionMap},
 			'options' => { color => $shipNew->getColorName() }
 		});
-		print "newShipColor " . $shipNew->getColorName() .  "\n";
 		$self->addShip($shipNew);
 	}
 }
@@ -635,7 +634,7 @@ sub _recieveInputFromClients {
 				};
 				$self->broadcastMsg('shipstatus', $msg);
 			}
-			if ($chr eq 'p'){
+			if ($chr eq '^'){
 				my $map = $ship->{collisionMap};
 				#print Dumper($map);
 				my $msg = {
@@ -707,19 +706,16 @@ sub _calculateBullets {
 		# detect and resolve bullet collisions
 		foreach my $ship ($self->getShips()){
 			if (my $data = $ship->resolveCollision($bullet)){
-				#if (! defined($data->{deflect})) {
-				$data->{bullet_del} = $bulletK;
-				$data->{ship_id} = $ship->{id};
-				$self->broadcastMsg('dam', $data);
-				if (defined($data->{deflect})){
+				if (defined($data->{deflect})){ # or dodge
 					#$bullet->{dx} = (0 - $bullet->{dx});
-				# probably only hit a shield
 					#$bullet->{dy} = (0 - $bullet->{dy});
-					#$bullet->{ship_id} = -1;
+					$bullet->{ship_id} = $ship->{id}; # convert it to our bullet
+				} else { # normal hit
+                    $data->{bullet_del} = $bulletK;
+                    $data->{ship_id} = $ship->{id};
+                    $self->broadcastMsg('dam', $data);
+				    delete $self->{bullets}->{$bulletK};
 				}
-				#} else {
-				delete $self->{bullets}->{$bulletK};
-				#}
 
 				if (!defined($data->{health})){
 					last;

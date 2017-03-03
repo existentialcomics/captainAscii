@@ -1,28 +1,27 @@
 #!/usr/bin/perl
 
-package ShipModule::Radar;
+package ShipModule::Emp;
 use parent ShipModule;
 
 sub _init {
 	my $self = shift;
 
 	$self->SUPER::_init();
-	#$self->{powerPassive} = 4;
-	$self->{powerActive} = 5;
-	$self->{status} = 'radar';
+	$self->{powerActive} = 3;
+	$self->{status} = 'emp';
 	return 1;
 }
 
 sub getKeys {
-	return ('r');
+	return ('p');
 }
 
 sub name {
-	return  'Radar';
+	return 'Emp';
 }
 
 sub getDisplay {
-    return '[።]';
+    return '[⁂]'   
 }
 
 1;

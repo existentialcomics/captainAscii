@@ -18,7 +18,11 @@ sub getKeys {
 }
 
 sub name {
-	return '[ ] Cloaking';
+	return 'Cloaking';
+}
+
+sub getDisplay {
+    return '[⁐]'   
 }
 
 1;

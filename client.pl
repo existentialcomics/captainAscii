@@ -8,6 +8,27 @@ my $color = shift;
 
 my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white);
 
+$SIG{__DIE__} = \&log_die;
+$SIG{__WARN__} = \&log_warn;
+
+sub log_die
+{
+    write_log(@_);
+    die @_;
+}
+
+sub log_warn
+{
+    write_log(@_);
+}
+
+sub write_log
+{
+    open LOG,">>",'error-warn.log';
+    print LOG @_,"\n";
+    close LOG;
+}
+
 if (!$ship){
 	print "enter ship file\n";
 	exit;

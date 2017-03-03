@@ -233,11 +233,11 @@ sub shoot {
 				id => $self->{'id'},
 				partId => $part->{'id'},
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
-				emp => $self->{empOn},
+				emp => $self->getStatus('emp'),
 				damage => $part->{part}->{damage},
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
-				'chr'   => color($part->{'part'}->{'shotColor'})
+				'chr'   => ($self->getStatus('emp') ? color('bold blue') : color($part->{'part'}->{'shotColor'}))
 						. $part->{'part'}->{'shotChr'},
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
@@ -449,14 +449,24 @@ sub resolveCollision {
 		}
 		if ((abs($bullet->{y} - $py) < 1.5 ) &&
 		    (abs($bullet->{x} - $px) < 1.5 )){
-			$self->changeAiMode('attack', 'aggressive');
-			$self->aiTarget($bullet->{id});
-			$part->{'health'} -= $bullet->{damage};
+            if ($self->getStatus('dodge') && rand() < 0.3){
+                return { 'deflect' => 1 }
+            }
+            if ($self->isBot()){
+                $self->changeAiMode('attack', 'aggressive');
+                $self->aiTarget($bullet->{id});
+            }
 			$part->{'hit'} = time();
-			if ($part->{health} < 0){
-				$self->_removePart($part->{id});
-			}
-			return { id => $part->{id}, health => $part->{health} };
+            if ($bullet->{emp}){
+                $self->{currentPower} -= $bullet->{damage};
+                $self->_limitPower();
+            } else {
+			    $part->{'health'} -= $bullet->{damage};
+                if ($part->{health} < 0){
+                    $self->_removePart($part->{id});
+                }
+			    return { id => $part->{id}, health => $part->{health} };
+            }
 		}
 	}
 	return undef;
@@ -707,6 +717,12 @@ sub setStatus {
 		$self->lightShip($value);
 	} elsif($status eq 'color'){
 		$self->setColor($value);
+	} elsif($status eq 'm_active'){
+        foreach my $module ($self->getModules()){
+            if ($module->name() eq $value->{name}){
+                $module->{active} = $value->{active};
+            }
+        }
 	} else {
 		#print time() . " status update: $status = $value\n";
 		if ($self->{$status} ne $value){
@@ -881,9 +897,9 @@ sub purchasePart {
 	if (!defined($parts{$chr})){
 		return undef;
 	}
-#	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
-#		return undef;
-#	}
+	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
+		return undef;
+	}
 	return $self->_loadPart($chr, $x, $y);
 }
 

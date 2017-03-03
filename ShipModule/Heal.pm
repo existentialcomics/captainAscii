@@ -18,7 +18,11 @@ sub getKeys {
 }
 
 sub name {
-	return '[+] Heal';
+	return 'Heal';
+}
+
+sub getDisplay {
+    return '[+]';
 }
 
 1;

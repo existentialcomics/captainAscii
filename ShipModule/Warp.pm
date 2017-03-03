@@ -75,7 +75,11 @@ sub getKeys {
 }
 
 sub name {
-	return '[^] Warp';
+	return 'Warp';
+}
+
+sub getDisplay {
+    return '[▒]';
 }
 
 1;
