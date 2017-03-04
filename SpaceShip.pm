@@ -150,6 +150,10 @@ sub _init {
 	return 1;
 }
 
+sub calculateDrops {
+    my @drops = ();
+}
+
 sub becomeAi {
 	my $self = shift;
 	$self->{aiMode} = 'explore';

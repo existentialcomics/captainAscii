@@ -70,8 +70,7 @@ sub _init {
 
 	$self->{ships}->{ $self->{ship}->{id} } = $self->{ship};
 	$self->{bullets} = {};
-
-
+	$self->{items}   = {};
 
 	$self->loop();
 
@@ -479,6 +478,27 @@ sub _drawBullets {
 	}
 }
 
+sub _drawItems {
+	my $self = shift;
+
+	my $offx = shift;
+	my $offy = shift;
+
+	my %items = %{ $self->{items} };
+	foreach my $itemK ( keys %items){
+		my $item = $items{$itemK};
+		if ($item->{expires} < time()){
+			delete $items{$itemK};
+			next;
+		}
+		my $spotX = $item->{x} + $offy;
+		my $spotY = $item->{y} + $offx;
+		if ($spotX > 0 && $spotY > 0){
+			$self->setMap($spotX, $spotY, $item->{chr});
+		}
+	}
+}
+
 sub setHandlers {
 	my $self = shift;
 	$SIG{WINCH} = sub { $self->resize() };
@@ -682,12 +702,8 @@ sub _getMessagesFromServer {
 			my $key = $data->{k};
 			# new bullet
 			if (!defined($self->{bullets}->{$key})){
-				#$self->{ships}->{$data->{sid}}->{parts}->{$data->{pid}}->{'hit'} = time();
-				#$ships{'self'}->{parts}->{$data->{pid}}->{'hit'} = time();
 				if (my $ship = $self->_getShip($data->{sid})){
-					#$self->{debug} = "new bullet: $key $data->{sid}";
 					my $part = $ship->getPartById($data->{pid});
-					#$self->{debug} = "part time: $data->{pid} *** " . time();
 					$part->{'lastShot'} = time();
 				} else {
 					#$self->{debug} = "ship not found $data->{sid}";
@@ -695,6 +711,10 @@ sub _getMessagesFromServer {
 			}
 			$self->{bullets}->{$key} = $data;
 			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
+		} elsif ($msg->{c} eq 'item'){
+			my $key = $data->{k};
+			$self->{items}->{$key} = $data;
+			$self->{items}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif($msg->{c} eq 'exit'){
 			$self->exitGame($data->{'msg'});
 		} elsif ($msg->{c} eq 's'){
@@ -760,7 +780,7 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'msg'){
 			push @{ $self->{msgs} }, "$data->{'user'}:  $data->{'msg'}";
-		}
+        }
 	}
 
 }

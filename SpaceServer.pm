@@ -399,7 +399,9 @@ sub broadcastMsg {
 	my $self = shift;
 	my ($category, $data) = @_;
 	foreach my $ship ($self->getShips()){
-		$self->sendMsg($ship->{conn}, $category, $data);
+        if (!$ship->isBot()){
+		    $self->sendMsg($ship->{conn}, $category, $data);
+        }
 	}
 }
 
@@ -671,6 +673,20 @@ sub getBulletCount {
 	return scalar $self->getBullets();
 }
 
+sub addItem {
+    my $self = shift;
+    my $item = shift;
+
+    my $key = rand(1000) . time();
+	$self->{items}->{$key} = $item;
+    $item->{k} = $key;
+    if (!defined($item->{expires})){
+        $item->{expires} = 20;
+    }
+    $self->broadcastMsg('item', $item);
+    
+}
+
 sub _calculateBullets {
 	my $self = shift;
 	### calcuate bullets
@@ -744,11 +760,17 @@ sub _calculateBullets {
 						}
 
 					}
-					#if (!$ship->isBot()){
-						$self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
-					#}
+                    $self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
+
+                    my $item = {
+                        'chr' => color('green') . '$' . color('reset'),
+                        'cash' => int(rand() * 400) + 40
+                    };
+
+                    $self->addItem($item);
+
 					print "ship $ship->{id}'s command module destroyed!\n";
 					print "ships in game : " . $self->getShipCount() . "\n";
 					next;
