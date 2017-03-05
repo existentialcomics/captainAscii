@@ -260,6 +260,7 @@ sub loop {
 		$self->{'map'} = $self->_resetMap($self->{width}, $self->{height});
 
 		$self->_drawBullets($offx, $offy);
+		$self->_drawItems($offx, $offy);
 		$self->_drawShips($offx, $offy);
 
 		$self->printScreen($scr);
@@ -305,6 +306,7 @@ sub printInfo {
 	$scr->at($height + 3, $left);
 	$scr->puts(
 		"fps: " . $self->{fps} . "  " . 
+		"id "   . $self->{ship}->{id} . "  " . 
 		"weight: " .  $ship->{weight} .
 		"  thrust: " . $ship->{thrust} .
 		"  speed: " . sprintf('%.1f', $ship->{speed}) . 
@@ -325,19 +327,24 @@ sub printInfo {
 	# display shield
 	if ($ship->{shield} > 0){
 		$scr->at($height + 5, $left);
-		$scr->puts(sprintf('%-10s|', $ship->{shield} . ' / ' . int($ship->{shieldHealth})). 
+		my $shieldPercent = int($ship->{shieldHealth}) / int($ship->{shield});
+		if ($shieldPercent > 1){ $shieldPercent = 1; }
+		$scr->puts(sprintf('%-10s|', int($ship->{shield}) . ' / ' . int($ship->{shieldHealth})). 
 		(color('ON_RGB' .
 			0 . 
-			(int(5 * ($ship->{shieldHealth} / $ship->{shield}))) .
+			(int(5 * $shieldPercent)) .
 			5) . " "
-			x ( 60 * ($ship->{shieldHealth} / $ship->{shield})) . 
-			color('RESET') . " " x (60 - ( 60 * ($ship->{shieldHealth} / $ship->{shield}))) ) . "|"
+			x ( 60 * $shieldPercent) . 
+			color('RESET') . " " x (60 - ( 60 * $shieldPercent)) ) . "|"
 		);
 	}
 	#$scr->at($height + 20, $left);
 	#$scr->puts($self->{debug});
 	$scr->at($height + 6, $left);
-	$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
+	#$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
+	$scr->puts($self->{debug});
+	$scr->at($height + 7, $left);
+	$scr->puts($self->{ship}->{debug});
 
 	########## modules #############
     my $mHeight = $height + 3;
@@ -715,6 +722,10 @@ sub _getMessagesFromServer {
 			my $key = $data->{k};
 			$self->{items}->{$key} = $data;
 			$self->{items}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
+			$self->{debug} = "added item $key\n";
+		} elsif ($msg->{c} eq 'itemdel'){
+			my $key = $data->{k};
+			delete $self->{items}->{$key};
 		} elsif($msg->{c} eq 'exit'){
 			$self->exitGame($data->{'msg'});
 		} elsif ($msg->{c} eq 's'){
@@ -782,7 +793,6 @@ sub _getMessagesFromServer {
 			push @{ $self->{msgs} }, "$data->{'user'}:  $data->{'msg'}";
         }
 	}
-
 }
 
 sub exitGame {

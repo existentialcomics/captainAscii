@@ -79,6 +79,12 @@ sub isActive {
 	return $self->{active};
 }
 
+sub setActive {
+	my $self = shift;
+	my $active = shift;
+	$self->{active} = $active;
+}
+
 sub _hasPower {
 	my $self = shift;
 	my $ship = shift;
@@ -98,24 +104,15 @@ sub _statusActive {
 	my $ship = shift;
 	my $status = shift;
 	if ($self->{active} == 1){
-		$ship->{$status} = 0;
+		$ship->setStatus($status, 0);
+		$ship->setStatus('m_active', { name => $self->name(), active => 0 });
 		$self->{active}  = 0;
 	} else {
-		$ship->{$status} = ($self->_hasPower($ship) ? 1 : 0);
+		$ship->setStatus($status, ($self->_hasPower($ship) ? 1 : 0));
+		$ship->setStatus('m_active', { name => $self->name(), active => 1 });
 		$self->{active}  = 1;
 	}
-	my $return = {
-		'msgType' => 'shipstatus',
-		'msg' => {
-			'ship_id' => $ship->{id},
-			$status => $ship->{$status},
-            'm_active' => {
-                'name'   => $self->name(),
-                'active' => $self->isActive()
-            }
-		}
-	};
-	return $return;
+	return undef;
 }
 
 sub _statusTick {

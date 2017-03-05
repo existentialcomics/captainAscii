@@ -98,6 +98,7 @@ sub _init {
 	$self->{color} = color((defined($options->{color}) ? $options->{color} : 'RGB113'));
 	$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
 	$self->{cash} = 0;
+	$self->{debug} = 'ship debug msgs';
 
 	$self->{'aspectRatio'} = $aspectRatio;
 
@@ -696,7 +697,8 @@ sub keypress {
 	if ($chr eq 'E' || $chr eq 'E'){ $self->{aimingPress} = time(); $self->{aimingDir} = -5}
 	if ($chr eq 'l'){ $self->lightShip() }
 	if ($chr eq '@'){ $self->toggleShield(); } 
-	return $self->_resolveModuleKeypress($chr);
+	$self->_resolveModuleKeypress($chr);
+	return undef
 }
 
 sub _resolveModuleKeypress {
@@ -719,21 +721,33 @@ sub setStatus {
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
+		$self->{'statusChange'}->{$status} = $value;
 	} elsif($status eq 'color'){
 		$self->setColor($value);
+		$self->{'statusChange'}->{$status} = $value;
 	} elsif($status eq 'm_active'){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $value->{name}){
-                $module->{active} = defined($value->{active} ? $value->{active} : 0);
+                $module->setActive($value->{active});
+				$self->{'statusChange'}->{$status} = $value;
             }
         }
 	} else {
-		#print time() . " status update: $status = $value\n";
 		if ($self->{$status} ne $value){
 			$self->{$status} = $value;
 			$self->{'statusChange'}->{$status} = $value;
 		}
 	}
+}
+
+sub claimItem {
+	my $self = shift;
+	my $item = shift;
+	if (defined($item->{cash})){
+		my $cash = $self->getStatus('cash');
+		$self->setStatus('cash', $cash + $item->{cash});
+	}
+
 }
 
 sub getStatus {

@@ -155,6 +155,7 @@ sub loop {
 		$self->_ai();
 		$self->_loadNewPlayers();
 		$self->_calculateBullets();
+		$self->_calculateItems();
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
@@ -169,6 +170,7 @@ sub _sendShipStatuses {
 	foreach my $ship ($self->getShips()){
 		foreach my $msg ($ship->getStatusMsgs()){
 			$self->broadcastMsg('shipstatus', $msg);
+			print Dumper($msg);
 		}
 		$ship->clearStatusMsgs();
 	}
@@ -357,6 +359,15 @@ sub getShips {
 sub getShipCount {
 	my $self = shift;
 	return scalar $self->getShips();
+}
+
+sub getShipById {
+	my $self = shift;
+	my $id = shift;
+	foreach my $ship ($self->getShips){
+		if ($ship->{id} eq $id){ return $ship }
+	}
+	return undef
 }
 
 sub removeShip {
@@ -668,6 +679,12 @@ sub getBullets {
 	return keys %{ $self->{bullets} };
 }
 
+sub getItems {
+	my $self = shift;
+	return keys %{ $self->{items} };
+}
+
+
 sub getBulletCount {
 	my $self = shift;
 	return scalar $self->getBullets();
@@ -678,13 +695,47 @@ sub addItem {
     my $item = shift;
 
     my $key = rand(1000) . time();
-	$self->{items}->{$key} = $item;
     $item->{k} = $key;
     if (!defined($item->{expires})){
-        $item->{expires} = 20;
+        $item->{ex} = 20;
     }
-    $self->broadcastMsg('item', $item);
-    
+	$item->{expires} = time + $item->{ex};
+	$self->{items}->{$key} = $item;
+	print "adding item: $key for ship $item->{sid}, $item->{x}, $item->{y}\n";
+#	if ($item->{sid}){
+#		my $ship = $self->getShipById($item->{sid});
+#		$self->sendMsg($ship->{conn}, 'item', $item);
+#	} else { # global items
+#		$self->broadcastMsg('item', $item);
+#	}
+	$self->broadcastMsg('item', $item);
+}
+
+sub _calculateItems {
+	my $self = shift;
+	foreach my $itemK ( $self->getItems() ){
+		if ($self->{items}->{$itemK}->{expires} < time()){
+			delete $self->{items}->{$itemK};
+			$self->broadcastMsg('itemdel', { 'k' => $itemK });
+		} else {
+			my $item = $self->{items}->{$itemK};
+			foreach my $ship ($self->getShips()){
+				if (defined($item->{sid})){
+					if ($item->{sid} ne $ship->{id}){
+						next;
+					}
+				}
+				if (abs($ship->{y} - $item->{x}) < 3 &&
+					abs($ship->{x} - $item->{y}) < 3 ){
+
+					$ship->claimItem($item);
+					print "### claiming item for $ship->{id}\n";
+					delete $self->{items}->{$itemK};
+					$self->broadcastMsg('itemdel', { 'k' => $itemK });
+				}
+			}
+		}
+	}
 }
 
 sub _calculateBullets {
@@ -751,22 +802,16 @@ sub _calculateBullets {
 					}
 				}
 				if (! $ship->getCommandModule() ){
-					foreach my $claimShip ($self->getShips){
-						if ($claimShip->{id} eq $bullet->{id}){
-							$claimShip->{cash} += '500';
-							$self->sendFullShipStatus($claimShip);
-							print "$claimShip->{id} granted \$500\n";
-
-						}
-
-					}
                     $self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-
                     my $item = {
-                        'chr' => color('green') . '$' . color('reset'),
-                        'cash' => int(rand() * 400) + 40
+                        'chr'  => color('green ON_RGB121') . '$' . color('reset'),
+                        'cash' => (int(rand() * 400) + 40),
+						# x and y is backwards for some reason
+						'x'    => $ship->{y},
+						'y'    => $ship->{x},
+						'sid'  => $bullet->{id}
                     };
 
                     $self->addItem($item);

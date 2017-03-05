@@ -1,14 +1,11 @@
 #!/usr/bin/perl
-#
-#
-#
 package ShipModule::Warp;
 use parent ShipModule;
 
 my $warpTimeDelay = 1.7;      # seconds
 my $lightLength   = 2.5;      # seconds
 my $warpDistanceFactor = 1.5; # multiplied by ship speed
-my $warpDistance = 12;        # minimum distance
+my $warpDistance = 15;        # minimum distance
 
 sub active {
 	my $self = shift;
@@ -26,14 +23,8 @@ sub active {
 
 	#if ($ship->{currentPower} < $ship->{speed} || time() - $ship->{lastHyperdrive} < 15){
 	if ($ship->{currentPower} < $self->_powerNeccesary($ship)){
-		my $return = {
-			'msgType' => 'shipstatus',
-			'msg' => {
-				'ship_id' => $ship->{id},
-				'light'   => -0.2
-			}
-		};
-		return $return;
+		$ship->setStatus('light' => -0.2);
+		return 0;
 	}
 	$ship->{'warp'} = {
 		'time' => time() + $warpTimeDelay,
@@ -43,14 +34,8 @@ sub active {
 	$ship->{currentPower} -= $self->_powerNeccesary($ship);
 	$ship->{lastHyperdrive} = time();
 
-	my $return = {
-		'msgType' => 'shipstatus',
-		'msg' => {
-			'ship_id' => $ship->{id},
-			'light'   => $lightLength
-		}
-	};
-	return $return;
+	$ship->setStatus('light' => $lightLength);
+	return 1;
 }
 
 sub _powerNeccesary{
