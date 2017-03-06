@@ -8,8 +8,14 @@ use SpaceShip;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
+use Math::Trig ':radial';
 
 use ShipModule;
+
+use constant {
+	ASPECTRATIO => 0.66666666,
+	PI => 3.1415
+};
 
 sub new {
 	my $class = shift;
@@ -314,36 +320,48 @@ sub printInfo {
 		"  cash: \$" . $ship->{cash} . 
 		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
 		);
-	# power
+
+	my $barWidth = 50;
+	############ power
 	$scr->at($height + 4, $left);
-	$scr->puts(sprintf('%-10s|', $ship->{power} . ' / ' . int($ship->{currentPower})). 
+    $scr->puts( ' ' x 10 .'┌' . '─' x $barWidth . '┐');
+	$scr->at($height + 5, $left);
+	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
+	my $powerPad   = $barWidth - $powerWidth;
+	$scr->puts(sprintf('%-10s│%s│',
+	$ship->{power} . ' / ' . int($ship->{currentPower}) , 
 	(color('ON_RGB' .
 		5 . 
 		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
-		0) . " "
-		x ( 60 * ($ship->{currentPower} / $ship->{power})) . 
-		color('RESET') . " " x (60 - ( 60 * ($ship->{currentPower} / $ship->{power}))) ) . "|"
-	);
-	# display shield
+		0) . (" " x $powerWidth) . 
+		color('RESET') . (' ' x $powerPad) )
+	));
+	############# display shield
+	$scr->at($height + 6, $left);
+	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
+	my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
+	my $shieldPad   = $barWidth - $shieldWidth;
 	if ($ship->{shield} > 0){
-		$scr->at($height + 5, $left);
-		my $shieldPercent = int($ship->{shieldHealth}) / int($ship->{shield});
+		$scr->at($height + 7, $left);
+		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
 		if ($shieldPercent > 1){ $shieldPercent = 1; }
-		$scr->puts(sprintf('%-10s|', int($ship->{shield}) . ' / ' . int($ship->{shieldHealth})). 
+		$scr->puts(sprintf('%-10s│%s│',
+		int($ship->{shield}) . ' / ' . int($ship->{shieldHealth}),
 		(color('ON_RGB' .
 			0 . 
 			(int(5 * $shieldPercent)) .
-			5) . " "
-			x ( 60 * $shieldPercent) . 
-			color('RESET') . " " x (60 - ( 60 * $shieldPercent)) ) . "|"
-		);
-	}
+			5) . (" " x $shieldWidth) .
+			color('RESET') . (" " x $shieldPad))
+		));
+	} 
+	$scr->at($height + 8, $left);
+	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
 	#$scr->at($height + 20, $left);
 	#$scr->puts($self->{debug});
-	$scr->at($height + 6, $left);
+	$scr->at($height + 9, $left);
 	#$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
 	$scr->puts($self->{debug});
-	$scr->at($height + 7, $left);
+	$scr->at($height + 10, $left);
 	$scr->puts($self->{ship}->{debug});
 
 	########## modules #############
@@ -591,26 +609,19 @@ sub _drawShips {
 			if ($ship->{shieldsOn}){
 				if ($part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
-						my $shieldLevel = ($highlight ne '' ? 5 : 2);
+						my $shieldLevel = ($highlight ne '' ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
                         if ($ship->getStatus('deflector')){ $shieldLevel += 2; }
-						if ($part->{'part'}->{'size'} eq 'medium'){
-							$self->addLighting($px - 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
-							$self->addLighting($px - 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
-							$self->addLighting($px + 0, $py + $_, $shieldLevel) foreach (-4 .. 4);
-							$self->addLighting($px + 1, $py + $_, $shieldLevel) foreach (-3 .. 3);
-							$self->addLighting($px + 2, $py + $_, $shieldLevel) foreach (-1 .. 1);
-						} elsif ($part->{'part'}->{'size'} eq 'large'){
-							$self->addLighting($px - 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
-							$self->addLighting($px - 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
-							$self->addLighting($px - 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
-							$self->addLighting($px + 0, $py + $_, $shieldLevel) foreach (-5 .. 5);
-							$self->addLighting($px + 1, $py + $_, $shieldLevel) foreach (-4 .. 4);
-							$self->addLighting($px + 2, $py + $_, $shieldLevel) foreach (-3 .. 3);
-							$self->addLighting($px + 3, $py + $_, $shieldLevel) foreach (-1 .. 1);
+						my $radius = $part->{'part'}->{'shieldsize'};
+						foreach my $sh_x (-$radius * ASPECTRATIO .. $radius * ASPECTRATIO){
+							foreach my $sh_y (-$radius .. $radius){
+								if (sqrt((($sh_x / ASPECTRATIO ) ** 2) + ($sh_y ** 2)) <= $radius){
+									$self->addLighting($px - $sh_x, $py + $sh_y, $shieldLevel);
+								}
+							}
 						}
 					}
 				}
-			}
+			} # end if shields are on
 		}
 		my ($aimx, $aimy) = $ship->getAimingCursor();
 		my $px = ($offy + int($ship->{y})) + $aimx;

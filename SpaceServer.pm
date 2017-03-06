@@ -460,6 +460,8 @@ sub _loadNewPlayers {
 		if (defined($self->{maxInitialCost})){
 			if ($shipNew->{cost} > $self->{maxInitialCost}){
 				$self->sendMsg($shipNew->{conn}, 'exit', { msg => "Your ship exceeds the maximum cost of $self->{maxInitialCost}" });
+			} else {
+				$shipNew->setStatus('cash', $self->{maxInitialCost} - $shipNew->{cost});	
 			}
 		}
 

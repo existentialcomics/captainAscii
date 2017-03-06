@@ -374,75 +374,23 @@ sub resolveCollision {
 
 	my $partsRemoved = 0;
 
+	### loop through shields first on their own
 	foreach my $part ($self->getParts()){
-		# x and y got mixed somehow
+		if (!($part->{'part'}->{'type'} eq 'shield')){
+			next;
+		}
+		# x and y got mixed somehow, don't worry about it
 		my $px = int($part->{y} + $self->{y});
 		my $py = int($part->{x} + $self->{x});
 
+		my $distance = sqrt(
+			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
+			(($py - $bullet->{y}) ** 2)
+		);
+
 		if ($part->{'part'}->{'type'} eq 'shield'){
-			if (
-				($part->{'shieldHealth'} > 0) && $self->{shieldsOn} &&
-				(
-				(	($part->{'part'}->{'size'} eq 'medium') &&
-					(
-					 (
-						int($bullet->{x}) == $px - 2 &&
-						int($bullet->{y}) >= $py - 1 && 
-						int($bullet->{y}) <= $py + 1
-#						($this->{shieldStatus} eq 'rear' ||
-#						 $this->{shieldStatus} eq 'full'
-#						 )
-					 ) ||
-
-					(int($bullet->{x}) == $px - 1 &&
-					int($bullet->{y}) >= $py - 3 && 
-					int($bullet->{y}) <= $py + 3) ||
-
-					(int($bullet->{x}) == $px + 0 &&
-					int($bullet->{y}) >= $py - 4 && 
-					int($bullet->{y}) <= $py + 4) ||
-
-					(int($bullet->{x}) == $px + 1 &&
-					int($bullet->{y}) >= $py - 3 && 
-					int($bullet->{y}) <= $py + 3) || 
-
-					(int($bullet->{x}) == $px + 2 &&
-					int($bullet->{y}) >= $py - 1 && 
-					int($bullet->{y}) <= $py + 1)
-					)
-				) ||
-				(	($part->{'part'}->{'size'} eq 'large') &&
-					(
-					(int($bullet->{x}) == $px - 3 &&
-					int($bullet->{y}) >= $py - 1 && 
-					int($bullet->{y}) <= $py + 1) ||
-
-					(int($bullet->{x}) == $px - 2 &&
-					int($bullet->{y}) >= $py - 3 && 
-					int($bullet->{y}) <= $py + 3) ||
-
-					(int($bullet->{x}) == $px - 1 &&
-					int($bullet->{y}) >= $py - 4 && 
-					int($bullet->{y}) <= $py + 4) ||
-
-					(int($bullet->{x}) == $px + 0 &&
-					int($bullet->{y}) >= $py - 5 && 
-					int($bullet->{y}) <= $py + 5) ||
-
-					(int($bullet->{x}) == $px + 1 &&
-					int($bullet->{y}) >= $py - 4 && 
-					int($bullet->{y}) <= $py + 4) || 
-
-					(int($bullet->{x}) == $px + 2 &&
-					int($bullet->{y}) >= $py - 3 && 
-					int($bullet->{y}) <= $py + 3) ||
-
-					(int($bullet->{x}) == $px + 3 &&
-					int($bullet->{y}) >= $py - 1 && 
-					int($bullet->{y}) <= $py + 1)
-					)
-				)
-				)
+			if (($part->{'shieldHealth'} > 0 && $self->{shieldsOn}) &&
+				($distance < $part->{part}->{shieldsize} + 1)
 				){
 					$part->{'hit'} = time();
 					$part->{'shieldHealth'} -= $bullet->{damage};
@@ -452,6 +400,19 @@ sub resolveCollision {
 					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => undef };
 			}
 		}
+	}
+
+	### now to damage any part
+	foreach my $part ($self->getParts()){
+		# x and y got mixed somehow, don't worry about it
+		my $px = int($part->{y} + $self->{y});
+		my $py = int($part->{x} + $self->{x});
+
+		my $distance = sqrt(
+			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
+			(($py - $bullet->{y}) ** 2)
+		);
+
 		if ((abs($bullet->{y} - $py) < 1.5 ) &&
 		    (abs($bullet->{x} - $px) < 1.5 )){
             if ($self->getStatus('dodge') && rand() < 0.3){
@@ -915,9 +876,10 @@ sub purchasePart {
 	if (!defined($parts{$chr})){
 		return undef;
 	}
-	if ($parts{$chr}->{'cost'} > $self->{'cash'}){
+	if ($parts{$chr}->{'cost'} > $self->getStatus('cash')){
 		return undef;
 	}
+	$self->setStatus('cash', $self->getStatus('cash') - $parts{$chr}->{'cost'});
 	return $self->_loadPart($chr, $x, $y);
 }
 
@@ -1064,11 +1026,13 @@ sub _loadPartConfig {
 	foreach my $section (@shields){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{type} = 'shield';
-		$parts{$chr}->{'shield'}    = $cfg->val($section, 'shield', 10);
-		$parts{$chr}->{'shieldgen'} = $cfg->val($section, 'shieldgen', 0.5);
-		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', -2.5);
-		$parts{$chr}->{'poweruse'}  = $cfg->val($section, 'poweruse', -4);
-		$parts{$chr}->{'size'}      = $cfg->val($section, 'size', 'medium');
+		$parts{$chr}->{'shield'}     = $cfg->val($section, 'shield', 10);
+		$parts{$chr}->{'shieldgen'}  = $cfg->val($section, 'shieldgen', 0.5);
+		$parts{$chr}->{'powergen'}   = $cfg->val($section, 'powergen', -2.5);
+		$parts{$chr}->{'poweruse'}   = $cfg->val($section, 'poweruse', -4);
+		$parts{$chr}->{'size'}       = $cfg->val($section, 'size', 'medium');
+		$parts{$chr}->{'shieldsize'} = $cfg->val($section, 'shieldsize', 2);
+		$parts{$chr}->{'shieldlight'} = $cfg->val($section, 'shieldlight', 2);
 	}
 
 	my @powers = $cfg->GroupMembers('power');
@@ -1101,7 +1065,6 @@ sub _loadPartConfig {
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
 		}
 	}
-
 }
 
 sub _loadShip {
