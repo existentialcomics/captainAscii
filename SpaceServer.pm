@@ -571,7 +571,7 @@ sub _calculatePowerAndMovement {
 		$ship->power();
 		$ship->move();
 		$ship->moduleTick();
-		$self->_forceInBounds($ship);
+        $self->_forceInBounds($ship);
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
 		}
@@ -699,18 +699,17 @@ sub addItem {
     my $key = rand(1000) . time();
     $item->{k} = $key;
     if (!defined($item->{expires})){
-        $item->{ex} = 20;
+        $item->{ex} = 60;
     }
 	$item->{expires} = time + $item->{ex};
 	$self->{items}->{$key} = $item;
 	print "adding item: $key for ship $item->{sid}, $item->{x}, $item->{y}\n";
-#	if ($item->{sid}){
-#		my $ship = $self->getShipById($item->{sid});
-#		$self->sendMsg($ship->{conn}, 'item', $item);
-#	} else { # global items
-#		$self->broadcastMsg('item', $item);
-#	}
-	$self->broadcastMsg('item', $item);
+	if ($item->{sid}){
+		my $ship = $self->getShipById($item->{sid});
+		$self->sendMsg($ship->{conn}, 'item', $item);
+	} else { # global items
+		$self->broadcastMsg('item', $item);
+	}
 }
 
 sub _calculateItems {
