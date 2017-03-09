@@ -36,7 +36,6 @@ sub tick {
     foreach my $part ($ship->getParts()){
         if ($part->{health} < $part->{part}->{health}){
             $part->{health} += ($self->{healRate} * $self->_getTimeMod());
-            print "$part->{health} vs $part->{part}->{health}\n";
             if ($part->{health} > $part->{part}->{health}){
                 $part->{health} = $part->{part}->{health};
             }
@@ -45,7 +44,7 @@ sub tick {
                 'id'      => $part->{id},
                 'health'  => $part->{health}
                 }
-            )
+            );
         } 
     }
 }

@@ -757,6 +757,7 @@ sub _getMessagesFromServer {
 				$ship->{currentPower} = $data->{currentPower};
 				$ship->{currentPowerGen} = $data->{powergen};
 				$ship->{shieldHealth} = $data->{shieldHealth};
+				$ship->{currentHealth} = $data->{currentHealth};
 				$ship->{isBot} = $data->{isBot};
 			}
 		} elsif ($msg->{c} eq 'newship'){
@@ -777,7 +778,6 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
 						$s->damageShield($data->{id}, $data->{shield});
-						#$self->{debug} = 'damage shields ' . $data->{shield};
 					}
 					if (defined($data->{health})){
 						$s->setPartHealth($data->{id}, $data->{health});

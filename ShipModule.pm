@@ -23,6 +23,7 @@ sub _init {
 	my $self = shift;
 
 	$self->{active} = 0;
+	$self->{enabled} = 0;
 	$self->{powerPassive}  = 0;
 	$self->{powerActive}   = 0;
 	$self->{powerPerPart}  = 0;
@@ -30,6 +31,11 @@ sub _init {
 	$self->{lastTick} = time();
     $self->{tickRate} = 0.1;    # time in seconds to tick
 	return 1;
+}
+
+sub enable {
+	my $self = shift;
+	$self->{enable} = 0;
 }
 
 sub getCost {

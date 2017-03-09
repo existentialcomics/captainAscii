@@ -547,7 +547,10 @@ sub damageShield {
 	my $self = shift;
 	my ($partId, $health) = @_;
 	my $part = $self->getPartById($partId);
-	$part->{'hit'} = time();
+	### it lost health, so it was hit
+	if ($part->{shieldHealth} > $health){
+		$part->{'hit'} = time();
+	}
 	$part->{shieldHealth} = $health;
 	return $part->{shieldHealth};
 }
@@ -712,7 +715,13 @@ sub claimItem {
 		my $cash = $self->getStatus('cash');
 		$self->setStatus('cash', $cash + $item->{cash});
 	}
-
+	if (defined($item->{module})){
+        foreach my $module ($self->getModules()){
+            if ($module->name() eq $item->{module}){
+				$module->enable();
+            }
+        }
+	}
 }
 
 sub getStatus {
@@ -760,7 +769,6 @@ sub addServerMsg {
     my $self     = shift;
     my $category = shift;
     my $msg      = shift;
-    print "adding sever msg $category\n";
     push @{ $self->{'_shipMsgs'} }, { 'category' => $category, 'msg' => $msg };
 }
 
@@ -821,34 +829,35 @@ sub power {
 	$self->{currentPowerGen} += $self->_resolveModulePower();
 	
 	$self->{shieldHealth} = 0;
+	$self->{currentHealth} = 0;
 	# if shields are regenerating
-	if ($self->{shieldsOn}){
-		foreach my $part ($self->getParts()){
-			if ($part->{'part'}->{'type'} eq 'shield'){
-				# if you are below 20% power you can't gen shields
-				if ($self->{currentPower} / $self->{power} < 0.2){
+	foreach my $part ($self->getParts()){
+		$self->{currentHealth} += ($part->{health} > 0 ? $part->{health} : 0);
+		if ($part->{'part'}->{'type'} eq 'shield'){
+			if (($self->{currentPower} / $self->{power} < 0.2) || !$self->{shieldsOn}){
+				# drain shields if power is low and they are on
+				if ($self->{shieldsOn}){
 					$part->{shieldHealth} -= ($part->{'part'}->{shieldgen} * $timeMod);
-					# recover the passive part of shieldgen (substract because it is negative)
-					$self->{currentPowerGen} -= $part->{'part'}->{powergen};
-				} else {
-					if ($part->{shieldHealth} < $part->{'part'}->{shield}){
-						$self->{currentPowerGen} += $part->{'part'}->{'poweruse'};
-						$part->{shieldHealth} += ($part->{'part'}->{shieldgen} * $timeMod);
-					}
-					if ($part->{shieldHealth} > $part->{'part'}->{shield}){
-						$part->{shieldHealth} = $part->{'part'}->{shield};
-					}
 				}
-				# calculate total shield health;
-				$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
-			}
-		}
-	} else {
-		foreach my $part ($self->getParts()){
-			if ($part->{'part'}->{'type'} eq 'shield'){
 				# recover the passive part of shieldgen (substract because it is negative)
 				$self->{currentPowerGen} -= $part->{'part'}->{powergen};
+			} else { # shield is operational
+				if ($part->{shieldHealth} < $part->{'part'}->{shield}){
+					$self->{currentPowerGen} += $part->{'part'}->{'poweruse'};
+					$part->{shieldHealth} += ($part->{'part'}->{shieldgen} * $timeMod);
+					#TODO only send if it passes 0
+					$self->addServerMsg('dam', { 
+						'ship_id' => $self->{id},
+						'id'      => $part->{id},
+						'shield'  => $part->{shieldHealth}
+						}
+					);
+				}
+				if ($part->{shieldHealth} > $part->{'part'}->{shield}){
+					$part->{shieldHealth} = $part->{'part'}->{shield};
+				}
 			}
+			$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
 		}
 	}
 
