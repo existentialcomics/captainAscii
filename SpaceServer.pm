@@ -517,6 +517,7 @@ sub _sendShipsToClients {
 					dx => $ship->{movingHoz},
 					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
+					health       => $ship->{health},
 					currentPower => $ship->{currentPower},
 					currentHealth=> $ship->{currentHealth},
 					powergen     => $ship->{currentPowerGen},
@@ -534,6 +535,7 @@ sub _sendShipsToClients {
 					dx => $ship->{movingHoz},
 					dy => $ship->{movingVert},
 					shieldHealth => $ship->{shieldHealth},
+					health       => $ship->{health},
 					currentHealth=> $ship->{currentHealth},
 					currentPower => $ship->{currentPower},
 					powergen     => $ship->{currentPowerGen},
@@ -716,7 +718,6 @@ sub addItem {
     }
 	$item->{expires} = time + $item->{ex};
 	$self->{items}->{$key} = $item;
-	print "adding item: $key for ship $item->{sid}, $item->{x}, $item->{y}\n";
 	if ($item->{sid}){
 		my $ship = $self->getShipById($item->{sid});
 		$self->sendMsg($ship->{conn}, 'item', $item);

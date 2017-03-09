@@ -925,6 +925,7 @@ sub _loadPart {
 		'health' => $parts{$chr}->{health},
 		'shieldHealth' => $parts{$chr}->{shield},
 		'hit' => time(),
+		'healing' => 0,
 		'id'  => $id,
 		'defchr' => $chr,
 		'chr' => $parts{$chr}->{'chr'},

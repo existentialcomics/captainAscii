@@ -328,10 +328,27 @@ sub printInfo {
 		);
 
 	my $barWidth = 50;
-	############ power
+	############ health
 	$scr->at($height + 4, $left);
     $scr->puts( ' ' x 10 .'┌' . '─' x $barWidth . '┐');
 	$scr->at($height + 5, $left);
+	my $healthWidth = int( $barWidth * ($ship->{currentHealth} / $ship->{health}));
+	my $healthPad   = $barWidth - $healthWidth;
+	$scr->puts(sprintf('%-10s│%s│',
+	$ship->{health} . ' / ' . int($ship->{currentHealth}) , 
+	(color('ON_RGB' .
+		0 .
+		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
+		(int(5 * ($ship->{currentHealth} / $ship->{health}))) .
+		0
+		) . (" " x $healthWidth) . 
+		color('RESET') . (' ' x $healthPad) )
+	));
+	
+	############ power
+	$scr->at($height + 6, $left);
+	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
+	$scr->at($height + 7, $left);
 	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
 	my $powerPad   = $barWidth - $powerWidth;
 	$scr->puts(sprintf('%-10s│%s│',
@@ -342,13 +359,14 @@ sub printInfo {
 		0) . (" " x $powerWidth) . 
 		color('RESET') . (' ' x $powerPad) )
 	));
+
 	############# display shield
-	$scr->at($height + 6, $left);
+	$scr->at($height + 8, $left);
 	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
+	$scr->at($height + 9, $left);
 	if ($ship->{shield} > 0){
         my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
         my $shieldPad   = $barWidth - $shieldWidth;
-		$scr->at($height + 7, $left);
 		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
 		if ($shieldPercent > 1){ $shieldPercent = 1; }
 		$scr->puts(sprintf('%-10s│%s│',
@@ -359,15 +377,18 @@ sub printInfo {
 			5) . (" " x $shieldWidth) .
 			color('RESET') . (" " x $shieldPad))
 		));
-	} 
-	$scr->at($height + 8, $left);
+	} else {
+		$scr->puts( ' ' x 10 .'│' . ' ' x $barWidth . '│');
+		$scr->at($height + 9, $left);
+	}
+	$scr->at($height + 10, $left);
 	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
 	#$scr->at($height + 20, $left);
 	#$scr->puts($self->{debug});
-	$scr->at($height + 9, $left);
+	$scr->at($height + 11, $left);
 	#$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
 	$scr->puts($self->{debug});
-	$scr->at($height + 10, $left);
+	$scr->at($height + 13, $left);
 	$scr->puts($self->{ship}->{debug});
 
 	########## modules #############
@@ -754,6 +775,7 @@ sub _getMessagesFromServer {
 				$ship->{movingHoz} = $data->{dx},
 				$ship->{powergen} = $data->{powergen};
 				$ship->{direction} = $data->{direction};
+				$ship->{health} = $data->{health};
 				$ship->{currentPower} = $data->{currentPower};
 				$ship->{currentPowerGen} = $data->{powergen};
 				$ship->{shieldHealth} = $data->{shieldHealth};
