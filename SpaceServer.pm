@@ -160,6 +160,7 @@ sub loop {
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
+		$self->_sendShipMsgs();
 		$self->_spawnShips();
 	}
 }
@@ -170,9 +171,19 @@ sub _sendShipStatuses {
 	foreach my $ship ($self->getShips()){
 		foreach my $msg ($ship->getStatusMsgs()){
 			$self->broadcastMsg('shipstatus', $msg);
-			print Dumper($msg);
 		}
 		$ship->clearStatusMsgs();
+	}
+}
+
+sub _sendShipMsgs {
+	my $self = shift;
+
+	foreach my $ship ($self->getShips()){
+		foreach my $msg ($ship->getServerMsgs()){
+			$self->broadcastMsg($msg->{category}, $msg->{msg});
+		}
+		$ship->clearServerMsgs();
 	}
 }
 
@@ -246,11 +257,11 @@ sub _ai {
 				$ship->{aiState} = 'aggressive';
 			}
 			if ($modeDiff > 2 && $ship->{aiState} eq 'aggressive'){
-				print "changing $ship->{id} to passive\n";
+				#print "changing $ship->{id} to passive\n";
 				$ship->{aiState} = 'passive';
 			}
 			if ($modeDiff > 5){
-				print "changing $ship->{id} to explore\n";
+				#print "changing $ship->{id} to explore\n";
 				$ship->{aiModeChange} = $time;
 				$ship->{aiMode} = 'explore';
 			}

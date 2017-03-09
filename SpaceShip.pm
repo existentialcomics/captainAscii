@@ -132,6 +132,7 @@ sub _init {
 	$self->{'isBot'} = 0;
 
 	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
+	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
@@ -506,7 +507,6 @@ sub setAiColor {
 		$newColor = 'green';
 	}
 	if ($newColor ne $self->getColorName()){
-		print "new ai Color: $newColor, $self->{aiMode}\n";
 		$self->setColor($newColor);
 		return 1;
 	}
@@ -525,7 +525,7 @@ sub aiTarget {
 	$self->{_aiVars}->{target} = $targetId;
 }
 
-sub damagePart {
+sub setPartHealth {
 	my $self = shift;
 	my ($partId, $health) = @_;
 	my $part = $self->getPartById($partId);
@@ -533,7 +533,11 @@ sub damagePart {
 		$self->_removePart($partId);
 		return 1;
 	}
-	$part->{'hit'} = time();
+    if ($part->{health} > $health){
+	    $part->{'hit'} = time();
+    } elsif ($part->{health} < $health) {
+	    $part->{'healing'} = time();
+    }  
 	$part->{health} = $health;
 	return 0;
 }
@@ -739,6 +743,25 @@ sub getStatusMsgs {
 		};
 	}
 	return @msgs;
+}
+
+### more generic getStatusMsgs()
+sub getServerMsgs {
+    my $self = shift;
+    return @{ $self->{'_shipMsgs'} };
+}
+
+sub clearServerMsgs {
+    my $self = shift;
+    $self->{'_shipMsgs'} = [];
+}
+
+sub addServerMsg {
+    my $self     = shift;
+    my $category = shift;
+    my $msg      = shift;
+    print "adding sever msg $category\n";
+    push @{ $self->{'_shipMsgs'} }, { 'category' => $category, 'msg' => $msg };
 }
 
 sub recieveShipStatusMsg {

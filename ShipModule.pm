@@ -28,6 +28,7 @@ sub _init {
 	$self->{powerPerPart}  = 0;
 	$self->{powerPerSpeed} = 0;
 	$self->{lastTick} = time();
+    $self->{tickRate} = 0.1;    # time in seconds to tick
 	return 1;
 }
 
@@ -97,6 +98,18 @@ sub _setTick {
 	my $time = time();
 	$self->{timeMod} = $time - $self->{lastTick};
 	$self->{lastTick} = $time;
+    return $self->{timeMod};
+}
+
+sub _getTimeMod {
+	my $self = shift;
+    return $self->{timeMod};
+}
+
+sub _shouldTick {
+    my $self = shift;
+    return 1;
+    return ((time() - $self->{lastTick}) > $self->{tickRate});
 }
 
 sub _statusActive {
@@ -145,6 +158,7 @@ sub getColor {
 sub tick {
 	my $self = shift;
 	my $ship = shift;
+    if (! $self->_shouldTick() ){ return 0; }
 	if (defined($self->{status})){
 		$self->_setTick();
 		return $self->_statusTick($ship, $self->{status});

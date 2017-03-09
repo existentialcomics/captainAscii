@@ -189,6 +189,12 @@ sub _getShips {
 	return values %{$self->{ships}};
 }
 
+sub _getShipById {
+    my $self = shift;
+    my $id = shift;
+    return $self->{ships}->{$id};
+}
+
 sub _getShipCount {
 	my $self = shift;
 	return scalar $self->_getShips();
@@ -339,9 +345,9 @@ sub printInfo {
 	############# display shield
 	$scr->at($height + 6, $left);
 	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
-	my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
-	my $shieldPad   = $barWidth - $shieldWidth;
 	if ($ship->{shield} > 0){
+        my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
+        my $shieldPad   = $barWidth - $shieldWidth;
 		$scr->at($height + 7, $left);
 		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
 		if ($shieldPercent > 1){ $shieldPercent = 1; }
@@ -569,7 +575,7 @@ sub _drawShips {
 
 	foreach my $ship ($self->_getShips()){
 		foreach my $part ($ship->getParts()){
-			my $highlight = ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : '');
+			my $highlight = ((time() - $part->{'healing'} < .3 ) ? color('ON_RGB020') : ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : ''));
 			my $bold = '';
 			if (defined($part->{lastShot})){
 				$bold = (($time - $part->{'lastShot'} < .3) ? color('bold') : '');
@@ -768,14 +774,13 @@ sub _getMessagesFromServer {
 				delete $self->{bullets}->{$data->{bullet_del}};
 			}
 			foreach my $s ($self->_getShips()){
-					#$self->{debug} = Dumper($data);
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
 						$s->damageShield($data->{id}, $data->{shield});
 						#$self->{debug} = 'damage shields ' . $data->{shield};
 					}
 					if (defined($data->{health})){
-						$s->damagePart($data->{id}, $data->{health});
+						$s->setPartHealth($data->{id}, $data->{health});
 					}
 				}
 			}
