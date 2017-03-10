@@ -811,7 +811,7 @@ sub _getMessagesFromServer {
 		} elsif ($msg->{c} eq 'shipchange'){
 			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{'ship_id'}){
-					$s->_loadShipByMap($data->{'map'});
+					$s->_loadShipByMap($data->{'chr_map'}, $data->{'part_map'});
 				}
 			}
 		} elsif ($msg->{c} eq 'setShipId'){

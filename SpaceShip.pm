@@ -194,7 +194,6 @@ sub calculateDrops {
         }
         $drop->{x} = $x;
         $drop->{y} = $y;
-        $drop->{sid} = $self->{id};
     }
 
     return @drops;
@@ -968,8 +967,8 @@ sub purchasePart {
 
 sub _loadPart {
 	my $self = shift;
-	my ($chr, $x, $y) = @_;
-	my $id = $self->{idCount}++;
+	my ($chr, $x, $y, $id) = @_;
+	$id = (defined($id) ? $id : $self->{idCount}++);
 	$self->{parts}->{$id} = {
 		'x' => $x,
 		'y' => $y,
@@ -1220,8 +1219,9 @@ sub _calculateParts {
 }
 
 sub _loadShipByMap {
-	my $self = shift;
-	my $map = shift;
+	my $self  = shift;
+	my $map   = shift;
+    my $idMap = shift;
 	$self->{parts} = {};
 	$self->{collisionMap} = {};
 	$self->{partMap} = {};
@@ -1229,7 +1229,12 @@ sub _loadShipByMap {
 	foreach my $x (keys %{$map}){
 		foreach my $y (keys %{$map->{$x}}){
 			my $chr = $map->{$x}->{$y};
-			my $id = $self->_loadPart($chr, $x, $y);
+            if (defined($idMap)){
+                my $id = $idMap->{$x}->{$y};
+			    $self->_loadPart($chr, $x, $y, $id);
+            } else {
+			    $self->_loadPart($chr, $x, $y);
+            }
 		}
 	}
 

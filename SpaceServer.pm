@@ -630,21 +630,23 @@ sub _recieveInputFromClients {
 			chomp($in);
 			my $chr = $in;
 			if ($chr =~ m/B:([\-\d]+?):([\-\d]+?):(.)/){
-				print "******** loading part: $3, $1, $2\n";
+				#print "******** loading part: $3, $1, $2\n";
 				my $chr = $3;
 				my $x   = $2;
 				my $y   = $1;
 				my $id = $ship->purchasePart($chr, $x, $y);
 				if (defined($id)){
-					print "******** id: $id\n";
+					#print "******** id: $id\n";
 					$ship->_recalculate();
 					print $ship->getShipDisplay();
 					if ($id != 0){
-						my $map = $ship->{collisionMap};
+						my $chrMap  = $ship->{collisionMap};
+						my $partMap = $ship->{partMap};
 						#print Dumper($map);
 						my $msg = {
-							ship_id => $ship->{id},
-							'map' => $map,
+							'ship_id'  => $ship->{id},
+							'chr_map'  => $chrMap,
+                            'part_map' => $partMap
 						};
 						foreach my $s ($self->getShips()){
 							$self->sendMsg($s->{conn}, 'shipchange', $msg);
@@ -832,16 +834,9 @@ sub _calculateBullets {
                     $self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-                    my $item = {
-                        'chr'  => color('green ON_RGB121') . '$' . color('reset'),
-                        'cash' => (int(rand() * 400) + 40),
-						# x and y is backwards for some reason
-						'x'    => $ship->{y},
-						'y'    => $ship->{x},
-						'sid'  => $bullet->{id}
-                    };
-
-                    $self->addItem($item);
+                    foreach my $item ($ship->calculateDrops()){
+                        #$self->addItem($item);
+                    }
 
 					print "ship $ship->{id}'s command module destroyed!\n";
 					print "ships in game : " . $self->getShipCount() . "\n";
