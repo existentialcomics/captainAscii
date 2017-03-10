@@ -35,7 +35,12 @@ sub _init {
 
 sub enable {
 	my $self = shift;
-	$self->{enable} = 0;
+	$self->{enabled} = 1;
+}
+
+sub disable {
+	my $self = shift;
+	$self->{enabled} = 0;
 }
 
 sub getCost {

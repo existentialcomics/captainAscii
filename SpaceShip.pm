@@ -131,6 +131,8 @@ sub _init {
 	$self->{'aiTick'} = time();
 	$self->{'isBot'} = 0;
 
+    $self->{'_spareParts'} = {};
+
 	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
 	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
 
@@ -145,6 +147,7 @@ sub _init {
 	$self->_calculateShield();
 	$self->_calculateHealth();
 	$self->{shieldHealth} = $self->{shield};
+	$self->{currentHealth} = $self->{health};
 	$self->{shieldsOn} = 1;
 	$self->{empOn} = 1;
 	$self->{'shieldStatus'} = 'full';
@@ -153,7 +156,48 @@ sub _init {
 }
 
 sub calculateDrops {
+    my $self = shift;
+
+    my %xy = ();
+
     my @drops = ();
+    if (rand() < 0.5){
+        push @drops, {
+            cash => int($self->{cash} * rand),
+            'chr'  => color('green ON_RGB121') . '$' . color('reset')
+        };
+    }
+    if (rand() < 0.5){
+        my @modules = $self->getModules();
+        my $module = $modules[rand($#modules)];
+        push @drops, {
+            'module' => $module->name(),
+            'chr'    => $module->getDisplay()
+        };
+    }
+    if (rand() < 0.5){
+        push @drops, {
+            item => '-',
+            'chr' => '-'
+        };
+    }
+
+    foreach my $drop (@drops){
+        my $x = $self->{x};
+        my $y = $self->{y};
+        while ((!defined($xy{'x'}->{$x})) || (!defined($xy{'y'}->{$y}))){
+            if (rand() < .5){
+                $x += (rand() < .5 ? 1 : -1);
+            } else { 
+                $y += (rand() < .5 ? 1 : -1);
+            }
+        }
+        $drop->{x} = $x;
+        $drop->{y} = $y;
+        $drop->{sid} = $self->{id};
+    }
+
+    return @drops;
 }
 
 sub becomeAi {
@@ -164,6 +208,7 @@ sub becomeAi {
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
+    $self->{cash} = int($self->{cost} * rand() / 3);
 	$self->setAiColor();
 }
 
@@ -672,7 +717,7 @@ sub keypress {
 sub _resolveModuleKeypress {
 	my $self = shift;
 	my $chr = shift;
-	foreach my $module (@{$self->{modules}}){
+	foreach my $module ($self->getModules()){
 		foreach my $mKey ($module->getKeys()){
 			if ($chr eq $mKey){
 				return $module->active($self, $chr);
@@ -714,14 +759,19 @@ sub claimItem {
 	if (defined($item->{cash})){
 		my $cash = $self->getStatus('cash');
 		$self->setStatus('cash', $cash + $item->{cash});
+        $self->addServerInfoMsg("Found $cash credits.");
 	}
 	if (defined($item->{module})){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $item->{module}){
 				$module->enable();
+                $self->addServerInfoMsg("Found " . $module->name() . " ship module.");
             }
         }
 	}
+    if (defined($item->{part})){
+        $self->{_spareParts}->{$item->{part}}++ ;
+    }
 }
 
 sub getStatus {
@@ -763,6 +813,13 @@ sub getServerMsgs {
 sub clearServerMsgs {
     my $self = shift;
     $self->{'_shipMsgs'} = [];
+}
+
+# wrapper for chat msgs
+sub addServerInfoMsg {
+    my $self = shift;
+    my $msgInfo = shift;
+    $self->addServerMsg('msg', { 'user' => '<SYSTEM>', 'msg' => $msgInfo });
 }
 
 sub addServerMsg {

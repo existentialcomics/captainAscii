@@ -587,6 +587,14 @@ sub _calculatePowerAndMovement {
 		$ship->move();
 		$ship->moduleTick();
         $self->_forceInBounds($ship);
+        if ($ship->getStatus('autoaim')){
+		    my ($id, $distance, $dir) = $self->_findClosestShip(
+                $ship->{'x'},
+                $ship->{'y'},
+			    $ship->{'id'}
+            );
+            $ship->{dir} = $dir;
+        }
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
 		}

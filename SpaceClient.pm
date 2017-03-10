@@ -828,7 +828,11 @@ sub _getMessagesFromServer {
 				$s->recieveShipStatusMsg($data);
 			}
 		} elsif ($msg->{c} eq 'msg'){
-			push @{ $self->{msgs} }, "$data->{'user'}:  $data->{'msg'}";
+            if ($data->{'user'}){
+			    push @{ $self->{msgs} }, sprintf('%10s:%s', $data->{'user'}, $data->{'msg'});
+            } else {
+			    push @{ $self->{msgs} }, $data->{'msg'};
+            }
         }
 	}
 }
