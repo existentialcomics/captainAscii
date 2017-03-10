@@ -271,12 +271,6 @@ sub shoot {
 			$self->{currentPower} += $part->{'part'}->{poweruse};
 			my $direction = $self->{direction};
 
-			if (defined($self->{autoaim})){
-				foreach my $shipLoc ($self->getNearShipLocs()){
-					#TODO calc direction from part to ship
-				}
-			}
-
 			if ($part->{part}->{spread}){
 				$direction += (rand($part->{part}->{spread}) - ($part->{part}->{spread} / 2));
 			}
@@ -746,7 +740,7 @@ sub setStatus {
             }
         }
 	} else {
-		if ($self->{$status} ne $value){
+		if (!defined($self->{$status}) || $self->{$status} ne $value){
 			$self->{$status} = $value;
 			$self->{'statusChange'}->{$status} = $value;
 		}

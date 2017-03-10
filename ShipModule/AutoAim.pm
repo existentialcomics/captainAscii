@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-package ShipModule::Radar;
+package ShipModule::AutoAim;
 use parent ShipModule;
 
 sub _init {

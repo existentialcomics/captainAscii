@@ -555,6 +555,8 @@ sub sendFullShipStatus {
 	my $self = shift;
 	my $ship = shift;
 
+	my $partMap = $ship->{partMap};
+
 	$self->broadcastMsg('shipstatus', {
 		ship_id => $ship->{id},
 		cloaked => $ship->{cloaked},
@@ -593,7 +595,7 @@ sub _calculatePowerAndMovement {
                 $ship->{'y'},
 			    $ship->{'id'}
             );
-            $ship->{dir} = $dir;
+			$ship->setStatus('direction', $dir);
         }
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
@@ -642,7 +644,7 @@ sub _recieveInputFromClients {
 						#print Dumper($map);
 						my $msg = {
 							ship_id => $ship->{id},
-							'map' => $map
+							'map' => $map,
 						};
 						foreach my $s ($self->getShips()){
 							$self->sendMsg($s->{conn}, 'shipchange', $msg);
@@ -674,10 +676,12 @@ sub _recieveInputFromClients {
 			}
 			if ($chr eq '^'){
 				my $map = $ship->{collisionMap};
+				my $partMap = $ship->{partMap};
 				#print Dumper($map);
 				my $msg = {
 					ship_id => $ship->{id},
-					'map' => $map
+					'map' => $map,
+					'partMap' => $partMap
 				};
 				foreach my $s ($self->getShips()){
 					$self->sendMsg($s->{conn}, 'shipchange', $msg);
