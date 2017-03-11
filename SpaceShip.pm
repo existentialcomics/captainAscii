@@ -161,12 +161,12 @@ sub calculateDrops {
     my %xy = ();
 
     my @drops = ();
-    if (rand() < 0.5){
+    #if (rand() < 0.5){
         push @drops, {
             cash => int($self->{cash} * rand),
             'chr'  => color('green ON_RGB121') . '$' . color('reset')
         };
-    }
+    #}
     if (rand() < 0.5){
         my @modules = $self->getModules();
         my $module = $modules[rand($#modules)];
@@ -183,9 +183,10 @@ sub calculateDrops {
     }
 
     foreach my $drop (@drops){
-        my $x = $self->{x};
-        my $y = $self->{y};
-        while ((!defined($xy{'x'}->{$x})) || (!defined($xy{'y'}->{$y}))){
+		# TODO x and y switched
+        my $x = ($self->{y} + (int(rand(6) - 3)));
+        my $y = ($self->{x} + (int(rand(6) - 3)));
+        while (( defined($xy{'x'}->{$x})) && (defined($xy{'y'}->{$y})) ){
             if (rand() < .5){
                 $x += (rand() < .5 ? 1 : -1);
             } else { 
@@ -194,6 +195,8 @@ sub calculateDrops {
         }
         $drop->{x} = $x;
         $drop->{y} = $y;
+		$xy{x}->{$x} = 1;
+		$xy{y}->{$y} = 1;
     }
 
     return @drops;
@@ -764,6 +767,7 @@ sub claimItem {
 	}
     if (defined($item->{part})){
         $self->{_spareParts}->{$item->{part}}++ ;
+        $self->addServerInfoMsg("Found spare part $item->{part}.");
     }
 }
 

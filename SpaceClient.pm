@@ -716,7 +716,7 @@ sub _sendKeystrokesToServer {
 				local $/ = undef;
 				my $chr = $scr->getch();
 				if ($chr eq "\r"){
-					print {$self->{socket}} "M:$self->{ship}->{color}$self->{username}:$self->{ship}->{color}$self->{'msg'}" . color('RESET') . "\n";
+					print {$self->{socket}} "M:$self->{username}:$self->{'msg'}\n";
 					$self->{'msg'} = '';
 					$self->{mode} = 'drive';
 				} elsif($chr eq "\b" || ord($chr) == 127){ # 127 is delete
@@ -829,7 +829,7 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'msg'){
             if ($data->{'user'}){
-			    push @{ $self->{msgs} }, sprintf('%10s:%s', $data->{'user'}, $data->{'msg'});
+			    push @{ $self->{msgs} }, sprintf('%-10s: %s', $data->{'user'}, $data->{'msg'});
             } else {
 			    push @{ $self->{msgs} }, $data->{'msg'};
             }

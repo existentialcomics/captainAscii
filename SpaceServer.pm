@@ -835,7 +835,7 @@ sub _calculateBullets {
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
                     foreach my $item ($ship->calculateDrops()){
-                        #$self->addItem($item);
+                        $self->addItem($item);
                     }
 
 					print "ship $ship->{id}'s command module destroyed!\n";
