@@ -177,8 +177,8 @@ sub calculateDrops {
     }
     if (rand() < 0.5){
         push @drops, {
-            item => '-',
-            'chr' => '-'
+            'part' => '-',
+            'chr'  => '-'
         };
     }
 
@@ -768,7 +768,24 @@ sub claimItem {
     if (defined($item->{part})){
         $self->{_spareParts}->{$item->{part}}++ ;
         $self->addServerInfoMsg("Found spare part $item->{part}.");
+		$self->addSparePart($item->{'part'});
     }
+}
+
+sub addSparePart {
+	my $self = shift;
+	my $chr  = shift;
+	$self->{_spareParts}->{$chr}++ ;
+	$self->addServerMsg('sparepart',
+		{ 'ship_id' => $self->{id}, 'part' => $chr }
+	);
+}
+
+sub getSparePart {
+	my $self = shift;
+	my $chr  = shift;
+	return (defined($self->{_spareParts}->{$chr}) ? 
+		$self->{_spareParts}->{$chr} : 0);
 }
 
 sub getStatus {
@@ -823,6 +840,7 @@ sub addServerMsg {
     my $self     = shift;
     my $category = shift;
     my $msg      = shift;
+
     push @{ $self->{'_shipMsgs'} }, { 'category' => $category, 'msg' => $msg };
 }
 

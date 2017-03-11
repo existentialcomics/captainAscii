@@ -192,7 +192,11 @@ sub _getShips {
 sub _getShipById {
     my $self = shift;
     my $id = shift;
-    return $self->{ships}->{$id};
+	foreach my $s ($self->_getShips()){
+		if ($s->{id} eq $id){ return $s; }
+	}
+    #return $self->{ships}->{$id};
+	return undef;
 }
 
 sub _getShipCount {
@@ -332,14 +336,18 @@ sub printInfo {
 	$scr->at($height + 4, $left);
     $scr->puts( ' ' x 10 .'┌' . '─' x $barWidth . '┐');
 	$scr->at($height + 5, $left);
-	my $healthWidth = int( $barWidth * ($ship->{currentHealth} / $ship->{health}));
+
+	#TODO investigate why this goes above one
+	my $healthRatio = ($ship->{currentHealth} / $ship->{health});
+	if ($healthRatio > 1){ $healthRatio = 1 };
+	my $healthWidth = int( $barWidth * $healthRatio);
 	my $healthPad   = $barWidth - $healthWidth;
 	$scr->puts(sprintf('%-10s│%s│',
 	$ship->{health} . ' / ' . int($ship->{currentHealth}) , 
 	(color('ON_RGB' .
 		0 .
 		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
-		(int(5 * ($ship->{currentHealth} / $ship->{health}))) .
+		(int(5 * $healthRatio)) .
 		0
 		) . (" " x $healthWidth) . 
 		color('RESET') . (' ' x $healthPad) )
@@ -407,7 +415,7 @@ sub printInfo {
 
 	######### chat or parts #########
 	if ($self->{mode} eq 'build'){ # parts
-		my $sprintf = '%-3s │ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
+		my $sprintf = '%-3s (x%3s)│ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
 		if (!defined($self->{partsDisplay})){
 			my %parts = %{ $ship->getAllPartDefs() };
 			$self->{partsDisplay} = [];
@@ -424,6 +432,7 @@ sub printInfo {
 				push(@{ $self->{partsDisplay} },
 					sprintf($sprintf,
 						$ref,
+						$ship->getSparePart($ref),
 						'$' . $part->{cost},
 						(defined($part->{thrust}) ? $part->{thrust} : ''),
 						(defined($part->{power}) ? $part->{power} : ''),
@@ -760,7 +769,7 @@ sub _getMessagesFromServer {
 			my $key = $data->{k};
 			$self->{items}->{$key} = $data;
 			$self->{items}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
-			$self->{debug} = "added item $key\n";
+			#$self->{debug} = "added item $key\n";
 		} elsif ($msg->{c} eq 'itemdel'){
 			my $key = $data->{k};
 			delete $self->{items}->{$key};
@@ -833,7 +842,10 @@ sub _getMessagesFromServer {
             } else {
 			    push @{ $self->{msgs} }, $data->{'msg'};
             }
-        }
+        } elsif ($msg->{c} eq 'sparepart'){
+			$self->{ship}->addSparePart($data->{'part'});
+			delete $self->{partsDisplay};
+		}
 	}
 }
 

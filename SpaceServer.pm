@@ -504,50 +504,24 @@ sub _loadNewPlayers {
 sub _sendShipsToClients {
 	my $self = shift;
 	foreach my $ship ($self->getShips()){
-		foreach my $shipInner ($self->getShips()) {
-			# send the inner loop ship the info of the outer loop ship
-			my $msg = {};
-			#$self->{shipSend}++;
-			if ($ship->{id} eq $shipInner->{id}){
-				$msg = {
-					#id => 'self' ,
-					id => $ship->{id} ,
-					x => $ship->{x},
-					y => $ship->{y},
-					dx => $ship->{movingHoz},
-					dy => $ship->{movingVert},
-					shieldHealth => $ship->{shieldHealth},
-					health       => $ship->{health},
-					currentPower => $ship->{currentPower},
-					currentHealth=> $ship->{currentHealth},
-					powergen     => $ship->{currentPowerGen},
-					direction    => $ship->{direction},
-					cloaked      => $ship->{cloaked},
-					shieldsOn    => $ship->{shieldsOn},
-					isBot        => $ship->{isBot},
-				};
-				$self->sendMsg($shipInner->{conn}, 's', $msg);
-			} else {
-				$msg = {
-					id => $ship->{id} ,
-					x => $ship->{x},
-					y => $ship->{y},
-					dx => $ship->{movingHoz},
-					dy => $ship->{movingVert},
-					shieldHealth => $ship->{shieldHealth},
-					health       => $ship->{health},
-					currentHealth=> $ship->{currentHealth},
-					currentPower => $ship->{currentPower},
-					powergen     => $ship->{currentPowerGen},
-					direction    => $ship->{direction},
-					cloaked      => $ship->{cloaked},
-					shieldsOn    => $ship->{shieldsOn},
-					isBot        => $ship->{isBot},
-				};
-				$self->sendMsg($shipInner->{conn}, 's', $msg);
-				# we only need to know location
-			}
-		}
+		my $msg = {
+			#id => 'self' ,
+			id => $ship->{id} ,
+			x => $ship->{x},
+			y => $ship->{y},
+			dx => $ship->{movingHoz},
+			dy => $ship->{movingVert},
+			shieldHealth => $ship->{shieldHealth},
+			health       => $ship->{health},
+			currentPower => $ship->{currentPower},
+			currentHealth=> $ship->{currentHealth},
+			powergen     => $ship->{currentPowerGen},
+			direction    => $ship->{direction},
+			cloaked      => $ship->{cloaked},
+			shieldsOn    => $ship->{shieldsOn},
+			isBot        => $ship->{isBot},
+		};
+		$self->broadcastMsg('s', $msg);
 	}
 }
 
