@@ -594,6 +594,19 @@ sub printBorder {
 	}
 }
 
+sub setMapString {
+	my $self = shift;
+	my $string = shift;
+	my $x = shift;
+	my $y = shift;
+	my $color = shift;
+	my @ar = split("", $string);
+	my $dy = 0;
+	foreach my $chr (@ar){
+		$self->setMap($x, $y + $dy, $chr);
+		$dy++;
+	}
+}
 
 sub _drawShips {
 	my $self = shift;	
@@ -604,6 +617,13 @@ sub _drawShips {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
+		my $taunt = $ship->getStatus('taunt');
+		#if ($taunt && (time() - $ship->{lastTauntTime} > 8)){
+		if ($taunt && (time() - $ship->{lastTauntTime} < 8)){
+			my $tx = $offy + int($ship->getShipTop() - 2);
+			my $ty = $offx + int($ship->getShipLeft());
+			$self->setMapString($taunt, $tx, $ty);
+		}
 		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'healing'} < .3 ) ? color('ON_RGB020') : ((time() - $part->{'hit'} < .3) ? color('ON_RGB222') : ''));
 			my $bold = '';
@@ -618,6 +638,7 @@ sub _drawShips {
 				: $ship->{color}
 			);
 
+			# TODO x and y switched
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
 			my $py = ($offx + int($ship->{x})) + $part->{'x'};
 

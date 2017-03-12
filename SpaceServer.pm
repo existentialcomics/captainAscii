@@ -632,6 +632,7 @@ sub _recieveInputFromClients {
 				next;
 			}
 			if ($chr =~ m/M:(.+?):(.+)/){
+				$ship->setStatus('taunt', $2);
 				$self->broadcastMsg('msg', { 'user' => $1, 'msg' => $2 });
 			}
 			# ping message

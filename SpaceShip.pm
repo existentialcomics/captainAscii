@@ -10,6 +10,7 @@ use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
 use ShipModule;
+use Taunts;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -109,6 +110,7 @@ sub _init {
 	$self->{'y'} = $y;	
 	$self->{'direction'} = PI;
 	$self->{'id'} = $id;
+	$self->{'lastTauntTime'} = 0;
 
 	my $shipModule = ShipModule->new();
 	my @modules = $shipModule->plugins();
@@ -146,6 +148,7 @@ sub _init {
 	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateHealth();
+	$self->_calculateHitBox();
 	$self->{shieldHealth} = $self->{shield};
 	$self->{currentHealth} = $self->{health};
 	$self->{shieldsOn} = 1;
@@ -211,7 +214,19 @@ sub becomeAi {
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
     $self->{cash} = int($self->{cost} * rand() / 3);
+	$self->{faction} = $self->getRandomFaction();
 	$self->setAiColor();
+}
+
+sub getRandomFaction {
+	my $self = shift;
+	my @factions = (
+		'communist',
+		'nihilist',
+		'imperialist',
+		'zealot'
+	);
+	return $factions[rand @factions];
 }
 
 sub setColor {
@@ -397,6 +412,64 @@ sub _recalculate {
 	$self->_calculateHealth();
 	$self->_setPartConnections();
 	$self->_removeBlockedGunQuadrants();
+	$self->_calculateHitBox();
+}
+
+sub getShipLeft {
+	my $self = shift;
+	return $self->{x} + $self->{_xLow};
+}
+sub getShipRight {
+	my $self = shift;
+	return $self->{x} + $self->{_xHigh};
+}
+sub getShipTop {
+	my $self = shift;
+	return $self->{y} + $self->{_yLow};
+}
+sub getShipBottom {
+	my $self = shift;
+	return $self->{y} + $self->{_yHigh};
+}
+
+### highest and lowest x and y
+sub _calculateHitBox {
+	my $self = shift;
+	$self->{_xLow}  = 0;
+	$self->{_xHigh} = 0;
+	$self->{_yLow}  = 0;
+	$self->{_yHigh} = 0;
+	$self->{_xLowShield}  = 0;
+	$self->{_xHighShield} = 0;
+	$self->{_yLowShield}  = 0;
+	$self->{_yHighShield} = 0;
+
+	foreach my $part ($self->getParts()){
+		if ($part->{'x'} > $self->{'_xHigh'}){ $self->{'_xHigh'} = $part->{'x'}; }
+		if ($part->{'y'} > $self->{'_yHigh'}){ $self->{'_yHigh'} = $part->{'y'}; }
+		if ($part->{'x'} < $self->{'_xLow'}){ $self->{'_xLow'} = $part->{'x'}; }
+		if ($part->{'y'} < $self->{'_yLow'}){ $self->{'_yLow'} = $part->{'y'}; }
+		# TODO aspect ratio
+		if (defined($part->{'shieldsize'})){
+			if ($part->{'x'} > $self->{'_xHighShield'} + $part->{'shieldsize'}){ $self->{'_xHighShield'} = $part->{'x'}; }
+			if ($part->{'y'} > $self->{'_yHighShield'} + $part->{'shieldsize'}){ $self->{'_yHighShield'} = $part->{'y'}; }
+			if ($part->{'x'} < $self->{'_xLowShield'} - $part->{'shieldsize'} ){ $self->{'_xLowShield'} = $part->{'x'}; }
+			if ($part->{'y'} < $self->{'_yLowShield'} - $part->{'shieldsize'} ){ $self->{'_yLowShield'} = $part->{'y'}; }
+		}
+	}
+
+}
+
+sub isInHitBox {
+	my $self = shift;
+	my ($x, $y) = @_;
+	return ($y >= $self->{'_yLow'} && $y <= $self->{'yHigh'} && $y >= $self->{'_yLow'} && $y <= $self->{'yHigh'});
+}
+
+sub isInShieldHitBox {
+	my $self = shift;
+	my ($x, $y) = @_;
+	return ($y >= $self->{'_yLowShield'} && $y <= $self->{'yHighShield'} && $y >= $self->{'_yLowShield'} && $y <= $self->{'yHighShield'});
 }
 
 
@@ -520,6 +593,7 @@ sub changeAiMode {
 		print "mode not defined! $mode\n";
 	}
 	if ($mode ne $self->{aiMode}){
+		$self->setStatus('taunt', Taunts::getTaunt($self->{faction}, $mode));
 		$self->{aiMode} = $mode;
 		$self->{_aiVars} = {};
 	}
@@ -544,7 +618,7 @@ sub setAiColor {
 		$newColor = 'red';
 	} elsif ($self->{aiMode} eq 'explore'){
 		$newColor = 'blue';
-	} elsif ($self->{aiMode} eq 'flue'){
+	} elsif ($self->{aiMode} eq 'flee'){
 		$newColor = 'green';
 	}
 	if ($newColor ne $self->getColorName()){
@@ -727,6 +801,10 @@ sub setStatus {
 	my $self = shift;
 	my $status = shift;
 	my $value = shift;
+
+	if ($status eq 'taunt'){
+		$self->{'lastTauntTime'} = time();
+	}
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
@@ -976,7 +1054,7 @@ sub move {
 
 sub purchasePart {
 	my $self = shift;
-	my ($chr, $x, $y) = @_;
+	my $chr  = shift;
 	if (!defined($parts{$chr})){
 		return undef;
 	}
@@ -984,7 +1062,21 @@ sub purchasePart {
 		return undef;
 	}
 	$self->setStatus('cash', $self->getStatus('cash') - $parts{$chr}->{'cost'});
+	$self->addSparePart($chr);
+}
+
+sub loadSparePart {
+	my $self = shift;
+	my ($chr, $x, $y) = @_;
+	if (!$self->canLoadPart($x, $y)){
+		return 0;
+	}
 	return $self->_loadPart($chr, $x, $y);
+}
+
+sub canLoadPart {
+	my $self = shift;
+	return 1;
 }
 
 sub _loadPart {
@@ -1020,6 +1112,7 @@ sub _recalculateCollisionMap {
 		$self->{partMap}->{$x}->{$y} = $part->{id};
 		#push $self->{shieldsOnly}, $part->{id};
 	}
+	return 1;
 }
 
 sub getParts {
