@@ -162,10 +162,26 @@ sub randomBuild {
 	my $self = shift;
 	my $cash = shift;
 	
-	my %trees = (
-		{ x => 1, y => 0, dir => 'x' }
+	my @trees = (
+		{ x => 1, y => 0, dir => 'x', 'vector' => 1 }
 	);
-	# build structure;
+	my $continue = 1;
+	while($continue){
+		# build structure;
+		foreach my $tree (@trees){
+			$self->_loadPart('-', $tree->{x}, $tree->{y});
+			$self->_loadPart('-', -$tree->{x}, $tree->{y});
+			$tree->{$tree->{dir}} += $tree->{vector};
+			if (rand() < 0.3){
+				$tree->{dir} = ($tree->{dir} eq 'x' ? 'y' : 'x');
+				if (($tree->{dir} eq 'y') && (rand() < 0.5)){
+					push(@trees, { x => $tree->{x}, y => $tree->{y}, dir => 'y', 'vector' => -$tree->{vector} });
+				}
+			}
+		}
+		if (rand() < 0.3){ $continue = 0; }
+	}
+	$self->_recalculate();
 	
 }
 
