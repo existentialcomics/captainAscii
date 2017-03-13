@@ -15,6 +15,8 @@ $quotes{communist}->{attack} = [
 'The path of history is set.',
 'The victory of communism is inevitible.',
 'The blood of the righteous will not spill in vain.',
+'History will absolve us.',
+'None will stand against the people\'s army',
 ];
 
 $quotes{nihilist}->{attack} = [
@@ -27,6 +29,7 @@ $quotes{nihilist}->{attack} = [
 'All roads end the same.',
 'Eternal life would be eternal boredom.',
 'It is better to have never been born.',
+"That which doesn't kill can still kill someone else",
 ];
 
 $quotes{imperialist}->{attack} = [

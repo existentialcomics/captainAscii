@@ -158,19 +158,30 @@ sub _init {
 	return 1;
 }
 
+sub randomBuild {
+	my $self = shift;
+	my $cash = shift;
+	
+	my %trees = (
+		{ x => 1, y => 0, dir => 'x' }
+	);
+	# build structure;
+	
+}
+
 sub calculateDrops {
     my $self = shift;
 
     my %xy = ();
 
     my @drops = ();
-    #if (rand() < 0.5){
+    if (rand() < 0.5){
         push @drops, {
-            cash => int($self->{cash} * rand),
+            cash => int($self->{cash}),
             'chr'  => color('green ON_RGB121') . '$' . color('reset')
         };
-    #}
-    if (rand() < 0.5){
+    }
+    if (rand() < 0.1){
         my @modules = $self->getModules();
         my $module = $modules[rand($#modules)];
         push @drops, {
@@ -178,11 +189,16 @@ sub calculateDrops {
             'chr'    => $module->getDisplay()
         };
     }
-    if (rand() < 0.5){
-        push @drops, {
-            'part' => '-',
-            'chr'  => '-'
-        };
+
+	foreach my $part ($self->getParts()){
+		if ($part->{health} / $part->{'part'}->{health} > 0.5){
+			if (rand() < 0.5){
+				push @drops, {
+					'part' => $part->{defchr},
+					'chr'  => $part->{chr},
+				};
+			}
+		}
     }
 
     foreach my $drop (@drops){
@@ -213,7 +229,7 @@ sub becomeAi {
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
-    $self->{cash} = int($self->{cost} * rand() / 3);
+    $self->{cash} = int($self->{cost} * rand() / 8);
 	$self->{faction} = $self->getRandomFaction();
 	$self->setAiColor();
 }
@@ -229,12 +245,13 @@ sub getRandomFaction {
 	return $factions[rand @factions];
 }
 
-sub setColor {
+sub _setColor {
 	my $self = shift;
 	my $color = shift;
 	if (!$self->isValidColor($color)){ return 0; }
-	$self->{colorDef} = $color;
-	$self->{color} = color($color);
+	$self->{'colorDef'} = $color;
+	$self->{'color'} = color($color);
+	return 1;
 }
 
 sub getColorName {
@@ -292,7 +309,7 @@ sub shoot {
 				$direction += (rand($part->{part}->{spread}) - ($part->{part}->{spread} / 2));
 			}
 			push @bullets, {
-				id => $self->{'id'},
+				ship_id => $self->{'id'},
 				partId => $part->{'id'},
 				expires => time() + (defined($part->{'part'}->{'lifespan'}) ? $part->{'part'}->{'lifespan'} : 1.5),
 				emp => $self->getStatus('emp'),
@@ -476,7 +493,7 @@ sub isInShieldHitBox {
 sub resolveCollision {
 	my $self = shift;
 	my $bullet = shift;
-	if ($bullet->{id} == $self->{id}){ return 0; }
+	if ($bullet->{ship_id} == $self->{id}){ return 0; }
 
 #	my $bx = int($bullet->{x} - $self->{y});
 #	my $by = int($bullet->{y} - $self->{x});
@@ -535,7 +552,7 @@ sub resolveCollision {
             }
             if ($self->isBot()){
                 $self->changeAiMode('attack', 'aggressive');
-                $self->aiTarget($bullet->{id});
+                $self->setAiTarget($bullet->{id});
             }
 			$part->{'hit'} = time();
             if ($bullet->{emp}){
@@ -608,6 +625,7 @@ sub changeAiMode {
 			$self->{aiState} = 'random';
 		}
 	}
+	$self->setAiColor();
 }
 
 sub setAiColor {
@@ -622,7 +640,7 @@ sub setAiColor {
 		$newColor = 'green';
 	}
 	if ($newColor ne $self->getColorName()){
-		$self->setColor($newColor);
+		$self->setStatus('color', $newColor);
 		return 1;
 	}
 	return 0;
@@ -633,11 +651,22 @@ sub isBot {
 	return $self->{isBot};
 }
 
-sub aiTarget {
+sub setAiTarget {
 	my $self = shift;
 	my $targetId = shift;
 
 	$self->{_aiVars}->{target} = $targetId;
+}
+
+sub getAiTarget {
+	my $self = shift;
+
+	return $self->{_aiVars}->{target};
+}
+
+sub clearAiTarget {
+	my $self = shift;
+	delete $self->{_aiVars}->{target};
 }
 
 sub setPartHealth {
@@ -676,6 +705,7 @@ sub damageShield {
 #
 sub orphanParts {
 	my $self = shift;
+	my $preserve = shift;
 	my %matched  = ();
 
 	my $command = $self->getCommandModule();
@@ -700,15 +730,32 @@ sub orphanParts {
 	foreach my $part ($self->getParts()){
 		if (!defined($matched{$part->{id}})){
 			push @parts, $part->{id};
-			$self->_removePart($part->{id});
+			$self->_removePart($part->{id}, $preserve);
 		}
 	}
 	return @parts;
 }
 
+sub removePartLocation {
+	my $self = shift;
+	my ($x, $y, $preserve) = @_;
+	my $id = $self->getPartIdByLocation($x, $y);
+	if (!defined($id)){ return 0; }
+	print "Remove part id $id\n";
+	$self->_removePart($id, $preserve);
+}
+
+sub getPartIdByLocation {
+	my $self = shift;
+	my ($x, $y, $preserve) = @_;
+	return $self->{partMap}->{$x}->{$y};
+}
+
+### make sure to recalculate after, and possibly orphanParts
 sub _removePart {
 	my $self = shift;
 	my $id = shift;
+	my $preserve = shift;
 
 	my $part = $self->getPartById($id);
 	my $x = $part->{x};
@@ -720,10 +767,19 @@ sub _removePart {
 		$self->removeConnection($part, $id);
 	}
 
+	if ($preserve){
+		$self->addSparePart($part->{defchr});
+	}
+	if (defined($part->{x}) && defined($part->{y})){
+		delete $self->{collisionMap}->{$part->{x}}->{$part->{y}};
+		delete $self->{partMap}->{$part->{x}}->{$part->{y}};
+	} else {
+		# TODO fix this
+		#print "bad part: $id\n";
+		#print Dumper($part);
+	}
 	delete $self->{parts}->{$id};
-	#if (defined($x) && defined($x)
-	#delete $self->{collisionMap}->{$x}->{$y};
-	#delete $self->{partMap}->{$x}->{$y};
+
 }
 
 sub removeConnection {
@@ -808,22 +864,23 @@ sub setStatus {
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
-		$self->{'statusChange'}->{$status} = $value;
 	} elsif($status eq 'color'){
-		$self->setColor($value);
-		$self->{'statusChange'}->{$status} = $value;
+		if ($self->_setColor($value)){
+			$self->{'statusChange'}->{$status} = $value;
+		}
+		return 1; # do not let default change {color}, which is color($color)
 	} elsif($status eq 'm_active'){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $value->{name}){
                 $module->setActive($value->{active});
-				$self->{'statusChange'}->{$status} = $value;
             }
         }
-	} else {
-		if (!defined($self->{$status}) || $self->{$status} ne $value){
-			$self->{$status} = $value;
-			$self->{'statusChange'}->{$status} = $value;
-		}
+	}
+
+	# register status change for server mgs's
+	if (!defined($self->{$status}) || $self->{$status} ne $value){
+		$self->{$status} = $value;
+		$self->{'statusChange'}->{$status} = $value;
 	}
 }
 
@@ -844,7 +901,6 @@ sub claimItem {
         }
 	}
     if (defined($item->{part})){
-        $self->{_spareParts}->{$item->{part}}++ ;
         $self->addServerInfoMsg("Found spare part $item->{part}.");
 		$self->addSparePart($item->{'part'});
     }
@@ -853,17 +909,25 @@ sub claimItem {
 sub addSparePart {
 	my $self = shift;
 	my $chr  = shift;
-	$self->{_spareParts}->{$chr}++ ;
+	$self->{_spareParts}->{$chr}++;
 	$self->addServerMsg('sparepart',
-		{ 'ship_id' => $self->{id}, 'part' => $chr }
+		{ 'ship_id' => $self->{id}, 'part' => $chr, 'add' => 1}
 	);
 }
 
-sub getSparePart {
+sub useSparePart {
+	my $self = shift;
+	my $chr = shift;
+	$self->{_spareParts}->{$chr}--;
+	$self->addServerMsg('sparepart',
+		{ 'ship_id' => $self->{id}, 'part' => $chr, 'use' => 1}
+	);
+}
+
+sub hasSparePart {
 	my $self = shift;
 	my $chr  = shift;
-	return (defined($self->{_spareParts}->{$chr}) ? 
-		$self->{_spareParts}->{$chr} : 0);
+	return (defined($self->{_spareParts}->{$chr}) ? $self->{_spareParts}->{$chr} : 0);
 }
 
 sub getStatus {
@@ -907,19 +971,23 @@ sub clearServerMsgs {
     $self->{'_shipMsgs'} = [];
 }
 
-# wrapper for chat msgs
+# wrapper for chat msgs, goes to the player only
 sub addServerInfoMsg {
     my $self = shift;
     my $msgInfo = shift;
-    $self->addServerMsg('msg', { 'user' => '<SYSTEM>', 'msg' => $msgInfo });
+    $self->addServerMsg('msg', 
+		{ 'user' => '<SYSTEM>', 'msg' => $msgInfo, 'color' => 'green' },
+		1  # send to this player only
+	);
 }
 
 sub addServerMsg {
     my $self     = shift;
     my $category = shift;
     my $msg      = shift;
+	my $playerOnly = shift;
 
-    push @{ $self->{'_shipMsgs'} }, { 'category' => $category, 'msg' => $msg };
+    push @{ $self->{'_shipMsgs'} }, { 'category' => $category, 'msg' => $msg, '_playerOnly' => $playerOnly };
 }
 
 sub recieveShipStatusMsg {
@@ -1068,14 +1136,17 @@ sub purchasePart {
 sub loadSparePart {
 	my $self = shift;
 	my ($chr, $x, $y) = @_;
-	if (!$self->canLoadPart($x, $y)){
+	if (!$self->canLoadPart($chr, $x, $y)){
 		return 0;
 	}
+	$self->useSparePart($chr);
 	return $self->_loadPart($chr, $x, $y);
 }
 
 sub canLoadPart {
 	my $self = shift;
+	my ($chr, $x, $y) = @_;
+	if (!$self->hasSparePart($chr)){ return 0; }
 	return 1;
 }
 
@@ -1488,9 +1559,9 @@ sub getDisplayArray {
 	#my ($w, $h, $offset) = @_;
 	my @shipArr;
 	my $j = 5;
-	foreach my $x ($self->{bottommost} - 3 .. $self->{topmost} + 3){
+	foreach my $y ($self->{bottommost} - 3 .. $self->{topmost} + 3){
 		my $i = 5;
-		foreach my $y ($self->{leftmost} - 3 .. $self->{rightmost} + 3){
+		foreach my $x ($self->{leftmost} - 3 .. $self->{rightmost} + 3){
 			my $chr = $self->{collisionMap}->{$x}->{$y};
 			if (!defined($chr)){ $chr = ' ';}
 			$shipArr[$j][$i] = $chr;

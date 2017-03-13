@@ -52,6 +52,7 @@ sub _init {
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
 	$self->{level} = 1;
+	$self->{shipDensity} = 5;
 	$self->{highestEnemy} = 1;
 	if (defined($options->{maxInitialCost})){
 		$self->{maxInitialCost} = $options->{maxInitialCost};
@@ -181,7 +182,11 @@ sub _sendShipMsgs {
 
 	foreach my $ship ($self->getShips()){
 		foreach my $msg ($ship->getServerMsgs()){
-			$self->broadcastMsg($msg->{category}, $msg->{msg});
+			if ($msg->{'_playerOnly'}){
+				$self->sendMsg($ship, $msg->{category}, $msg->{msg});
+			} else {
+				$self->broadcastMsg($msg->{category}, $msg->{msg});
+			}
 		}
 		$ship->clearServerMsgs();
 	}
@@ -197,7 +202,7 @@ sub _despawnShips {
 
 sub _spawnShips {
 	my $self = shift;
-	if ($self->getShipCount() < 8){
+	if ($self->getShipCount() < $self->{shipDensity}){
 		my $rand = rand();
 		my $level = $self->{level};
 		if ($rand < 0.2){
@@ -232,16 +237,33 @@ sub _ai {
 		my ($mode, $state) = $ship->getAiModeState();
 		my $modeDiff  = $time - $ship->{aiModeChange};
 		my $tickDiff = $time  - $ship->{aiTick};
-		my ($id, $distance, $dir) = $self->_findClosestShip(
-			$ship->{'x'},
-			$ship->{'y'},
-			$ship->{'id'}
+		
+		my ($id, $distance, $dir);
+		my $aiTargetId = $ship->getAiTarget();
+		#if ($aiTargetId){
+		if (0 == 1){
+			$id = $aiTargetId;
+			my ($rho, $theta, $phi) = $self->_findShipDistanceDirection(
+				$ship->{'x'},
+				$ship->{'y'},
+				$ship
 			);
+			$distance = $rho;
+			$dir = $theta;
+
+		} else {
+			($id, $distance, $dir) = $self->_findClosestShip(
+				$ship->{'x'},
+				$ship->{'y'},
+				$ship->{'id'}
+			);
+		}
 		if ($id eq '-1'){
 			$ship->changeAiMode('explore');
 		} else {
 			if ($distance < 20){
 				$ship->changeAiMode('attack', 'passive');
+				$ship->setAiTarget($id);
 			}
 		}
 		if ($mode eq 'explore'){
@@ -312,9 +334,6 @@ sub _ai {
 		}
 		#print "$ship->{id} - $id, $distance, $dir\n";
 		#print "mode: $ship->{aiMode}\n";
-		if ($ship->setAiColor()){
-			$self->broadcastMsg('shipstatus', { 'ship_id' => $ship->{id}, 'color' => $ship->getColorName() });
-		}
 	}
 }
 
@@ -407,14 +426,13 @@ sub addShip {
 ### transmit a msg to the clients
 sub sendMsg {
 	my $self = shift;
-	my ($socket, $category, $data) = @_;
-	if (!$socket){ return 0; }
+	my ($ship, $category, $data) = @_;
+	if (!$ship->{conn}){ return 0; }
 	my $msg = {
 		c => $category,
 		d => $data
 	};
-	#print $socket (JSON::XS::encode_json($msg)) . "\n";
-	syswrite($socket, (JSON::XS::encode_json($msg)) . "\n");
+	syswrite($ship->{conn}, (JSON::XS::encode_json($msg)) . "\n");
 }
 
 sub broadcastMsg {
@@ -422,7 +440,7 @@ sub broadcastMsg {
 	my ($category, $data) = @_;
 	foreach my $ship ($self->getShips()){
         if (!$ship->isBot()){
-		    $self->sendMsg($ship->{conn}, $category, $data);
+		    $self->sendMsg($ship, $category, $data);
         }
 	}
 }
@@ -456,7 +474,7 @@ sub _loadNewPlayers {
 
 		my $shipNew = SpaceShip->new($newShipDesign, rand(100) - 50, rand(100) - 50, $self->{shipIds}++, \%options);
 		foreach my $ship ($self->getShips()){
-			$self->sendMsg($ship->{conn}, 'newship', {
+			$self->sendMsg($ship, 'newship', {
 				design => $newShipDesign,
 				x => $shipNew->{x},
 				y => $shipNew->{y},
@@ -470,20 +488,20 @@ sub _loadNewPlayers {
 
 		if (defined($self->{maxInitialCost})){
 			if ($shipNew->{cost} > $self->{maxInitialCost}){
-				$self->sendMsg($shipNew->{conn}, 'exit', { msg => "Your ship exceeds the maximum cost of $self->{maxInitialCost}" });
+				$self->sendMsg($shipNew, 'exit', { msg => "Your ship exceeds the maximum cost of $self->{maxInitialCost}" });
 			} else {
 				$shipNew->setStatus('cash', $self->{maxInitialCost} - $shipNew->{cost});	
 			}
 		}
 
 		# set the new ship's id
-		$self->sendMsg($shipNew->{conn}, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
+		$self->sendMsg($shipNew, 'setShipId', { old_id => 'self', new_id => $shipNew->{id} });
 		# set the color
-		$self->sendMsg($shipNew->{conn}, 'shipstatus', { 'ship_id' => $shipNew->{id}, 'color' => $options{'color'} });
+		$self->sendMsg($shipNew, 'shipstatus', { 'ship_id' => $shipNew->{id}, 'color' => $options{'color'} });
 
 		# send it to the other ships
 		foreach my $oldShip ($self->getShips()){
-			$self->sendMsg($shipNew->{conn}, 'newship', {
+			$self->sendMsg($shipNew, 'newship', {
 				design => $oldShip->{design},
 				x => $oldShip->{x},
 				y => $oldShip->{y},
@@ -495,10 +513,23 @@ sub _loadNewPlayers {
 
 		my $id = $self->addShip($shipNew);
 		print "player loaded, " . $self->getShipCount() . " in game.\n";
-		$self->broadcastMsg('msg', { 'user' => '<SYSTEM>', 'msg' => "Player " . color($shipNew->{colorDef}) . "$options{name} " . color('reset') . " has entered the game\n"});
+		$shipNew->setStatus('name', $options{name});
+		$self->sendSystemMsg("Player " . color($shipNew->{colorDef}) . "$options{name} " . color('green') . " has entered the game.");
 		return $id;
 	}
 	return 0;
+}
+
+sub sendSystemMsg {
+	my $self = shift;
+	my $msg = shift;
+	my $ship = shift;
+	if (defined($ship)){
+		$self->sendMsg($ship, 'msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'green'});
+	} else {
+		$self->broadcastMsg('msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'green'});
+	}
+
 }
 
 sub _sendShipsToClients {
@@ -604,36 +635,64 @@ sub _recieveInputFromClients {
 			chomp($in);
 			my $chr = $in;
 			if ($chr =~ m/B:([\-\d]+?):([\-\d]+?):(.)/){
-				#print "******** loading part: $3, $1, $2\n";
 				my $chr = $3;
 				my $x   = $2;
 				my $y   = $1;
-				my $id = $ship->purchasePart($chr, $x, $y);
-				if (defined($id)){
-					#print "******** id: $id\n";
+				my $id = undef;
+				if ($chr eq ' '){
+					print "removing part at $x, $y\n";
+					$ship->removePartLocation($x, $y, 1);
 					$ship->_recalculate();
 					print $ship->getShipDisplay();
-					if ($id != 0){
-						my $chrMap  = $ship->{collisionMap};
-						my $partMap = $ship->{partMap};
-						#print Dumper($map);
-						my $msg = {
-							'ship_id'  => $ship->{id},
-							'chr_map'  => $chrMap,
-                            'part_map' => $partMap
-						};
-						foreach my $s ($self->getShips()){
-							$self->sendMsg($s->{conn}, 'shipchange', $msg);
-						}
+					my $chrMap  = $ship->{collisionMap};
+					my $partMap = $ship->{partMap};
+					#print Dumper($map);
+					my $msg = {
+						'ship_id'  => $ship->{id},
+						'chr_map'  => $chrMap,
+						'part_map' => $partMap
+					};
+					foreach my $s ($self->getShips()){
+						$self->sendMsg($s, 'shipchange', $msg);
 					}
 				} else {
-					print "Can't load part $chr, not enough money or not defined\n";	
+					if ($ship->hasSparePart($chr)){
+						$id = $ship->loadSparePart($chr, $x, $y);
+					} else {
+						$ship->purchasePart($chr, $x, $y);
+						$id = $ship->loadSparePart($chr, $x, $y);
+					}
+					if (defined($id)){
+						#print "******** id: $id\n";
+						$ship->_recalculate();
+						print $ship->getShipDisplay();
+						if ($id != 0){
+							my $chrMap  = $ship->{collisionMap};
+							my $partMap = $ship->{partMap};
+							#print Dumper($map);
+							my $msg = {
+								'ship_id'  => $ship->{id},
+								'chr_map'  => $chrMap,
+								'part_map' => $partMap
+							};
+							foreach my $s ($self->getShips()){
+								$self->sendMsg($s, 'shipchange', $msg);
+							}
+						}
+					} else {
+						print "Can't load part $chr, not enough money or not defined\n";	
+					}
 				}
 				next;
 			}
 			if ($chr =~ m/M:(.+?):(.+)/){
-				$ship->setStatus('taunt', $2);
-				$self->broadcastMsg('msg', { 'user' => $1, 'msg' => $2 });
+				my ($user, $chat) = ($1, $2);
+				if ($chat =~ m#^/(.+)#){
+					$self->parseCommand($ship, $1);
+				} else {
+					$ship->setStatus('taunt', $chat);
+					$self->broadcastMsg('msg', { 'user' => $user, 'msg' => $chat });
+				} 
 			}
 			# ping message
 			if ($chr eq 'z'){
@@ -661,22 +720,71 @@ sub _recieveInputFromClients {
 					'partMap' => $partMap
 				};
 				foreach my $s ($self->getShips()){
-					$self->sendMsg($s->{conn}, 'shipchange', $msg);
+					$self->sendMsg($s, 'shipchange', $msg);
 				}
-			}
-			if ($chr eq '+'){
-				$self->{level}++;
-				print "level changed to $self->{level}\n";
-			}
-			if ($chr eq '-'){
-				$self->{level}--;
-				print "level changed to $self->{level}\n";
 			}
 		}
 		if (! $ship->{isBot} && time() - $ship->{lastMsg} > 5){
 			print "AI takeover of ship $ship->{id}!\n";
 			$ship->becomeAi();
 		}
+	}
+}
+
+# player commands
+sub parseCommand {
+	my $self = shift;
+	my ($ship, $commandString) = @_;
+	my ($command, $arg) = split(' ', $commandString);
+	if (!defined($arg)){ $arg = ''; };
+	my $parsed = 0;
+	if ($command eq 'shield'){
+		if ($arg eq ''){
+			$ship->toggleShield();
+		} elsif ($arg eq 'on'){
+			$ship->{shieldsOn} = 1;
+			$self->sendSystemMsg("shields disabled.", $ship);
+		} elsif ($arg eq 'off'){
+			$ship->{shieldsOff} = 0;
+			$self->sendSystemMsg("shields disabled.", $ship);
+		} else {
+		}
+		my $msg = {
+			ship_id => $ship->{id},
+			shieldsOn => $ship->{shieldsOn},
+		};
+		$self->broadcastMsg('shipstatus', $msg);
+	}
+	elsif ($command eq 'spawns'){
+		if ($arg =~ m/^\d+$/){
+			$self->{shipDensity} = $arg;
+			$self->sendSystemMsg("Ship density changed to $arg.");
+			print "Ship density changed to $arg\n";
+		}
+	}
+	elsif ($command eq 'level'){
+		if ($arg =~ m/^[123]$/){
+			$self->{level} = $arg;
+			$self->sendSystemMsg("Difficulty level changed to $arg.");
+			print "Level changed to $arg\n";
+		}
+	}
+	elsif ($command eq 'color'){
+		if ($ship->isValidColor($arg)){
+			$ship->setStatus('color', $arg);	
+			$self->sendSystemMsg($ship->{name} . " changed to color " . $ship->{color} . $arg . color('reset'));
+		} else {
+			$self->sendSystemMsg("Invalid color: $arg", $ship);
+		}
+	} elsif ($command eq 'help' || $command eq '?'){
+		$self->sendSystemMsg(q(
+List of commands:
+color <red blue green cyan white yellow>
+shields|sh <on|off>
+level <difficulty level>
+spawns <enemy ships nearby>), $ship);
+	} else {
+		$self->sendSystemMsg("Invalid command: $command, type /help for list of commands.", $ship);
 	}
 }
 
@@ -707,9 +815,9 @@ sub addItem {
     }
 	$item->{expires} = time + $item->{ex};
 	$self->{items}->{$key} = $item;
-	if ($item->{sid}){
-		my $ship = $self->getShipById($item->{sid});
-		$self->sendMsg($ship->{conn}, 'item', $item);
+	if ($item->{ship_id}){
+		my $ship = $self->getShipById($item->{ship_id});
+		$self->sendMsg($ship, 'item', $item);
 	} else { # global items
 		$self->broadcastMsg('item', $item);
 	}
@@ -724,8 +832,8 @@ sub _calculateItems {
 		} else {
 			my $item = $self->{items}->{$itemK};
 			foreach my $ship ($self->getShips()){
-				if (defined($item->{sid})){
-					if ($item->{sid} ne $ship->{id}){
+				if (defined($item->{ship_id})){
+					if ($item->{ship_id} ne $ship->{id}){
 						next;
 					}
 				}
@@ -759,13 +867,13 @@ sub _calculateBullets {
 		# send the bullet data to clients
 		foreach my $ship ($self->getShips()){
 			# TODO only send once in a while, let client move in the meantime
-			$self->sendMsg($ship->{conn}, 'b', 
+			$self->sendMsg($ship, 'b', 
 				{
 					x => $bullet->{x},
 					y => $bullet->{y},
 					dx => $bullet->{dx},
 					dy => $bullet->{dy},
-					sid => $bullet->{id}, 
+					sid => $bullet->{ship_id}, 
 					pid => $bullet->{partId},
 					k => $bulletK,
 					ex => ( $bullet->{expires} - time() ), # time left in case client clock differs
@@ -806,10 +914,21 @@ sub _calculateBullets {
 					}
 				}
 				if (! $ship->getCommandModule() ){
-                    $self->sendMsg($ship->{conn}, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
+					if (!$ship->isBot()){
+						my $killShip = $self->getShipById($bullet->{ship_id});
+						my $killName = '';
+						if (!defined($killShip)){
+							$killName = 'a stray bullet';
+						} else {
+							$killName = ($killShip->isBot() ? 'the computer' : $killShip->getStatus('name'));
+						}
+						$self->sendSystemMsg($ship->getStatus('name') . " has been killed by " . $killName . '.');
+						$self->sendMsg($ship, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
+					}
 					$self->removeShip($ship->{id});
 					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
                     foreach my $item ($ship->calculateDrops()){
+						$item->{ship_id} = $bullet->{ship_id};
                         $self->addItem($item);
                     }
 

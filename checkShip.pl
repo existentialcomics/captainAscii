@@ -25,12 +25,15 @@ my $ship = SpaceShip->new($ship_str1, 5, 5, 1, { color => $color } );
 my $display = $ship->getDisplayArray($cloaked);
 
 foreach my $row (@$display){
-	print join @$row;
+	if (!defined($row)){ next; }
+	foreach my $chr(@$row){
+		print (defined($chr) ? $chr : ' ');
+	}
 	print "\n";
 }
 #print Dumper($display);
 
-print $display . "\n";
+#print $display . "\n";
 
 print color('reset');
 print "\n-----------------------------------------------" . "\n\n";

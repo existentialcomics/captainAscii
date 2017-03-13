@@ -9,6 +9,7 @@ use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 use Math::Trig ':radial';
+use Text::Wrap;
 
 use ShipModule;
 
@@ -415,7 +416,7 @@ sub printInfo {
 
 	######### chat or parts #########
 	if ($self->{mode} eq 'build'){ # parts
-		my $sprintf = '%-3s (x%3s)│ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
+		my $sprintf = '%3s │ %5s │ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
 		if (!defined($self->{partsDisplay})){
 			my %parts = %{ $ship->getAllPartDefs() };
 			$self->{partsDisplay} = [];
@@ -430,28 +431,31 @@ sub printInfo {
             keys %parts){
 				my $part = $parts{$ref};
 				push(@{ $self->{partsDisplay} },
+					($ship->hasSparePart($ref) > 0 ? color('white') : color('grey10')) .
 					sprintf($sprintf,
 						$ref,
-						$ship->getSparePart($ref),
+						'x' . $ship->hasSparePart($ref),
 						'$' . $part->{cost},
 						(defined($part->{thrust}) ? $part->{thrust} : ''),
 						(defined($part->{power}) ? $part->{power} : ''),
 						(defined($part->{damage}) ? $part->{damage} : ''),
 						(defined($part->{rate}) ? $part->{rate} : ''),
 						(defined($part->{shield}) ? $part->{shield} : ''),
-					)
+					) . color('reset')
 				);
 			}
 			$self->{partOffset} = 0;
 		}
 
-		$scr->at(1, $width + 3);
+		$scr->at(2, $width + 3);
 		$scr->puts(sprintf($sprintf,
-			'chr', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield'));
-		for my $line (3 .. $height){
+			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield'));
+		$scr->at(3, $width + 3);
+		$scr->puts('────┼───────┼────────┼────────┼────────┼───────┼───────┼───────');
+		for my $line (4 .. $height){
 			$scr->at($line, $width + 3);
 			my $partLine = $self->{partsDisplay}->[$line - 3];
-			$scr->puts(sprintf(' %-' . ($self->{chatWidth} - 4) . 's',
+			$scr->puts(sprintf('%-' . ($self->{chatWidth} - 4) . 's',
 				(defined($partLine) ? $partLine : "")
 				)
 			);
@@ -474,7 +478,7 @@ sub printInfo {
 		my $boxColor = color('ON_BLACK');
 		if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
 		$scr->at($height, $width + 4);
-		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . $self->{'msg'} . color('reset')));
+		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . color('reset')));
 		$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
 	}
 }
@@ -663,7 +667,7 @@ sub _drawShips {
  #					$self->addLighting($px + $_, $py, 4); 
  #				}
  #			}
-			if ($ship->{shieldsOn}){
+			if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
 				if ($part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
 						my $shieldLevel = ($highlight ne '' ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
@@ -718,6 +722,9 @@ sub _sendKeystrokesToServer {
 				$self->{'cursorx'} = 0;
 				$self->{'cursory'} = 0;
 			} elsif ($chr eq '/'){
+				$self->{'msg'} = '/';
+				$self->{'mode'} = 'type';
+			} elsif ($chr eq "\r"){
 				$self->{'mode'} = 'type';
 			} else {
 				print {$self->{socket}} "$chr\n";
@@ -728,7 +735,10 @@ sub _sendKeystrokesToServer {
 			my $chr = $scr->getch();
 			if ($chr eq '`'){
 				$self->{'mode'} = 'drive';
-			} elsif ($chr eq '/'){ $self->{mode} = 'type'; }
+			} elsif ($chr eq '/' or $chr eq "\r"){
+				$self->{mode} = 'type'; 
+				if ($chr eq '/'){ $self->{msg} = '/'; }
+			}
 			elsif ($chr eq 'a'){ $self->{'cursory'}--; }
 			elsif ($chr eq 'd'){ $self->{'cursory'}++; }
 			elsif ($chr eq 's'){ $self->{'cursorx'}++; }
@@ -737,6 +747,7 @@ sub _sendKeystrokesToServer {
 				#add part
 				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}:$chr\n";
 			} elsif ($chr eq ' '){
+				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}: \n";
 				#remove part
 			}
 		}
@@ -752,9 +763,7 @@ sub _sendKeystrokesToServer {
 				} elsif($chr eq "\b" || ord($chr) == 127){ # 127 is delete
 					chop($self->{'msg'});
 				} else {
-					if (length($self->{'msg'}) < $self->{chatWidth} - 4){
-						$self->{'msg'} .= $chr;
-					}
+					$self->{'msg'} .= $chr;
 				}
 			}
 		}
@@ -858,13 +867,28 @@ sub _getMessagesFromServer {
 				$s->recieveShipStatusMsg($data);
 			}
 		} elsif ($msg->{c} eq 'msg'){
+			my $msgStringFull = "";
             if ($data->{'user'}){
-			    push @{ $self->{msgs} }, sprintf('%-10s: %s', $data->{'user'}, $data->{'msg'});
+				$msgStringFull .= sprintf('%-10s: %s', $data->{'user'}, $data->{'msg'});
             } else {
-			    push @{ $self->{msgs} }, $data->{'msg'};
+				$msgStringFull .= $data->{'msg'};
             }
+			$Text::Wrap::columns = $self->{chatWidth} - 10;
+			my @wrappedMsgs = split("\n", wrap("", "  ", $msgStringFull));
+			$self->{debug} = "wrapped: $#wrappedMsgs";
+			foreach my $msgString (@wrappedMsgs){
+			if (defined($data->{'color'})){
+				$msgString = color($data->{'color'}) . $msgString;
+			}
+			$msgString .= color('reset');
+			push @{ $self->{msgs} }, $msgString;
+			}
         } elsif ($msg->{c} eq 'sparepart'){
-			$self->{ship}->addSparePart($data->{'part'});
+			if (defined($data->{add})){
+				$self->{ship}->addSparePart($data->{'part'}, $data->{add});
+			} elsif(defined($data->{use})){
+				$self->{ship}->useSparePart($data->{'part'}, $data->{use});
+			}
 			delete $self->{partsDisplay};
 		}
 	}
