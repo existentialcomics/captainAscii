@@ -51,7 +51,7 @@ sub _init {
 	$self->{shipIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
-	$self->{level} = 1;
+	$self->{level} = 200;
 	$self->{shipDensity} = 5;
 	$self->{highestEnemy} = 1;
 	if (defined($options->{maxInitialCost})){
@@ -206,14 +206,13 @@ sub _spawnShips {
 		my $rand = rand();
 		my $level = $self->{level};
 		if ($rand < 0.2){
-			$level++;
-		}
-		if ($level > $self->{highestEnemy}){
-			$level = $self->{highestEnemy};
+			$level *= 2;
 		}
 		my $newShipDesign = $self->getEnemyDesign($level);
-		print "adding enemy:\n$newShipDesign\n";
-		my $shipNew = SpaceShip->new($newShipDesign, rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+		print "Adding random enemy $level\n";
+		my $shipNew = SpaceShip->new('X', rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+		$shipNew->becomeAi();
+		$shipNew->randomBuild($level);
 		$shipNew->{conn} = undef;
 		$shipNew->becomeAi();
 		$self->broadcastMsg('newship', {
@@ -225,6 +224,16 @@ sub _spawnShips {
 			#'map' => $oldShip->{collisionMap},
 			'options' => { color => $shipNew->getColorName() }
 		});
+		$shipNew->_recalculate();
+		my $chrMap  = $shipNew->{collisionMap};
+		my $partMap = $shipNew->{partMap};
+		my $msg = {
+			'ship_id'  => $shipNew->{id},
+			'chr_map'  => $chrMap,
+			'part_map' => $partMap
+		};
+		$self->broadcastMsg('shipchange', $msg);
+
 		$self->addShip($shipNew);
 	}
 }
@@ -509,6 +518,15 @@ sub _loadNewPlayers {
 				#'map' => $oldShip->{collisionMap},
 				options => { color => $oldShip->{colorDef} }
 			});
+			my $chrMap  = $oldShip->{collisionMap};
+			my $partMap = $oldShip->{partMap};
+			#print Dumper($map);
+			my $msg = {
+				'ship_id'  => $oldShip->{id},
+				'chr_map'  => $chrMap,
+				'part_map' => $partMap
+			};
+			$self->sendMsg($shipNew, 'shipchange', $msg);
 		}
 
 		my $id = $self->addShip($shipNew);

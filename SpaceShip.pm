@@ -160,29 +160,204 @@ sub _init {
 
 sub randomBuild {
 	my $self = shift;
-	my $cash = shift;
+	my $startCash = shift;
+	my $type = $self->{faction};
+
+	$self->{cash} = $startCash;
 	
+	my $configI = {
+		'reflectX' => 1,
+		'reflectY' => 1,
+		'turnOdds' => 0.1,
+		'branchOdds' => 0.4,
+		'branchDir' => 'x',
+		'endOdds'   => 0.1,
+		'pieceOdds' => 0.2,    #non plate piece
+		'sideOdds'  => 0.2,    #one off side pieces
+		'capOdds'   => 1,    #ending cap piece
+	};
+	my $configC = {
+		'reflectX' => 1,
+		'reflectY' => 0,
+		'turnOdds' => 0.2,
+		'branchOdds' => 0.2,
+		'branchDir' => 'y',
+		'endOdds'   => 0.1,
+		'pieceOdds' => 0.2,    #non plate piece
+		'sideOdds'  => 0.2,    #one off side pieces
+		'capOdds'   => 1,    #ending cap piece
+	};
+	my $configZ = {
+		'reflectX' => 0,
+		'reflectY' => 1,
+		'turnOdds' => 0.05,
+		'branchOdds' => 0.3,
+		'branchDir' => 'x',
+		'endOdds'   => 0.06,
+		'pieceOdds' => 0.2,    #non plate piece
+		'sideOdds'  => 0.2,    #one off side pieces
+		'capOdds'   => 1,    #ending cap piece
+	};
+	my $configN = {
+		'reflectX' => 0,
+		'reflectY' => 0,
+		'turnOdds' => 0.2,
+		'branchOdds' => 0.2,
+		'branchDir' => 'y',
+		'endOdds'   => 0.1,
+		'pieceOdds' => 0.2,    #non plate piece
+		'sideOdds'  => 0.2,    #one off side pieces
+		'capOdds'   => 1,    #ending cap piece
+	};
+	my $configS = {
+		'reflectX' => 1,
+		'reflectY' => 0,
+		'turnOdds' => 0.4,
+		'branchOdds' => 0.4,
+		'branchDir' => 'x',
+		'endOdds'   => 0.1,
+		'pieceOdds' => 0.2,    #non plate piece
+		'sideOdds'  => 0.2,    #one off side pieces
+		'capOdds'   => 1,    #ending cap piece
+	};
+	my $config = {};
+	if ($type eq 'imperialist'){
+		$config = $configI;
+	} elsif ($type eq 'communist'){
+		$config = $configC;
+	} elsif ($type eq 'nihilist'){
+		$config = $configN;
+	} elsif ($type eq 'zealot'){
+		$config = $configZ;
+	} else {
+		$config = $configS;
+	}
 	my @trees = (
-		{ x => 1, y => 0, dir => 'x', 'vector' => 1 }
+		{ x => 1, y => 0, dir => 'x', 'vector' => 1, 'continue' => 1 },
 	);
+	if (!$config->{reflectX}){
+		push @trees, 
+			{ x => -1, y => 0, dir => 'x', 'vector' => -1, 'continue' => 1 };
+	}
+	if (!$config->{reflectY}){
+		push @trees, 
+			{ x => 1, y => 1, dir => 'y', 'vector' => 1, 'continue' => 1 };
+		push @trees, 
+			{ x => -1, y => -1, dir => 'y', 'vector' => -1, 'continue' => 1 };
+	}
+	my @base   = ('-');
+	my @embedx = ('|', 'H', 'O');
+	my @embedy = ('_', 'O', '@');
+	my @up     = ('v', '\\', '/', '8', '|');
+	my @down   = ('^', '\\', '/', '8', '|');
+	my @right   = (')');
+	my @left   = ('(');
+
+
 	my $continue = 1;
 	while($continue){
 		# build structure;
 		foreach my $tree (@trees){
-			$self->_loadPart('-', $tree->{x}, $tree->{y});
-			$self->_loadPart('-', -$tree->{x}, $tree->{y});
+			# end
+			if (rand() < $config->{'endOdds'}){
+				$tree->{continue} = 0;
+				if (rand() < $config->{'capOdds'}){
+
+					#$tree->{$tree->{dir}} += $tree->{vector};
+					if ($tree->{dir} eq 'x'){
+						my $chr = ($tree->{vector} == 1 ? $right[rand(@right)] : $left[rand(@left)]);
+						$self->_loadRandomBuildPart($chr, $tree, $config);
+					} else {
+						my $chr = ($tree->{vector} == 1 ? $down[rand(@down)] : $up[rand(@up)]);
+						$self->_loadRandomBuildPart($chr, $tree, $config);
+					}
+				}
+				next;
+			}
+			my $chr = $base[rand(@base)];
+			# inner fill chrs
+			if (rand() < $config->{'pieceOdds'}){
+				$chr = ($tree->{dir} eq 'x' ? $embedx[rand(@embedx)] : $embedy[rand(@embedy)]);
+			}
+
+			$self->_loadRandomBuildPart($chr, $tree, $config);
 			$tree->{$tree->{dir}} += $tree->{vector};
-			if (rand() < 0.3){
+			# change direction
+			if (rand() < $config->{turnOdds}){
 				$tree->{dir} = ($tree->{dir} eq 'x' ? 'y' : 'x');
-				if (($tree->{dir} eq 'y') && (rand() < 0.5)){
-					push(@trees, { x => $tree->{x}, y => $tree->{y}, dir => 'y', 'vector' => -$tree->{vector} });
+			}
+			## branch
+			elsif (($tree->{dir} eq $config->{branchDir}) && (rand() < $config->{branchOdds})){
+				push(@trees, 
+					{ 
+						x => $tree->{x},
+						y => $tree->{y},
+						dir => ($tree->{dir} eq 'x' ? 'y' : 'x'),
+						'vector' => (rand() < .4 ? -1 : 1),
+						'continue' => 1 }
+				);
+			}
+			if (rand() < $config->{sideOdds}){
+				if ($tree->{dir} eq 'x'){
+
+				} else {
+
 				}
 			}
 		}
-		if (rand() < 0.3){ $continue = 0; }
+		@trees = grep { $_->{continue} } @trees;
+		#print scalar @trees . "\n";
+		if ($#trees == -1){ $continue = 0; }
 	}
 	$self->_recalculate();
-	
+}
+
+sub _loadRandomBuildPart {
+	my $self = shift;
+	my ($chr, $tree, $config) = @_;
+
+	my %reflectX = (
+		')' => '(',
+		'(' => ')',
+		'\\' => '/',
+		'/' => '\\',
+	);
+	my %reflectY = (
+		'v' => '^',
+		'^' => 'v',
+		'\\' => '/',
+		'/' => '\\',
+	);
+
+	if ($self->purchasePart($chr)){
+		$self->useSparePart($chr);
+		$self->_loadPart($chr, $tree->{x}, $tree->{y});
+		if ($config->{reflectX}){
+			my $chrX = (defined($reflectX{$chr}) ? $reflectX{$chr} : $chr);
+			$self->purchasePart($chrX);
+			$self->useSparePart($chrX);
+			$self->_loadPart($chrX, -$tree->{x}, $tree->{y});
+		}
+		if ($config->{reflectY}){
+			my $chrY = (defined($reflectY{$chr}) ? $reflectY{$chr} : $chr);
+			$self->purchasePart($chrY);
+			$self->useSparePart($chrY);
+			$self->_loadPart($chrY, $tree->{x}, -$tree->{y});
+
+		}
+		if ($config->{reflectX} && $config->{reflectY}){
+			my $chrX = (defined($reflectX{$chr}) ? $reflectX{$chr} : $chr);
+			my $chrXY = (defined($reflectY{$chrX}) ? $reflectY{$chrX} : $chrX);
+			$self->purchasePart($chrXY);
+			$self->useSparePart($chrXY);
+			$self->_loadPart($chrXY, -$tree->{x}, -$tree->{y});
+		}
+		return 1;
+	} else {
+		$tree->{continue} = 0;
+		return 0;
+	}
+
 }
 
 sub calculateDrops {
@@ -258,7 +433,7 @@ sub getRandomFaction {
 		'imperialist',
 		'zealot'
 	);
-	return $factions[rand @factions];
+	return $factions[rand(@factions)];
 }
 
 sub _setColor {
@@ -1169,6 +1344,7 @@ sub canLoadPart {
 sub _loadPart {
 	my $self = shift;
 	my ($chr, $x, $y, $id) = @_;
+	if ($x == 0 && $y == 0 && $chr ne 'X'){ return undef; } # cannot override command module
 	$id = (defined($id) ? $id : $self->{idCount}++);
 	$self->{parts}->{$id} = {
 		'x' => $x,
