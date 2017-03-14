@@ -175,6 +175,33 @@ sub randomBuild {
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
+		'parts1' => {
+			base   => ['-'],
+			embedx => ['|', 'O'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', '|'],
+			down   => ['^', '\\', '/', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['-'],
+			embedx => ['|', 'O', '0'],
+			embedy => ['_', 'O', '@', '$'],
+			up     => ['v', '\\', '/', '|'],
+			down   => ['^', '\\', '/', '|'],
+			right  => [')', '}'],
+			left   => ['(', '{'],
+		},
+		'parts3' => {
+			base   => ['+'],
+			embedx => ['|', 'O', '0', 'I', '$'],
+			embedy => ['_', 'O', '@', '$', 'L'],
+			up     => ['v', '\\', '/', '|'],
+			down   => ['^', '\\', '/', '|'],
+			right  => ['}'],
+			left   => ['{'],
+		},
 	};
 	my $configC = {
 		'reflectX' => 1,
@@ -186,6 +213,33 @@ sub randomBuild {
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
+		'parts1' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', 'H', '|', 'H'],
+			down   => ['^', '\\', '/', 'H', '|', 'H'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O', '$'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', '8', '|', 'H', 'H'],
+			down   => ['^', '\\', '/', '8', '|', 'H', 'H'],
+			right  => ['}'],
+			left   => ['{'],
+		},
+		'parts3' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', '8', '|'],
+			down   => ['^', '\\', '/', '8', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
 	};
 	my $configZ = {
 		'reflectX' => 0,
@@ -197,6 +251,33 @@ sub randomBuild {
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
+		'parts1' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', 'U', '|'],
+			down   => ['^', '\\', '/', 'U', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['+'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', '8', 'U', '|'],
+			down   => ['^', '\\', '/', '8', 'U', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts3' => {
+			base   => ['+'],
+			embedx => ['|', 'H', 'O', 'M'],
+			embedy => ['_', 'O', '@'],
+			up     => ['v', '\\', '/', '8', 'I'],
+			down   => ['^', '\\', '/', '8', 'I'],
+			right  => ['{'],
+			left   => ['}'],
+		},
 	};
 	my $configN = {
 		'reflectX' => 0,
@@ -208,6 +289,33 @@ sub randomBuild {
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
+		'parts1' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O'],
+			up     => ['v', '\\', '/', 'H', '|'],
+			down   => ['^', '\\', '/', 'H', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O'],
+			up     => ['v', '\\', '/', '8', '|'],
+			down   => ['^', '\\', '/', '8', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts3' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O'],
+			up     => ['v', '\\', '/', '8', '|'],
+			down   => ['^', '\\', '/', '8', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
 	};
 	my $configS = {
 		'reflectX' => 1,
@@ -219,6 +327,33 @@ sub randomBuild {
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
+		'parts1' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O'],
+			up     => ['v', '\\', '/', 'H', '|'],
+			down   => ['^', '\\', '/', 'H', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O'],
+			embedy => ['_', 'O', '+', 'M'],
+			up     => ['v', '\\', '/', '8', '|'],
+			down   => ['^', '\\', '/', '8', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
+		'parts2' => {
+			base   => ['-'],
+			embedx => ['|', 'H', 'O', '+', '+', 'M'],
+			embedy => ['_', 'O', '+', 'M'],
+			up     => ['v', '\\', '/', '8', '|'],
+			down   => ['^', '\\', '/', '8', '|'],
+			right  => [')'],
+			left   => ['('],
+		},
 	};
 	my $config = {};
 	if ($type eq 'imperialist'){
@@ -245,13 +380,19 @@ sub randomBuild {
 		push @trees, 
 			{ x => -1, y => -1, dir => 'y', 'vector' => -1, 'continue' => 1 };
 	}
-	my @base   = ('-');
-	my @embedx = ('|', 'H', 'O');
-	my @embedy = ('_', 'O', '@');
-	my @up     = ('v', '\\', '/', '8', '|');
-	my @down   = ('^', '\\', '/', '8', '|');
-	my @right   = (')');
-	my @left   = ('(');
+	my $partLevel = 'parts1';
+	if ($self->{cash} > 5000){
+		$partLevel = 'parts2';
+	} elsif($self->{cash} > 10000){
+		$partLevel = 'parts3';
+	}
+	my @base   = @{$config->{$partLevel}->{base}};
+	my @embedx = @{$config->{$partLevel}->{embedx}};
+	my @embedy = @{$config->{$partLevel}->{embedy}};
+	my @up     = @{$config->{$partLevel}->{up}};
+	my @down   = @{$config->{$partLevel}->{down}};
+	my @right  = @{$config->{$partLevel}->{right}};
+	my @left   = @{$config->{$partLevel}->{left}};
 
 
 	my $continue = 1;
@@ -321,6 +462,10 @@ sub _loadRandomBuildPart {
 		'(' => ')',
 		'\\' => '/',
 		'/' => '\\',
+		'{' => '}',
+		'}' => '{',
+		'[' => ']',
+		']' => '[',
 	);
 	my %reflectY = (
 		'v' => '^',
@@ -655,29 +800,46 @@ sub _calculateHitBox {
 	foreach my $part ($self->getParts()){
 		if ($part->{'x'} > $self->{'_xHigh'}){ $self->{'_xHigh'} = $part->{'x'}; }
 		if ($part->{'y'} > $self->{'_yHigh'}){ $self->{'_yHigh'} = $part->{'y'}; }
-		if ($part->{'x'} < $self->{'_xLow'}){ $self->{'_xLow'} = $part->{'x'}; }
-		if ($part->{'y'} < $self->{'_yLow'}){ $self->{'_yLow'} = $part->{'y'}; }
+		if ($part->{'x'} < $self->{'_xLow'}) { $self->{'_xLow'} = $part->{'x'}; }
+		if ($part->{'y'} < $self->{'_yLow'}) { $self->{'_yLow'} = $part->{'y'}; }
 		# TODO aspect ratio
-		if (defined($part->{'shieldsize'})){
-			if ($part->{'x'} > $self->{'_xHighShield'} + $part->{'shieldsize'}){ $self->{'_xHighShield'} = $part->{'x'}; }
-			if ($part->{'y'} > $self->{'_yHighShield'} + $part->{'shieldsize'}){ $self->{'_yHighShield'} = $part->{'y'}; }
-			if ($part->{'x'} < $self->{'_xLowShield'} - $part->{'shieldsize'} ){ $self->{'_xLowShield'} = $part->{'x'}; }
-			if ($part->{'y'} < $self->{'_yLowShield'} - $part->{'shieldsize'} ){ $self->{'_yLowShield'} = $part->{'y'}; }
+		if (defined($part->{'part'}->{'shieldsize'})){
+			if ($part->{'x'} + $part->{'part'}->{'shieldsize'} > $self->{'_xHighShield'}){
+				$self->{'_xHighShield'} = $part->{'x'} + $part->{'part'}->{'shieldsize'};
+			}
+			if ($part->{'y'} + $part->{'part'}->{'shieldsize'} > $self->{'_yHighShield'}){
+				$self->{'_yHighShield'} = $part->{'y'} + $part->{'part'}->{'shieldsize'};
+			}
+			if ($part->{'x'} - $part->{'part'}->{'shieldsize'} < $self->{'_xLowShield'}){
+				$self->{'_xLowShield'} = $part->{'x'} - $part->{'part'}->{'shieldsize'};
+			}
+			if ($part->{'y'} - $part->{'part'}->{'shieldsize'} < $self->{'_yLowShield'}){
+				$self->{'_yLowShield'} = $part->{'y'} - $part->{'part'}->{'shieldsize'};
+			}
 		}
 	}
-
 }
 
 sub isInHitBox {
 	my $self = shift;
 	my ($x, $y) = @_;
-	return ($y >= $self->{'_yLow'} && $y <= $self->{'yHigh'} && $y >= $self->{'_yLow'} && $y <= $self->{'yHigh'});
+	return (
+		$x >= $self->{y} + $self->{'_yLow'} - 2 &&
+		$x <= $self->{y} + $self->{'_yHigh'} + 2 &&
+		$y >= $self->{x} + $self->{'_xLow'} - 2 &&
+		$y <= $self->{x} + $self->{'_xHigh'} + 2
+	);
 }
 
 sub isInShieldHitBox {
 	my $self = shift;
 	my ($x, $y) = @_;
-	return ($y >= $self->{'_yLowShield'} && $y <= $self->{'yHighShield'} && $y >= $self->{'_yLowShield'} && $y <= $self->{'yHighShield'});
+	return (
+		$x >= $self->{y} + $self->{'_yLowShield'} - 2 &&
+		$x <= $self->{y} + $self->{'_yHighShield'} + 2 &&
+		$y >= $self->{x} + $self->{'_xLowShield'} - 2 &&
+		$y <= $self->{x} + $self->{'_xHighShield'} + 2
+	);
 }
 
 
@@ -697,65 +859,69 @@ sub resolveCollision {
 
 	my $partsRemoved = 0;
 
-	### loop through shields first on their own
-	foreach my $part ($self->getParts()){
-		if (!($part->{'part'}->{'type'} eq 'shield')){
-			next;
-		}
-		# x and y got mixed somehow, don't worry about it
-		my $px = int($part->{y} + $self->{y});
-		my $py = int($part->{x} + $self->{x});
+	if ($self->isInShieldHitBox($bullet->{x}, $bullet->{y})){
+		### loop through shields first on their own
+		foreach my $part ($self->getParts()){
+			if (!($part->{'part'}->{'type'} eq 'shield')){
+				next;
+			}
+			# x and y got mixed somehow, don't worry about it
+			my $px = int($part->{y} + $self->{y});
+			my $py = int($part->{x} + $self->{x});
 
-		my $distance = sqrt(
-			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
-			(($py - $bullet->{y}) ** 2)
-		);
+			my $distance = sqrt(
+				(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
+				(($py - $bullet->{y}) ** 2)
+			);
 
-		if ($part->{'part'}->{'type'} eq 'shield'){
-			if (($part->{'shieldHealth'} > 0 && $self->{shieldsOn}) &&
-				($distance < $part->{part}->{shieldsize} + 1)
-				){
-					$part->{'hit'} = time();
-					$part->{'shieldHealth'} -= $bullet->{damage};
-					if ($part->{'shieldHealth'} < 0){
-						$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
-					}
-					return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => undef };
+			if ($part->{'part'}->{'type'} eq 'shield'){
+				if (($part->{'shieldHealth'} > 0 && $self->{shieldsOn}) &&
+					($distance < $part->{part}->{shieldsize} + 1)
+					){
+						$part->{'hit'} = time();
+						$part->{'shieldHealth'} -= $bullet->{damage};
+						if ($part->{'shieldHealth'} < 0){
+							$part->{'shieldHealth'} = 0 - ($part->{'part'}->{'shield'} / 3)
+						}
+						return { id => $part->{id}, shield => $part->{shieldHealth}, deflect => undef };
+				}
 			}
 		}
 	}
 
-	### now to damage any part
-	foreach my $part ($self->getParts()){
-		# x and y got mixed somehow, don't worry about it
-		my $px = int($part->{y} + $self->{y});
-		my $py = int($part->{x} + $self->{x});
+	if ($self->isInHitBox($bullet->{x}, $bullet->{y})){
+		### now to damage any part
+		foreach my $part ($self->getParts()){
+			# x and y got mixed somehow, don't worry about it
+			my $px = int($part->{y} + $self->{y});
+			my $py = int($part->{x} + $self->{x});
 
-		my $distance = sqrt(
-			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
-			(($py - $bullet->{y}) ** 2)
-		);
+			my $distance = sqrt(
+				(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
+				(($py - $bullet->{y}) ** 2)
+			);
 
-		if ((abs($bullet->{y} - $py) < 1.5 ) &&
-		    (abs($bullet->{x} - $px) < 1.5 )){
-            if ($self->getStatus('dodge') && rand() < 0.3){
-                return { 'deflect' => 1 }
-            }
-            if ($self->isBot()){
-                $self->changeAiMode('attack', 'aggressive');
-                $self->setAiTarget($bullet->{id});
-            }
-			$part->{'hit'} = time();
-            if ($bullet->{emp}){
-                $self->{currentPower} -= $bullet->{damage};
-                $self->_limitPower();
-            } else {
-			    $part->{'health'} -= $bullet->{damage};
-                if ($part->{health} < 0){
-                    $self->_removePart($part->{id});
-                }
-			    return { id => $part->{id}, health => $part->{health} };
-            }
+			if ((abs($bullet->{y} - $py) < 1.5 ) &&
+				(abs($bullet->{x} - $px) < 1.5 )){
+				if ($self->getStatus('dodge') && rand() < 0.3){
+					return { 'deflect' => 1 }
+				}
+				if ($self->isBot()){
+					$self->changeAiMode('attack', 'aggressive');
+					$self->setAiTarget($bullet->{id});
+				}
+				$part->{'hit'} = time();
+				if ($bullet->{emp}){
+					$self->{currentPower} -= $bullet->{damage};
+					$self->_limitPower();
+				} else {
+					$part->{'health'} -= $bullet->{damage};
+					if ($part->{health} < 0){
+						$self->_removePart($part->{id});
+					}
+					return { id => $part->{id}, health => $part->{health} };
+				}
+			}
 		}
 	}
 	return undef;

@@ -206,7 +206,7 @@ sub _spawnShips {
 		my $rand = rand();
 		my $level = $self->{level};
 		if ($rand < 0.2){
-			$level *= 2;
+			$level *= 3;
 		}
 		my $newShipDesign = $self->getEnemyDesign($level);
 		print "Adding random enemy $level\n";
@@ -772,28 +772,35 @@ sub parseCommand {
 			shieldsOn => $ship->{shieldsOn},
 		};
 		$self->broadcastMsg('shipstatus', $msg);
-	}
-	elsif ($command eq 'spawns'){
+	} elsif ($command eq 'spawns'){
 		if ($arg =~ m/^\d+$/){
 			$self->{shipDensity} = $arg;
 			$self->sendSystemMsg("Ship density changed to $arg.");
 			print "Ship density changed to $arg\n";
 		}
-	}
-	elsif ($command eq 'level'){
-		if ($arg =~ m/^[123]$/){
+	} elsif ($command eq 'level'){
+		if ($arg =~ m/^\d+$/){
 			$self->{level} = $arg;
 			$self->sendSystemMsg("Difficulty level changed to $arg.");
 			print "Level changed to $arg\n";
+		} else {
+			$self->sendSystemMsg("Invalid difficulty level.", $ship);
 		}
-	}
-	elsif ($command eq 'color'){
+	} elsif ($command eq 'color'){
 		if ($ship->isValidColor($arg)){
 			$ship->setStatus('color', $arg);	
 			$self->sendSystemMsg($ship->{name} . " changed to color " . $ship->{color} . $arg . color('reset'));
 		} else {
 			$self->sendSystemMsg("Invalid color: $arg", $ship);
 		}
+	} elsif ($command eq 'status'){
+		$self->sendSystemMsg("status $arg: " . $ship->getStatus($arg), $ship);
+	} elsif ($command eq 'statusDump'){
+		$self->sendSystemMsg("status $arg: " . Dumper($ship->getStatus($arg)), $ship);
+	} elsif ($command eq 'statusSet'){
+		my ($stat, $val) = split('=', $arg);
+		$ship->setStatus($stat, $val);
+		$self->sendSystemMsg("set status $stat to $val", $ship);
 	} elsif ($command eq 'help' || $command eq '?'){
 		$self->sendSystemMsg(q(
 List of commands:
