@@ -41,9 +41,28 @@ my %connectors= (
 
 		'blrt' => '┼',
 	},
-);
-my %connectors2 = (
-	1 => {
+	2 => {
+		'b'  => '┃',
+		't'  => '┃',
+		'bt' => '┃',
+     	'l'  => '━',
+     	'r'  => '━',
+     	'lr' => '━',
+		'bl' => '┓',
+		'br' => '┛',
+
+		'rt' => '┗',
+		'lt' => '┛',
+
+		'lrt' => '┻',
+		'blr' => '┳',
+
+		'blt' => '┫',
+		'brt' => '┣',
+
+		'blrt' => '╋',
+	},
+	3 => {
 		'b'  => '║',
 		't'  => '║',
 		'bt' => '║',
@@ -576,7 +595,9 @@ sub getRandomFaction {
 		'communist',
 		'nihilist',
 		'imperialist',
-		'zealot'
+		'zealot',
+		'alien',
+		'store'
 	);
 	return $factions[rand(@factions)];
 }
@@ -862,7 +883,8 @@ sub resolveCollision {
 	if ($self->isInShieldHitBox($bullet->{x}, $bullet->{y})){
 		### loop through shields first on their own
 		foreach my $part ($self->getParts()){
-			if (!($part->{'part'}->{'type'} eq 'shield')){
+			#if (!($part->{'part'}->{'type'} eq 'shield')){
+			if (!($part->{'part'}->{'shieldsize'})){
 				next;
 			}
 			# x and y got mixed somehow, don't worry about it
@@ -922,6 +944,40 @@ sub resolveCollision {
 					return { id => $part->{id}, health => $part->{health} };
 				}
 			}
+		}
+	}
+
+	### now to damage any part
+	foreach my $part ($self->getParts()){
+		# x and y got mixed somehow, don't worry about it
+		my $px = int($part->{y} + $self->{y});
+		my $py = int($part->{x} + $self->{x});
+
+		my $distance = sqrt(
+			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
+			(($py - $bullet->{y}) ** 2)
+		);
+
+		if ((abs($bullet->{y} - $py) < 1.5 ) &&
+		    (abs($bullet->{x} - $px) < 1.5 )){
+            if ($self->getStatus('dodge') && rand() < 0.3){
+                return { 'deflect' => 1 }
+            }
+            if ($self->isBot()){
+                $self->changeAiMode('attack', 'aggressive');
+                $self->setAiVar('target', $bullet->{id});
+            }
+			$part->{'hit'} = time();
+            if ($bullet->{emp}){
+                $self->{currentPower} -= $bullet->{damage};
+                $self->_limitPower();
+            } else {
+			    $part->{'health'} -= $bullet->{damage};
+                if ($part->{health} < 0){
+                    $self->_removePart($part->{id});
+                }
+			    return { id => $part->{id}, health => $part->{health} };
+            }
 		}
 	}
 	return undef;
@@ -1008,22 +1064,22 @@ sub isBot {
 	return $self->{isBot};
 }
 
-sub setAiTarget {
+sub setAiVar {
 	my $self = shift;
-	my $targetId = shift;
-
-	$self->{_aiVars}->{target} = $targetId;
+	my ($key, $value) = @_;
+	$self->{_aiVars}->{$key} = $value;
 }
 
-sub getAiTarget {
+sub getAiVar {
 	my $self = shift;
-
-	return $self->{_aiVars}->{target};
+	my $key = shift;
+	return $self->{_aiVars}->{$key};
 }
 
-sub clearAiTarget {
+sub clearAiVar {
 	my $self = shift;
-	delete $self->{_aiVars}->{target};
+	my $key = shift;
+	delete $self->{_aiVars}->{$key};
 }
 
 sub setPartHealth {
@@ -1601,9 +1657,13 @@ sub _loadPartConfig {
 	foreach my $section (@sections){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
+		if ($parts{$chr}->{'chr'} =~ m/^.+,/){
+			$parts{$chr} = split(',', $parts{$chr}->{'chr'});
+		}
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
+		$parts{$chr}->{'show'}   = $cfg->val($section, 'show', 1);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : color($color));
 	}
@@ -1657,7 +1717,6 @@ sub _loadPartConfig {
 		$parts{$chr}->{'shieldgen'}  = $cfg->val($section, 'shieldgen', 0.5);
 		$parts{$chr}->{'powergen'}   = $cfg->val($section, 'powergen', -2.5);
 		$parts{$chr}->{'poweruse'}   = $cfg->val($section, 'poweruse', -4);
-		$parts{$chr}->{'size'}       = $cfg->val($section, 'size', 'medium');
 		$parts{$chr}->{'shieldsize'} = $cfg->val($section, 'shieldsize', 2);
 		$parts{$chr}->{'shieldlight'} = $cfg->val($section, 'shieldlight', 2);
 	}
@@ -1687,6 +1746,10 @@ sub _loadPartConfig {
 		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
 		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
 		$parts{$chr}->{'shipMomentum'}   = $cfg->val($section, 'shipMomentum', 0);
+
+		# shield TODO poweruse needs to be seperated from gun poweruse
+		$parts{$chr}->{'shieldsize'} = $cfg->val($section, 'shieldsize', undef);
+		$parts{$chr}->{'shieldlight'} = $cfg->val($section, 'shieldlight', 2);
 		my $quads = $cfg->val($section, 'quadrangs', '1,2,3,4,5,6,7,8');
 		foreach my $q (split ',', $quads){
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
@@ -1824,13 +1887,14 @@ sub _setPartConnections {
 			}
 		}
 		if ($part->{'part'}->{'type'} eq 'plate'){
+			my $connectLevel = (defined($part->{'part'}->{boxType}) ? $part->{'part'}->{boxType} : 1);
 			my $connectStr = 
 				(defined($part->{connected}->{b}) ? 'b' : '') .
 				(defined($part->{connected}->{l}) ? 'l' : '') .
 				(defined($part->{connected}->{r}) ? 'r' : '') .
 				(defined($part->{connected}->{t}) ? 't' : '') ;
-			if ($connectors{1}->{$connectStr}){
-				$part->{'chr'} = $connectors{1}->{$connectStr};
+			if ($connectors{$connectLevel}->{$connectStr}){
+				$part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
 			}
 		}
 	}

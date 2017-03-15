@@ -45,6 +45,8 @@ sub _init {
 
 	$self->resize();
 
+	$self->{lastFrame} = time();
+
 	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
@@ -82,6 +84,14 @@ sub _init {
 	$self->loop();
 
 	return 1;
+}
+
+sub sprite {
+	my $self = shift;
+	my $array = shift;
+	my $length = time() - $self->{lastFrame};
+	if ($length > 1){ $length = 1 }
+	return $array->[int($length * @$array)];
 }
 
 sub designShip {
@@ -259,6 +269,7 @@ sub loop {
 			$lastFrame = $time;
 			$self->{fps} = $frames;
 			$frames = 0;
+			$self->{lastFrame} = $time;
 		}
 
 		if (time() - $lastPing > 1){
@@ -496,7 +507,6 @@ sub _resetMap {
 			my $col = "";
 			if ($modVal < 0.03){
 				if ($modVal < 0.0015){
-					$col = color("ON_GREY1");
 					$chr = '*';
 				} elsif ($modVal < 0.0030){
 					$col = color("GREY" . int(rand(22)));
@@ -917,6 +927,9 @@ sub _bindSocket {
 sub setMap {
 	my $self = shift;
 	my ($x, $y, $chr) = @_;
+	if (ref($chr) eq 'ARRAY'){
+		$chr = $self->sprite($chr);
+	}
 	if ( ! $self->onMap($x, $y) ){ return 0; }
 	$self->{map}->[$x]->[$y] = $chr;
 }

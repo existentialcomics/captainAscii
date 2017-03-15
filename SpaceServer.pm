@@ -248,23 +248,27 @@ sub _ai {
 		my $tickDiff = $time  - $ship->{aiTick};
 		
 		my ($id, $distance, $dir);
-		my $aiTargetId = $ship->getAiTarget();
+		my $aiTargetId = $ship->getAiVar('target');
 		#if ($aiTargetId){
 		if (0 == 1){
-			$id = $aiTargetId;
-			my ($rho, $theta, $phi) = $self->_findShipDistanceDirection(
-				$ship->{'x'},
-				$ship->{'y'},
-				$ship
-			);
-			$distance = $rho;
-			$dir = $theta;
-
+			my $targetShip = $ship->getShipById($aiTargetId);
+			if (defined($targetShip)){
+				$id = $aiTargetId;
+				my ($rho, $theta, $phi) = $self->_findShipDistanceDirection(
+					$ship->{'x'},
+					$ship->{'y'},
+					$ship
+				);
+				$distance = $rho;
+				$dir = $theta;
+			} else {
+				$ship->clearAiVar('target');
+			}
 		} else {
 			($id, $distance, $dir) = $self->_findClosestShip(
 				$ship->{'x'},
 				$ship->{'y'},
-				$ship->{'id'}
+				{ 'skipId' => $ship->{'id'} }
 			);
 		}
 		if ($id eq '-1'){
@@ -357,17 +361,28 @@ sub _aiDodge {
 
 sub _findClosestShip {
 	my $self = shift;
-	my ($x, $y, $skipId) = @_;
+	my ($x, $y, $options) = @_;
 	my $smallestDistance = 999999999;
 	my $id = -1;
 	my $dir = 0;
+
+	my @skipFactions = ('store');
+	if ($options->{skipFactions}){
+		push @skipFactions, split(',', $options->{skipFactions});
+	}
+
 	foreach my $ship ($self->getShips()){
-		next if ($ship->{id} eq $skipId);
+		if (defined($options->{skipId})){
+			next if ($ship->{id} eq $options->{skipId});
+		}
 		next if (
 			$ship->{cloaked} 
-			#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0)
+			#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0) # TODO  uncomment
 			&& (time() - $ship->{shooting} > 3)
 		);
+		foreach my $skipFaction (@skipFactions){
+			next if $ship->getStatus('faction') eq $skipFaction;
+		}
 		my ($rho, $theta, $phi) = $self->_findShipDistanceDirection($x, $y, $ship);
 		if ($rho < $smallestDistance){
 			$smallestDistance = $rho;
@@ -616,7 +631,7 @@ sub _calculatePowerAndMovement {
 		    my ($id, $distance, $dir) = $self->_findClosestShip(
                 $ship->{'x'},
                 $ship->{'y'},
-			    $ship->{'id'}
+			    { skipId => $ship->{'id'} }
             );
 			$ship->setStatus('direction', $dir);
         }
