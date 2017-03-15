@@ -930,7 +930,7 @@ sub resolveCollision {
 				}
 				if ($self->isBot()){
 					$self->changeAiMode('attack', 'aggressive');
-					$self->setAiTarget($bullet->{id});
+					$self->setAiVar('target', $bullet->{id});
 				}
 				$part->{'hit'} = time();
 				if ($bullet->{emp}){
@@ -1654,11 +1654,13 @@ sub _loadPartConfig {
 
 	my $cfg = Config::IniFiles->new( -file => $config );
 	my @sections = $cfg->Sections();
+	### global options
 	foreach my $section (@sections){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
 		if ($parts{$chr}->{'chr'} =~ m/^.+,/){
-			$parts{$chr} = split(',', $parts{$chr}->{'chr'});
+			my @aryChr = split(',', $parts{$chr}->{'chr'});
+			$parts{$chr}->{'chr'} = \@aryChr;
 		}
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);

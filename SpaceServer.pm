@@ -276,7 +276,7 @@ sub _ai {
 		} else {
 			if ($distance < 20){
 				$ship->changeAiMode('attack', 'passive');
-				$ship->setAiTarget($id);
+				$ship->setAiVar('target', $id);
 			}
 		}
 		if ($mode eq 'explore'){
