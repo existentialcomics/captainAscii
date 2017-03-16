@@ -149,6 +149,7 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
+			print "fps: $frames\n";
 			#$self->{shipSend} = 0;
 			$frames = 0;
 		}
@@ -513,6 +514,7 @@ sub _loadNewPlayers {
 		if (defined($self->{maxInitialCost})){
 			if ($shipNew->{cost} > $self->{maxInitialCost}){
 				$self->sendMsg($shipNew, 'exit', { msg => "Your ship exceeds the maximum cost of $self->{maxInitialCost}" });
+				return 0;
 			} else {
 				$shipNew->setStatus('cash', $self->{maxInitialCost} - $shipNew->{cost});	
 			}
@@ -676,7 +678,7 @@ sub _recieveInputFromClients {
 					print "removing part at $x, $y\n";
 					$ship->removePartLocation($x, $y, 1);
 					$ship->_recalculate();
-					print $ship->getShipDisplay();
+					#print $ship->getShipDisplay();
 					my $chrMap  = $ship->{collisionMap};
 					my $partMap = $ship->{partMap};
 					#print Dumper($map);
@@ -698,7 +700,7 @@ sub _recieveInputFromClients {
 					if (defined($id)){
 						#print "******** id: $id\n";
 						$ship->_recalculate();
-						print $ship->getShipDisplay();
+						#print $ship->getShipDisplay();
 						if ($id != 0){
 							my $chrMap  = $ship->{collisionMap};
 							my $partMap = $ship->{partMap};
@@ -917,7 +919,8 @@ sub _calculateBullets {
 					pid => $bullet->{partId},
 					k => $bulletK,
 					ex => ( $bullet->{expires} - time() ), # time left in case client clock differs
-					chr => $bullet->{chr}
+					chr => $bullet->{chr},
+					col => $bullet->{col}
 				}
 			);
 		}

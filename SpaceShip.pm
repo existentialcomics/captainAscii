@@ -309,25 +309,25 @@ sub randomBuild {
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
 		'parts1' => {
-			base   => ['-'],
+			base   => ["-"],
 			embedx => ['|', 'H', 'O'],
 			embedy => ['_', 'O'],
-			up     => ['v', '\\', '/', 'H', '|'],
-			down   => ['^', '\\', '/', 'H', '|'],
+			up     => ['v', 'H',],
+			down   => ['^', '\\', '/','|'],
 			right  => [')'],
 			left   => ['('],
 		},
 		'parts2' => {
-			base   => ['-'],
+			base   => ["-"],
 			embedx => ['|', 'H', 'O'],
 			embedy => ['_', 'O'],
-			up     => ['v', '\\', '/', '8', '|'],
+			up     => ['v', 'H',],
 			down   => ['^', '\\', '/', '8', '|'],
 			right  => [')'],
 			left   => ['('],
 		},
 		'parts3' => {
-			base   => ['-'],
+			base   => ['+'],
 			embedx => ['|', 'H', 'O'],
 			embedy => ['_', 'O'],
 			up     => ['v', '\\', '/', '8', '|'],
@@ -339,39 +339,39 @@ sub randomBuild {
 	my $configS = {
 		'reflectX' => 1,
 		'reflectY' => 0,
-		'turnOdds' => 0.4,
+		'turnOdds' => 0.45,
 		'branchOdds' => 0.4,
 		'branchDir' => 'x',
 		'endOdds'   => 0.1,
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
-		'capOdds'   => 1,    #ending cap piece
+		'capOdds'   => 0.8,    #ending cap piece
 		'parts1' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O'],
-			up     => ['v', '\\', '/', 'H', '|'],
-			down   => ['^', '\\', '/', 'H', '|'],
-			right  => [')'],
-			left   => ['('],
+			base   => ['\''],
+			embedx => ['N', 'P'],
+			embedy => ['N', 'P'],
+			up     => ['w', 'N'],
+			down   => ['w', 'N'],
+			right  => ['O', 'w'],
+			left   => ['O', 'w'],
 		},
 		'parts2' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O', '+', 'M'],
-			up     => ['v', '\\', '/', '8', '|'],
-			down   => ['^', '\\', '/', '8', '|'],
-			right  => [')'],
-			left   => ['('],
+			base   => ['\''],
+			embedx => ['N', 'P'],
+			embedy => ['N', 'P'],
+			up     => ['w', 'N', 'W'],
+			down   => ['w', 'N', 'W'],
+			right  => ['P', 'w', 'c'],
+			left   => ['P', 'w', 'c'],
 		},
-		'parts2' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O', '+', '+', 'M'],
-			embedy => ['_', 'O', '+', 'M'],
-			up     => ['v', '\\', '/', '8', '|'],
-			down   => ['^', '\\', '/', '8', '|'],
-			right  => [')'],
-			left   => ['('],
+		'parts3' => {
+			base   => ['\'', '"'],
+			embedx => ['N', 'P'],
+			embedy => ['N', 'P'],
+			up     => ['w', 'N', 'W'],
+			down   => ['w', 'N', 'W'],
+			right  => ['P', 'w', 'C'],
+			left   => ['P', 'w', 'C'],
 		},
 	};
 	my $config = {};
@@ -402,7 +402,8 @@ sub randomBuild {
 	my $partLevel = 'parts1';
 	if ($self->{cash} > 5000){
 		$partLevel = 'parts2';
-	} elsif($self->{cash} > 10000){
+	}
+	if($self->{cash} > 10000){
 		$partLevel = 'parts3';
 	}
 	my @base   = @{$config->{$partLevel}->{base}};
@@ -457,13 +458,38 @@ sub randomBuild {
 						'continue' => 1 }
 				);
 			}
+
+			# TODO distinguish between inner and outer pieces (i.e, lasers on the outside, power on the inside)
+			# up / right
 			if (rand() < $config->{sideOdds}){
+				my $dirMove = 1;
 				if ($tree->{dir} eq 'x'){
-
+					$tree->{y}+= $dirMove;
+					my $chr = $up[rand(@up)];
+					$self->_loadRandomBuildPart($chr, $tree, $config);
+					$tree->{y}-=$dirMove;
 				} else {
-
+					$tree->{x}+= $dirMove;
+					my $chr = $right[rand(@right)];
+					#$self->_loadRandomBuildPart($chr, $tree, $config);
+					$tree->{x}-=$dirMove;
 				}
 			}
+			if (rand() < $config->{sideOdds}){
+				my $dirMove = -1;
+				if ($tree->{dir} eq 'x'){
+					$tree->{y}+= $dirMove;
+					my $chr = $down[rand(@down)];
+					$self->_loadRandomBuildPart($chr, $tree, $config);
+					$tree->{y}-=$dirMove;
+				} else {
+					$tree->{x}+= $dirMove;
+					my $chr = $left[rand(@left)];
+					#$self->_loadRandomBuildPart($chr, $tree, $config);
+					$tree->{x}-=$dirMove;
+				}
+			}
+			# down/left
 		}
 		@trees = grep { $_->{continue} } @trees;
 		#print scalar @trees . "\n";
@@ -673,8 +699,8 @@ sub shoot {
 				damage => $part->{part}->{damage},
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
-				'chr'   => ($self->getStatus('emp') ? color('bold blue') : color($part->{'part'}->{'shotColor'}))
-						. $part->{'part'}->{'shotChr'},
+				'chr'   => $part->{'part'}->{'shotChr'},
+				'col'   => ($self->getStatus('emp') ? color('bold blue') : color($part->{'part'}->{'shotColor'})),
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
@@ -1680,6 +1706,10 @@ sub _loadPartConfig {
 		$parts{$chr}->{'rate'}        = $cfg->val($section, 'rate', 0.3);
 		$parts{$chr}->{'spread'}      = $cfg->val($section, 'spread', 0);
 		$parts{$chr}->{'shotChr'}     = $cfg->val($section, 'shotChr', '.');
+		if ($parts{$chr}->{'shotChr'} =~ m/^.+,/){
+			my @aryChr = split(',', $parts{$chr}->{'shotChr'});
+			$parts{$chr}->{'shotChr'} = \@aryChr;
+		}
 		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
 		$parts{$chr}->{'shipMomentum'}   = $cfg->val($section, 'shipMomentum', 0);
 		my $quads = $cfg->val($section, 'quadrangs', '1,2,3,4,5,6,7,8');
@@ -1889,7 +1919,7 @@ sub _setPartConnections {
 			}
 		}
 		if ($part->{'part'}->{'type'} eq 'plate'){
-			my $connectLevel = (defined($part->{'part'}->{boxType}) ? $part->{'part'}->{boxType} : 1);
+			my $connectLevel = (defined($part->{'part'}->{boxtype}) ? $part->{'part'}->{boxtype} : 1);
 			my $connectStr = 
 				(defined($part->{connected}->{b}) ? 'b' : '') .
 				(defined($part->{connected}->{l}) ? 'l' : '') .
@@ -2011,7 +2041,7 @@ sub getShipDisplay {
 						} else {
 							my $partcolor = ($part->{part}->{color} eq 'rainbow' ? color('MAGENTA ON_RGB112') : $part->{part}->{color});
 							#$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
-							$chr = $part->{chr} . color('reset');
+							$chr = $partcolor . (ref($part->{chr}) eq 'ARRAY' ? $part->{chr}->[0] : $part->{chr})  . color('reset');
 						}
 						last;
 					}

@@ -40,19 +40,22 @@ sub _init {
 	$self->{msg} = '';
 	$self->{msgs} = ();
 	$self->{chatWidth} = 80;
+	$self->{chatOffset} = 0;
 	#$self->{height} = 35;
 	#$self->{width}  = 120;
 
 	$self->resize();
 
 	$self->{lastFrame} = time();
+	$self->{lastInfoPrint} = time();
 
 	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
-	$self->{maxFps} = 24;
-	$self->{maxGackgroundFps} = 6;
-	$self->{fps} = 24;
+	$self->{maxFps} = 40;
+	$self->{maxBackgroundFps} = 6;
+	$self->{maxInfoFps} = 6;
+	$self->{fps} = 40;
 	$self->{mode} = 'drive';
 
 	$self->{cursorx} = 0;
@@ -91,7 +94,10 @@ sub sprite {
 	my $array = shift;
 	my $length = time() - $self->{lastFrame};
 	if ($length > 1){ $length = 1 }
-	return $array->[int($length * @$array)];
+	if ($length < 0){ $length = 0 }
+	my $chr = $array->[$length * @{$array}];
+	if (!$chr){ $chr = $array->[0] }
+	return $chr;
 }
 
 sub designShip {
@@ -198,16 +204,6 @@ sub _loadShip {
 sub _getShips {
 	my $self = shift;
 	return values %{$self->{ships}};
-}
-
-sub _getShipById {
-    my $self = shift;
-    my $id = shift;
-	foreach my $s ($self->_getShips()){
-		if ($s->{id} eq $id){ return $s; }
-	}
-    #return $self->{ships}->{$id};
-	return undef;
 }
 
 sub _getShipCount {
@@ -320,6 +316,10 @@ sub printInfo {
 	my $self = shift;
 	my $scr  = shift;
 	my $options = shift;
+
+	if ((time() - $self->{lastInfoPrint}) < (1 / $self->{maxInfoFps})){
+		return;
+	}
 
 	my $ship = $self->{ship};
 	my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
@@ -476,7 +476,7 @@ sub printInfo {
 			$scr->at($line, $width + 3);
 			$scr->puts(' ' x ($self->{chatWidth} - 4));
 		}
-		my $lastMsg = $#{ $self->{msgs} } + 1;
+		my $lastMsg = $#{ $self->{msgs} } + 1 + $self->{chatOffset};
 		my $term = $lastMsg - $height - 4;
 		my $count = 2;
 		if ($term < 0){ $term = 0; }
@@ -484,7 +484,10 @@ sub printInfo {
 			$scr->at($height - $count, $width + 4);
 			$count++;
 			$lastMsg--;
-			$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $self->{msgs}->[$lastMsg]));
+			my $msgLine = $self->{msgs}->[$lastMsg];
+			if ($msgLine){
+				$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $msgLine));
+			}
 		}
 		my $boxColor = color('ON_BLACK');
 		if ($self->{mode} eq 'type'){ $boxColor = color('ON_GREY4'); }
@@ -548,7 +551,7 @@ sub _drawBullets {
 		my $spotX = $bullet->{x} + $offy;
 		my $spotY = $bullet->{y} + $offx;
 		if ($spotX > 0 && $spotY > 0){
-			$self->setMap($spotX, $spotY, $bullet->{chr});
+			$self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
 		}
 	}
 }
@@ -610,14 +613,11 @@ sub printBorder {
 
 sub setMapString {
 	my $self = shift;
-	my $string = shift;
-	my $x = shift;
-	my $y = shift;
-	my $color = shift;
+	my ($string, $x, $y, $color) = @_;
 	my @ar = split("", $string);
 	my $dy = 0;
 	foreach my $chr (@ar){
-		$self->setMap($x, $y + $dy, $chr);
+		$self->setMap($x, $y + $dy, $chr, $color);
 		$dy++;
 	}
 }
@@ -663,12 +663,12 @@ sub _drawShips {
 				# remove coloring TODO change to color + chr
 
 				if ($ship->{id} eq $self->{ship}->{id}){
-					$self->setMap($px, $py, color('on_black GREY3') . $chr . color('reset'));
+					$self->setMap($px, $py, $chr,  color('on_black GREY3'));
 				} else {
-					$self->setMap($px, $py, color('on_black GREY0') . $chr . color('reset'));
+					$self->setMap($px, $py, $chr, color('on_black GREY0'));
 				}
 			} else { 
-				$self->setMap($px, $py, $highlight . $bold . $partColor . $chr . color('reset'));
+				$self->setMap($px, $py, $chr, $highlight . $bold . $partColor);
 			}
 			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
  #			if (($part->{part}->{type} eq 'laser')){
@@ -723,6 +723,7 @@ sub _drawShips {
 sub _sendKeystrokesToServer {
 	my $self = shift;	
 	my $scr = shift;
+
 	# send keystrokes
 	if ($self->{mode} eq 'drive'){
 		while ($scr->key_pressed()){ 
@@ -736,6 +737,11 @@ sub _sendKeystrokesToServer {
 				$self->{'mode'} = 'type';
 			} elsif ($chr eq "\r"){
 				$self->{'mode'} = 'type';
+			} elsif ($chr eq "pgup"){
+				$self->{chatOffset}--;
+				if ($self->{chatOffset} < 0){ $self->{chatOffset} = 0; }
+			} elsif ($chr eq "pgdn"){
+				$self->{chatOffset}++;
 			} else {
 				print {$self->{socket}} "$chr\n";
 			}
@@ -747,6 +753,7 @@ sub _sendKeystrokesToServer {
 				$self->{'mode'} = 'drive';
 			} elsif ($chr eq '/' or $chr eq "\r"){
 				$self->{mode} = 'type'; 
+				$self->{chatOffset} = 0;
 				if ($chr eq '/'){ $self->{msg} = '/'; }
 			}
 			elsif ($chr eq 'a'){ $self->{'cursory'}--; }
@@ -926,12 +933,13 @@ sub _bindSocket {
 
 sub setMap {
 	my $self = shift;
-	my ($x, $y, $chr) = @_;
+	my ($x, $y, $chr, $color) = @_;
+	if (!defined($color)){ $color = "" }
 	if (ref($chr) eq 'ARRAY'){
 		$chr = $self->sprite($chr);
 	}
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$self->{map}->[$x]->[$y] = $chr;
+	$self->{map}->[$x]->[$y] = $color . $chr . color('reset');
 }
 
 sub colorMap {
