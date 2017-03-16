@@ -146,7 +146,7 @@ sub _init {
 	$self->{'aimingPress'} = 0;
 	$self->{'aimingDir'} = 1;
 	$self->{'parts'} = {};
-	$self->{'idCount'} = 0;
+	$self->{'idCount'} = 1;
 	$self->{'radar'} = 0;
 	$self->{'cloaked'} = 0;
 	$self->{'aiTick'} = time();
@@ -159,21 +159,15 @@ sub _init {
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
-	$self->orphanParts();
+	
 	$self->_calculatePower();
-	$self->_calculateWeight();
-	$self->_calculateThrust();
-	$self->_calculateCost();
-	$self->_calculateSpeed();
-	$self->_calculateShield();
-	$self->_calculateHealth();
-	$self->_calculateHitBox();
+	$self->_recalculate();
+	$self->orphanParts();
 	$self->{shieldHealth} = $self->{shield};
 	$self->{currentHealth} = $self->{health};
 	$self->{shieldsOn} = 1;
-	$self->{empOn} = 1;
+	$self->{empOn} = 0;
 	$self->{'shieldStatus'} = 'full';
-	
 	return 1;
 }
 
@@ -732,6 +726,14 @@ sub _calculateShield {
 	}
 }
 
+sub _calculateCost {
+	my $self = shift;
+	$self->{cost} = 0;
+	foreach my $part ($self->getParts()){
+		$self->{cost} += $part->{part}->{cost};
+	}
+}
+
 # when you lose a part
 sub _recalculatePower {
 	my $self = shift;
@@ -749,24 +751,14 @@ sub _recalculatePower {
 	}
 }
 
-sub _calculateCost {
-	my $self = shift;
-	$self->{cost} = 0;
-	foreach my $part ($self->getParts()){
-		$self->{cost} += $part->{part}->{cost};
-	}
-}
-
 sub _calculatePower {
 	my $self = shift;
 	$self->{power} = 1;
+	$self->{powergen} = 0;
 	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{power})){
 			$self->{power} += $part->{part}->{power};
 		}
-	}
-	$self->{powergen} = 0;
-	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{powergen})){
 			$self->{powergen} += $part->{part}->{powergen};
 		}
@@ -809,8 +801,9 @@ sub _recalculate {
 	$self->_calculateThrust();
 	$self->_calculateSpeed();
 	$self->_calculateShield();
+	$self->_calculateCost();
 	$self->_calculateHealth();
-	$self->_setPartConnections();
+	#$self->_setPartConnections();
 	$self->_removeBlockedGunQuadrants();
 	$self->_calculateHitBox();
 }
@@ -895,8 +888,6 @@ sub resolveCollision {
 	my $bullet = shift;
 	if ($bullet->{ship_id} == $self->{id}){ return 0; }
 
-#	my $bx = int($bullet->{x} - $self->{y});
-#	my $by = int($bullet->{y} - $self->{x});
 #	my $partId = $self->{partMap}->{$bx}->{$by};
 #	if (!defined($partId)){ return 0; }
 #	my $part = $self->getPartById($partId);
@@ -908,7 +899,7 @@ sub resolveCollision {
 
 	if ($self->isInShieldHitBox($bullet->{x}, $bullet->{y})){
 		### loop through shields first on their own
-		foreach my $part ($self->getParts()){
+		foreach my $part ($self->getShieldParts()){
 			#if (!($part->{'part'}->{'type'} eq 'shield')){
 			if (!($part->{'part'}->{'shieldsize'})){
 				next;
@@ -938,72 +929,37 @@ sub resolveCollision {
 	}
 
 	if ($self->isInHitBox($bullet->{x}, $bullet->{y})){
-		### now to damage any part
-		foreach my $part ($self->getParts()){
-			# x and y got mixed somehow, don't worry about it
-			my $px = int($part->{y} + $self->{y});
-			my $py = int($part->{x} + $self->{x});
-
-			my $distance = sqrt(
-				(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
-				(($py - $bullet->{y}) ** 2)
-			);
-
-			if ((abs($bullet->{y} - $py) < 1.5 ) &&
-				(abs($bullet->{x} - $px) < 1.5 )){
-				if ($self->getStatus('dodge') && rand() < 0.3){
-					return { 'deflect' => 1 }
-				}
-				if ($self->isBot()){
-					$self->changeAiMode('attack', 'aggressive');
-					$self->setAiVar('target', $bullet->{id});
-				}
-				$part->{'hit'} = time();
-				if ($bullet->{emp}){
-					$self->{currentPower} -= $bullet->{damage};
-					$self->_limitPower();
-				} else {
-					$part->{'health'} -= $bullet->{damage};
-					if ($part->{health} < 0){
-						$self->_removePart($part->{id});
-					}
-					return { id => $part->{id}, health => $part->{health} };
+		my $bx = int($bullet->{x} - $self->{y});
+		my $by = int($bullet->{y} - $self->{x});
+		my $part = undef;
+		$part = $self->getPartByLocation($bx, $by);
+		if (!$part){
+			foreach my $checkX ($bx -1 .. $bx +1){
+				foreach my $checkY ($by -1 .. $by +1){
+					$part = $self->getPartByLocation($checkX, $checkY);
 				}
 			}
 		}
-	}
-
-	### now to damage any part
-	foreach my $part ($self->getParts()){
-		# x and y got mixed somehow, don't worry about it
-		my $px = int($part->{y} + $self->{y});
-		my $py = int($part->{x} + $self->{x});
-
-		my $distance = sqrt(
-			(( ($px - $bullet->{x}) / ASPECTRATIO) ** 2) +
-			(($py - $bullet->{y}) ** 2)
-		);
-
-		if ((abs($bullet->{y} - $py) < 1.5 ) &&
-		    (abs($bullet->{x} - $px) < 1.5 )){
-            if ($self->getStatus('dodge') && rand() < 0.3){
-                return { 'deflect' => 1 }
-            }
-            if ($self->isBot()){
-                $self->changeAiMode('attack', 'aggressive');
-                $self->setAiVar('target', $bullet->{id});
-            }
+		if ($part){
+			# TODO make dodge status the odds of dogding
+			if ($self->getStatus('dodge') && rand() < 0.3){
+				return { 'deflect' => 1 }
+			}
+			if ($self->isBot()){
+				$self->changeAiMode('attack', 'aggressive');
+				$self->setAiVar('target', $bullet->{id});
+			}
 			$part->{'hit'} = time();
-            if ($bullet->{emp}){
-                $self->{currentPower} -= $bullet->{damage};
-                $self->_limitPower();
-            } else {
-			    $part->{'health'} -= $bullet->{damage};
-                if ($part->{health} < 0){
-                    $self->_removePart($part->{id});
-                }
-			    return { id => $part->{id}, health => $part->{health} };
-            }
+			if ($bullet->{emp}){
+				$self->{currentPower} -= $bullet->{damage};
+				$self->_limitPower();
+			} else {
+				$part->{'health'} -= $bullet->{damage};
+				if ($part->{health} < 0){
+					$self->_removePart($part->{id});
+				}
+				return { id => $part->{id}, health => $part->{health} };
+			}
 		}
 	}
 	return undef;
@@ -1188,6 +1144,14 @@ sub getPartIdByLocation {
 	my $self = shift;
 	my ($x, $y, $preserve) = @_;
 	return $self->{partMap}->{$x}->{$y};
+}
+
+sub getPartByLocation {
+	my $self = shift;
+	my ($x, $y) = @_;
+	my $id = $self->{partMap}->{$x}->{$y};
+	return undef if (!$id);
+	return $self->getPartById($id);
 }
 
 ### make sure to recalculate after, and possibly orphanParts
@@ -1621,7 +1585,7 @@ sub _recalculateCollisionMap {
 		my $chr = $part->{defchr};
 		$self->{collisionMap}->{$x}->{$y} = $chr;
 		$self->{partMap}->{$x}->{$y} = $part->{id};
-		#push $self->{shieldsOnly}, $part->{id};
+		push $self->{shieldsOnly}, $part;
 	}
 	return 1;
 }
@@ -1629,6 +1593,11 @@ sub _recalculateCollisionMap {
 sub getParts {
 	my $self = shift;
 	return values %{ $self->{parts} };
+}
+
+sub getShieldParts {
+	my $self = shift;
+	return @{ $self->{shieldsOnly} };
 }
 
 sub getPartIds {
@@ -1980,6 +1949,32 @@ sub _removeBlockedGunQuadrants {
 				delete $part->{quadrants}->{6};
 			}
 		}
+		# TODO do this here
+		# calculate connections
+#		if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
+#			$part->{connected}->{l} = $partInner->{id};	
+#		}
+#		elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
+#			$part->{connected}->{r} = $partInner->{id};	
+#		}
+#		elsif ($partInner->{x} == $x && $partInner->{y} - 1 == $y){
+#			$part->{connected}->{b} = $partInner->{id};	
+#		}
+#		elsif ($partInner->{x} == $x && $partInner->{y} + 1 == $y){
+#			$part->{connected}->{t} = $partInner->{id};	
+#		}
+#		if ($part->{'part'}->{'type'} eq 'plate'){
+#			my $connectLevel = (defined($part->{'part'}->{boxtype}) ? $part->{'part'}->{boxtype} : 1);
+#			my $connectStr = 
+#				(defined($part->{connected}->{b}) ? 'b' : '') .
+#				(defined($part->{connected}->{l}) ? 'l' : '') .
+#				(defined($part->{connected}->{r}) ? 'r' : '') .
+#				(defined($part->{connected}->{t}) ? 't' : '') ;
+#			if ($connectors{$connectLevel}->{$connectStr}){
+#				$part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
+#			}
+#		}
+
 	}
 
 }

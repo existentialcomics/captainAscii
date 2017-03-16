@@ -955,6 +955,8 @@ sub _calculateBullets {
 						);
 						$self->broadcastMsg('dam', \%data);
 					}
+					$ship->_recalculate();
+					# TODO send ship status?
 				}
 				if (! $ship->getCommandModule() ){
 					if (!$ship->isBot()){
@@ -979,7 +981,6 @@ sub _calculateBullets {
 					print "ships in game : " . $self->getShipCount() . "\n";
 					next;
 				}
-				$ship->_recalculate();
 				last;
 			}
 		}

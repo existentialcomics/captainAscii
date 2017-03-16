@@ -43,6 +43,9 @@ sub _init {
 	$self->{chatOffset} = 0;
 	#$self->{height} = 35;
 	#$self->{width}  = 120;
+	#
+	
+	$self->{zoom} = 1;
 
 	$self->resize();
 
@@ -276,12 +279,12 @@ sub loop {
 		$self->_getMessagesFromServer();
 
 		$self->{lighting} = {};
-		my $cenX = int($self->{width} / 2);
-		my $cenY = int($self->{height} / 2);
+		my $cenX = int(($self->{width} * $self->{zoom})  / 2);
+		my $cenY = int(($self->{height} * $self->{zoom}) / 2);
 		my $offx = $cenX - int($self->{ship}->{x});
 		my $offy = $cenY - int($self->{ship}->{y});
 
-		$self->{'map'} = $self->_resetMap($self->{width}, $self->{height});
+		$self->{'map'} = $self->_resetMap($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 
 		$self->_drawBullets($offx, $offy);
 		$self->_drawItems($offx, $offy);
@@ -302,11 +305,13 @@ sub printScreen {
 
 	### draw the screen to Term::Screen
 	foreach my $i (0 .. $height){
+		my $iZ = (int($i * $self->{zoom}));
 		$scr->at($i + 1, 1);
 		my $row = '';
 		foreach my $j (0 .. $width){
-			my $color = (defined($self->{lighting}->{$i}->{$j}) ? color('ON_GREY' . ($self->{lighting}->{$i}->{$j} <= 23 ? $self->{lighting}->{$i}->{$j} : 23 )) : color('ON_BLACK'));
-			$row .= (defined($map[$i]->[$j]) ? $color . $map[$i]->[$j] : $color . " ");
+			my $jZ = (int($j * $self->{zoom}));
+			my $color = (defined($self->{lighting}->{$iZ}->{$jZ}) ? color('ON_GREY' . ($self->{lighting}->{$iZ}->{$jZ} <= 23 ? $self->{lighting}->{$iZ}->{$jZ} : 23 )) : color('ON_BLACK'));
+			$row .= (defined($map[$iZ]->[$jZ]) ? $color . $map[$iZ]->[$jZ] : $color . " ");
 		}
 		$scr->puts($row);
 	}
@@ -498,6 +503,43 @@ sub printInfo {
 }
 
 sub _resetMap {
+	my $self = shift;
+	my ($width, $height) = @_;
+	my @map = ();
+
+	foreach my $x (0 .. $height){
+		push @map, [(' ') x $width];
+	}
+
+	return \@map;
+}
+
+
+sub _drawStars {
+	my $self = shift;
+	my ($width, $height) = @_;
+	my $modVal = abs(cos(int($x + $self->{ship}->{y}) * int($y + $self->{ship}->{x}) * 53 ));
+
+	my $chr = '.';
+	my $col = "";
+	if ($modVal < 0.03){
+		if ($modVal < 0.0015){
+			$chr = '*';
+		} elsif ($modVal < 0.0030){
+			$col = color("GREY" . int(rand(22)));
+		} elsif ($modVal < 0.0045){
+			$col = color("yellow");
+		} elsif ($modVal < 0.02){
+			$col = color("GREY2");
+		} else {
+			$col = color("GREY5");
+		}
+	}
+	$self->setMap($x, $y, $chr, $col)
+
+}
+
+sub _resetMapOrig {
 	my $self = shift;
 	my ($width, $height) = @_;
 
@@ -742,6 +784,11 @@ sub _sendKeystrokesToServer {
 				if ($self->{chatOffset} < 0){ $self->{chatOffset} = 0; }
 			} elsif ($chr eq "pgdn"){
 				$self->{chatOffset}++;
+			} elsif ($chr eq "-"){
+				$self->{zoom}++;
+			} elsif ($chr eq "+"){
+				$self->{zoom}--;
+				if ($self->{zoom} < 1){ $self->{zoom} = 1; }
 			} else {
 				print {$self->{socket}} "$chr\n";
 			}
@@ -961,7 +1008,7 @@ sub addLighting {
 sub onMap {
 	my $self = shift;
 	my ($x, $y) = @_;
-	return ($x > 0 && $y > 0 && $x < $self->{height} && $y < $self->{width});
+	return ($x > 0 && $y > 0 && $x < $self->{height} * $self->{zoom} && $y < $self->{width} * $self->{zoom});
 }
 
 1;
