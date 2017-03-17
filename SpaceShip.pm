@@ -174,6 +174,9 @@ sub _init {
 sub randomBuild {
 	my $self = shift;
 	my $startCash = shift;
+	if (!defined($self->{faction})){
+		$self->{faction} = $self->getRandomFaction();
+	}
 	my $type = $self->{faction};
 
 	$self->{cash} = $startCash;
@@ -551,9 +554,12 @@ sub calculateDrops {
     my %xy = ();
 
     my @drops = ();
-    if (rand() < 0.5){
+    if (rand() < 0.3){
+		my $cash = int($self->{cash} * rand());
+		if ($cash == 0){ $cash = int(rand(20) + 3)};
+		print "cash : $cash, $self->{cash}\n";
         push @drops, {
-            cash => int($self->{cash}),
+            cash => $cash,
             'chr'  => color('green ON_RGB121') . '$' . color('reset')
         };
     }
@@ -599,14 +605,17 @@ sub calculateDrops {
 
 sub becomeAi {
 	my $self = shift;
+	my $faction = shift;
 	$self->{aiMode} = 'explore';
 	$self->{aiState} = 'random';
 	$self->{aiModeChange} = 0;
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
 	$self->{isBot} = 1;
-    $self->{cash} = int($self->{cost} * rand() / 8);
-	$self->{faction} = $self->getRandomFaction();
+    $self->{cash} = int($self->{cost} / 4);
+	if (!defined($self->{faction})){
+		$self->{faction} = $self->getRandomFaction();
+	}
 	$self->setAiColor();
 }
 
@@ -1294,7 +1303,7 @@ sub claimItem {
 	if (defined($item->{cash})){
 		my $cash = $self->getStatus('cash');
 		$self->setStatus('cash', $cash + $item->{cash});
-        $self->addServerInfoMsg("Found $cash credits.");
+        $self->addServerInfoMsg("Found $item->{cash} credits.");
 	}
 	if (defined($item->{module})){
         foreach my $module ($self->getModules()){

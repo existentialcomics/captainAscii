@@ -968,7 +968,7 @@ sub setMap {
 		$chr = $self->sprite($chr);
 	}
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$self->{map}->[$x]->[$y] = $color . $chr;
+	$self->{map}->[$x]->[$y] = $color . $chr . $self->getColor('reset');
 }
 
 sub colorMap {

@@ -149,7 +149,7 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-			print "fps: $frames\n";
+			#print "fps: $frames\n";
 			#$self->{shipSend} = 0;
 			$frames = 0;
 		}
@@ -212,10 +212,11 @@ sub _spawnShips {
 		my $newShipDesign = $self->getEnemyDesign($level);
 		print "Adding random enemy $level\n";
 		my $shipNew = SpaceShip->new('X', rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
-		$shipNew->becomeAi();
+
+		$shipNew->{faction} = $shipNew->getRandomFaction();
 		$shipNew->randomBuild($level);
-		$shipNew->{conn} = undef;
 		$shipNew->becomeAi();
+		$shipNew->{conn} = undef;
 		$self->broadcastMsg('newship', {
 			'design' => $newShipDesign,
 			'x' => $shipNew->{x},
@@ -440,7 +441,7 @@ sub addShip {
 	$ship->{lastMsg} = time();
 
 	push @{ $self->{ships} }, $ship;
-	my $id = $#{ $self->{ships} };
+	my $id = $#{ $self->{ships} } + 1;
 
 	### this is so the connect stays alive after we remove the ship
 	# so the client doesn't crash
