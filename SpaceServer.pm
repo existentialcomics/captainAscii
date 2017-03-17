@@ -135,7 +135,7 @@ sub loop {
 	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
-	my $fps = 20;
+	my $fps = 50;
 	$self->{shipSend} = 0;
 
 	while (1){

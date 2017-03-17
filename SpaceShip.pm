@@ -186,7 +186,7 @@ sub randomBuild {
 		'branchDir' => 'x',
 		'endOdds'   => 0.1,
 		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.2,    #one off side pieces
+		'sideOdds'  => 0.3,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
 		'parts1' => {
 			base   => ['-'],
@@ -260,7 +260,7 @@ sub randomBuild {
 		'turnOdds' => 0.05,
 		'branchOdds' => 0.3,
 		'branchDir' => 'x',
-		'endOdds'   => 0.06,
+		'endOdds'   => 0.1,
 		'pieceOdds' => 0.2,    #non plate piece
 		'sideOdds'  => 0.2,    #one off side pieces
 		'capOdds'   => 1,    #ending cap piece
@@ -414,7 +414,7 @@ sub randomBuild {
 		# build structure;
 		foreach my $tree (@trees){
 			# end
-			if (rand() < $config->{'endOdds'}){
+            if (rand() < $config->{'endOdds'}){
 				$tree->{continue} = 0;
 				if (rand() < $config->{'capOdds'}){
 
@@ -425,8 +425,9 @@ sub randomBuild {
 					} else {
 						my $chr = ($tree->{vector} == 1 ? $down[rand(@down)] : $up[rand(@up)]);
 						$self->_loadRandomBuildPart($chr, $tree, $config);
-					}
-				}
+                    }
+                } else {
+                }
 				next;
 			}
 			my $chr = $base[rand(@base)];
@@ -465,7 +466,7 @@ sub randomBuild {
 				} else {
 					$tree->{x}+= $dirMove;
 					my $chr = $right[rand(@right)];
-					#$self->_loadRandomBuildPart($chr, $tree, $config);
+					$self->_loadRandomBuildPart($chr, $tree, $config);
 					$tree->{x}-=$dirMove;
 				}
 			}
@@ -479,7 +480,7 @@ sub randomBuild {
 				} else {
 					$tree->{x}+= $dirMove;
 					my $chr = $left[rand(@left)];
-					#$self->_loadRandomBuildPart($chr, $tree, $config);
+					$self->_loadRandomBuildPart($chr, $tree, $config);
 					$tree->{x}-=$dirMove;
 				}
 			}
@@ -928,9 +929,9 @@ sub resolveCollision {
 		}
 	}
 
-	if ($self->isInHitBox($bullet->{x}, $bullet->{y})){
-		my $bx = int($bullet->{x} - $self->{y});
-		my $by = int($bullet->{y} - $self->{x});
+    if ($self->isInHitBox($bullet->{x}, $bullet->{y})){
+		my $by = int($bullet->{x} - $self->{y});
+		my $bx = int($bullet->{y} - $self->{x});
 		my $part = undef;
 		$part = $self->getPartByLocation($bx, $by);
 		if (!$part){
@@ -961,7 +962,7 @@ sub resolveCollision {
 				return { id => $part->{id}, health => $part->{health} };
 			}
 		}
-	}
+    }
 	return undef;
 }
 
@@ -1437,7 +1438,7 @@ sub power {
 
 	# if the thrusters are activated
 	if ($self->{movingHoz} != 0 || $self->{movingVert} != 0){
-		if (int($self->{currentPower} < 2)){
+		if (int($self->{currentPower} < $self->{thrust} / 100)){
 			$self->{currentPowerGen} = $self->{powergen};
 			$self->{moving} = 0;
 		} else {
@@ -1630,10 +1631,6 @@ sub _offsetByCommandModule {
 
 	my $offx = $cm->{x};
 	my $offy = $cm->{y};
-	$self->{leftmost}  = -1;
-	$self->{rightmost} = 1;
-	$self->{topmost}   = 1;
-	$self->{bottommost} = -1;
 	foreach my $part ($self->getParts()){
 		# ground parts to cm as 0,1
 		$part->{x} -= $offx;
@@ -1866,11 +1863,6 @@ sub _setPartConnections {
 	foreach my $part ($self->getParts()){
 		my $x = $part->{x};
 		my $y = $part->{y};
-		# find box dimensions of the ship
-		if ($x > $self->{rightmost})  { $self->{rightmost} = $x;  }
-		if ($x < $self->{leftmost})   { $self->{leftmost}  = $x;  }
-		if ($y > $self->{topmost})    { $self->{topmost}   = $y;  }
-		if ($y < $self->{bottommost}) { $self->{bottommost} = $y; }
 
 		# calculate connections
 		foreach my $partInner ($self->getParts()){
@@ -2008,9 +2000,9 @@ sub getDisplayArray {
 	#my ($w, $h, $offset) = @_;
 	my @shipArr;
 	my $j = 5;
-	foreach my $y ($self->{bottommost} - 3 .. $self->{topmost} + 3){
+	foreach my $y ($self->{_yLow} - 3 .. $self->{_yHigh} + 3){
 		my $i = 5;
-		foreach my $x ($self->{leftmost} - 3 .. $self->{rightmost} + 3){
+		foreach my $x ($self->{_xLow} - 3 .. $self->{_xHigh} + 3){
 			my $chr = $self->{collisionMap}->{$x}->{$y};
 			if (!defined($chr)){ $chr = ' ';}
 			$shipArr[$j][$i] = $chr;
@@ -2026,8 +2018,8 @@ sub getShipDisplay {
 	my $self = shift;	
 	my $design = shift;
 	my $shipStr = "";
-	foreach my $x ($self->{bottommost} .. $self->{topmost}){
-		foreach my $y ($self->{leftmost} .. $self->{rightmost}){
+    foreach my $x ($self->{_xLow} - 3 .. $self->{_xHigh} + 3){
+	    foreach my $y ($self->{_yLow} - 3 .. $self->{_yHigh} + 3){
 			my $chr = ' ';
 				foreach my $part ($self->getParts()){
 					if ($part->{x} == $y && $part->{y} == $x){

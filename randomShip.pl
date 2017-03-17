@@ -14,7 +14,6 @@ if (defined($type)){
 	$ship->{faction} = $type;
 }
 $ship->randomBuild($cash, $type);
-print "faction: $ship->{faction}\n";
 
 my $display = $ship->getDisplayArray();
 
@@ -26,6 +25,3 @@ foreach my $row (@$display){
 	print "\n";
 }
 #print Dumper($display);
-
-print color('reset');
-print "\n-----------------------------------------------" . "\n\n";
