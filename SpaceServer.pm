@@ -164,6 +164,7 @@ sub loop {
 		$self->_sendShipStatuses();
 		$self->_sendShipMsgs();
 		$self->_spawnShips();
+		$self->_despawnShips();
 	}
 }
 
@@ -196,47 +197,88 @@ sub _sendShipMsgs {
 # remove ships that are too far away from any player
 sub _despawnShips {
 	my $self = shift;
+	my @shipsToDespawn = ();
 	foreach my $ship ($self->getShips()){
-		next if (!$ship->{isBot});
+		my ($id, $distance, $dir) = $self->_findClosestShip(
+			$ship->{'x'},
+			$ship->{'y'},
+			{ 'skipId' => $ship->{'id'}, isBot => 0 }
+		);
+		if ($distance > 200){
+			push(@shipsToDespawn, $ship->{id});
+		}
+	};
+
+	foreach my $id (@shipsToDespawn){
+		print "despawning $id\n"; 
+		$self->broadcastMsg('shipdelete', { id => $id });
+		$self->removeShip($id);
 	}
 }
 
+### also sets the radar
 sub _spawnShips {
 	my $self = shift;
-	if ($self->getShipCount() < $self->{shipDensity}){
-		my $rand = rand();
-		my $level = $self->{level};
-		if ($rand < 0.2){
-			$level *= 3;
+	foreach my $ship ($self->getHumanShips()){
+		$self->setRadar($ship);
+		if ($ship->{radarCount} < $self->{shipDensity}){
+			my $rand = rand();
+			my $level = $self->{level};
+			if ($rand < 0.2){
+				$level *= 3;
+			}
+			my $newShipDesign = $self->getEnemyDesign($level);
+			print "Adding random enemy $level\n";
+			my $shipNew = SpaceShip->new('X', rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+
+			$shipNew->{faction} = $shipNew->getRandomFaction();
+			$shipNew->randomBuild($level);
+			$shipNew->becomeAi();
+			$shipNew->{conn} = undef;
+			$self->broadcastMsg('newship', {
+				'design' => $newShipDesign,
+				'x' => $shipNew->{x},
+				'y' => $shipNew->{y},
+				'id' => $shipNew->{id},
+				'ai' => 1,
+				#'map' => $oldShip->{collisionMap},
+				'options' => { color => $shipNew->getColorName() }
+			});
+			$shipNew->_recalculate();
+			my $chrMap  = $shipNew->{collisionMap};
+			my $partMap = $shipNew->{partMap};
+			my $msg = {
+				'ship_id'  => $shipNew->{id},
+				'chr_map'  => $chrMap,
+				'part_map' => $partMap
+			};
+			$self->broadcastMsg('shipchange', $msg);
+
+			$self->addShip($shipNew);
 		}
-		my $newShipDesign = $self->getEnemyDesign($level);
-		print "Adding random enemy $level\n";
-		my $shipNew = SpaceShip->new('X', rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+	}
+}
 
-		$shipNew->{faction} = $shipNew->getRandomFaction();
-		$shipNew->randomBuild($level);
-		$shipNew->becomeAi();
-		$shipNew->{conn} = undef;
-		$self->broadcastMsg('newship', {
-			'design' => $newShipDesign,
-			'x' => $shipNew->{x},
-			'y' => $shipNew->{y},
-			'id' => $shipNew->{id},
-			'ai' => 1,
-			#'map' => $oldShip->{collisionMap},
-			'options' => { color => $shipNew->getColorName() }
-		});
-		$shipNew->_recalculate();
-		my $chrMap  = $shipNew->{collisionMap};
-		my $partMap = $shipNew->{partMap};
-		my $msg = {
-			'ship_id'  => $shipNew->{id},
-			'chr_map'  => $chrMap,
-			'part_map' => $partMap
-		};
-		$self->broadcastMsg('shipchange', $msg);
+sub setRadar {
+	my $self = shift;
+	my $ship = shift;
+	my $range = shift;
 
-		$self->addShip($shipNew);
+	$ship->{radar} = {};
+	$ship->{radarCount} = 0;
+	
+	foreach my $innerShip ($self->getShips()){ 
+		next if ($innerShip->{id} eq $ship->{id});
+		my ($rho, $theta, $phi) = $self->_findShipDistanceDirection($ship->{x}, $ship->{y}, { ship_id => $ship->{id} });
+		if ($rho < $range){
+			$ship->{radar} = {
+				'distance' => $rho,
+				'dir'  => $theta,
+				'ship' => $ship->{id},
+				'bot'  => $ship->isBot()
+			};
+			$ship->{radarCount}++;
+		}
 	}
 }
 
@@ -377,11 +419,16 @@ sub _findClosestShip {
 		if (defined($options->{skipId})){
 			next if ($ship->{id} eq $options->{skipId});
 		}
-		next if (
-			$ship->{cloaked} 
-			#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0) # TODO  uncomment
-			&& (time() - $ship->{shooting} > 3)
-		);
+		if (defined($options->{isBot})){
+			next if ($options->{isBot} ne $ship->isBot());
+		}
+		if ($options->{ignore_cloaked}){
+			next if (
+				$ship->{cloaked} 
+				#&& !( $ship->{shieldsOn} && $ship->{shieldHealth} > 0) # TODO  uncomment
+				&& (time() - $ship->{shooting} > 3)
+			);
+		}
 		foreach my $skipFaction (@skipFactions){
 			next if $ship->getStatus('faction') eq $skipFaction;
 		}
@@ -410,6 +457,18 @@ sub getShips {
 	my $self = shift;
 
 	return @{ $self->{ships} };
+}
+
+sub getHumanShips {
+	my $self = shift;
+
+	return grep { !$_->isBot() } @{ $self->{ships} };
+}
+
+sub getBotShips {
+	my $self = shift;
+
+	return grep { $_->isBot() } @{ $self->{ships} };
 }
 
 sub getShipCount {
@@ -647,6 +706,7 @@ sub _calculatePowerAndMovement {
 sub _forceInBounds {
 	my $self = shift;
 	my $ship = shift;
+	return 0;
 	if ($ship->{x} < LEFT){
 		$ship->{x} = LEFT;
 	}
