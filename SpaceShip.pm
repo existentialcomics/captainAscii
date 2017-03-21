@@ -10,7 +10,7 @@ use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
 use ShipModule;
-use Taunts;
+use CaptainAscii::Taunts;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -493,6 +493,7 @@ sub randomBuild {
 		#print scalar @trees . "\n";
 		if ($#trees == -1){ $continue = 0; }
 	}
+	$self->_calculateParts();
 	$self->_recalculate();
 }
 
@@ -547,6 +548,8 @@ sub _loadRandomBuildPart {
 	}
 
 }
+
+
 
 sub calculateDrops {
     my $self = shift;
@@ -1015,7 +1018,7 @@ sub changeAiMode {
 		print "mode not defined! $mode\n";
 	}
 	if ($mode ne $self->{aiMode}){
-		$self->setStatus('taunt', Taunts::getTaunt($self->{faction}, $mode));
+		$self->setStatus('taunt', CaptainAscii::Taunts::getTaunt($self->{faction}, $mode));
 		$self->{aiMode} = $mode;
 		$self->{_aiVars} = {};
 	}
@@ -1331,10 +1334,13 @@ sub addSparePart {
 sub useSparePart {
 	my $self = shift;
 	my $chr = shift;
-	$self->{_spareParts}->{$chr}--;
-	$self->addServerMsg('sparepart',
-		{ 'ship_id' => $self->{id}, 'part' => $chr, 'use' => 1}
-	);
+	if ($self->{_spareParts}->{$chr}-- < 1){
+		$self->{_spareParts}->{$chr} = 0;
+	} else {
+		$self->addServerMsg('sparepart',
+			{ 'ship_id' => $self->{id}, 'part' => $chr, 'use' => 1}
+		);
+	}
 }
 
 sub hasSparePart {
@@ -1631,7 +1637,7 @@ sub getCommandModule {
 	return 0;
 }
 
-### build collision and part map here
+### also build collision and part map here
 sub _offsetByCommandModule {
 	my $self = shift;
 	# find command module and build new ship with connections

@@ -2,7 +2,7 @@
 
 use strict; use warnings;
 
-package Taunts;
+package CaptainAscii::Taunts;
 
 my %quotes;
 

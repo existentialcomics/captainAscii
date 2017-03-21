@@ -125,14 +125,30 @@ sub _shouldTick {
 
 sub _statusActive {
 	my $self = shift;
-	my $ship = shift;
-	my $status = shift;
-	if ($self->{active} == 1){
-		$ship->setStatus($status, 0);
+	my ($ship, $statusValue) = @_;
+	my $statusName = $self->{status};
+	
+	my $statusSet = 0;
+	if ($statusValue eq 'on'){ $statusSet = 1; }
+	elsif ($statusValue eq 'off'){ $statusSet = 0; }
+	elsif ($statusValue eq 'toggle'){
+		$statusSet = ($self->{active} == 1 ? 0 : 1);
+	} else { $statusSet = $statusValue; }
+
+
+	if ($statusSet == 0){
+		$ship->setStatus($statusName, 0);
 		$ship->setStatus('m_active', { name => $self->name(), active => 0 });
 		$self->{active}  = 0;
+		$ship->addServerInfoMsg($self->name() . ' set to off.');
 	} else {
-		$ship->setStatus($status, ($self->_hasPower($ship) ? 1 : 0));
+		if ($self->_hasPower($ship)){
+			$ship->setStatus($statusName, 1);
+			$ship->addServerInfoMsg($self->name() . ' set to on.');
+		} else {
+			$ship->setStatus($statusName, 0);
+			$ship->addServerInfoMsg($self->name() . ' set to on (WARNING ' . $self->_powerRequired($ship) . ' power required).');
+		}
 		$ship->setStatus('m_active', { name => $self->name(), active => 1 });
 		$self->{active}  = 1;
 	}
@@ -166,6 +182,28 @@ sub getColor {
     }
 }
 
+sub commandName {
+	my $self = shift;
+	my $cmd = $self->name();
+	$cmd =~ s/ing$//;
+	$cmd =~ s/ //g;
+	return lc($cmd);
+}
+
+sub command {
+	my $self = shift;
+	my $arg  = shift;
+	my $ship = shift;
+	if (defined($self->{status})){
+		if ($arg =~ m/^on|off|toggle$/){
+			return $self->_statusActive($ship, $arg);
+		} else {
+			return 0;
+		}
+	}
+
+}
+
 sub tick {
 	my $self = shift;
 	my $ship = shift;
@@ -185,7 +223,7 @@ sub active {
 	my $self = shift;
 	my $ship = shift;
 	if (defined($self->{status})){
-		return $self->_statusActive($ship, $self->{status});
+		return $self->_statusActive($ship, 'toggle');
 	}
 	return 1;
 }

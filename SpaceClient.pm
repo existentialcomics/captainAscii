@@ -478,6 +478,9 @@ sub printInfo {
             }
             keys %parts){
 				my $part = $parts{$ref};
+				if (defined($part->{show})){
+					next if ($part->{show} eq 'no');
+				}
 				push(@{ $self->{partsDisplay} },
 					($ship->hasSparePart($ref) > 0 ? $self->getColor('white') : $self->getColor('grey10')) .
 					sprintf($sprintf,
@@ -669,6 +672,7 @@ sub _drawShips {
 
 			my $chr = $part->{chr};
 			if ( (rand() - 0.3) > ($part->{'health'} / $part->{'part'}->{'health'} ) ){ $chr = ' '; }
+			
 			# TODO have it fade to black?
 			if ($ship->{cloaked}){
 				# remove coloring TODO change to color + chr
@@ -750,9 +754,9 @@ sub _sendKeystrokesToServer {
 				$self->{'mode'} = 'type';
 			} elsif ($chr eq "pgup"){
 				$self->{chatOffset}--;
-				if ($self->{chatOffset} < 0){ $self->{chatOffset} = 0; }
 			} elsif ($chr eq "pgdn"){
 				$self->{chatOffset}++;
+				if ($self->{chatOffset} > 0){ $self->{chatOffset} = 0; }
 			} elsif ($chr eq "-"){
 				$self->{zoom}++;
 			} elsif ($chr eq "+"){
@@ -767,10 +771,6 @@ sub _sendKeystrokesToServer {
 			my $chr = $scr->getch();
 			if ($chr eq '`'){
 				$self->{'mode'} = 'drive';
-			} elsif ($chr eq '/' or $chr eq "\r"){
-				$self->{mode} = 'type'; 
-				$self->{chatOffset} = 0;
-				if ($chr eq '/'){ $self->{msg} = '/'; }
 			}
 			elsif ($chr eq 'a'){ $self->{'cursory'}--; }
 			elsif ($chr eq 'd'){ $self->{'cursory'}++; }

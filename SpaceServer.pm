@@ -13,6 +13,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use Math::Trig ':radial';
+use CaptainAscii::Zones;
 
 use IO::Socket::UNIX;
 use constant {
@@ -64,7 +65,21 @@ sub _init {
 	$self->loadEnemyDir('ships/enemy2', 2);
 	$self->loadEnemyDir('ships/enemy3', 3);
 
+	$self->{zones} = [];
+	$self->_spawnZones();
+
 	return 1;
+}
+
+sub _spawnZones {
+	my $self = shift;
+	if (!defined($self->{_leftmostZone})){ $self->{_leftmostZone} = 0; }
+	if (!defined($self->{_rightmostZone})){ $self->{_rightmostZone} = 0; }
+	if (!defined($self->{_topmostZone})){ $self->{_topmostZone} = 0; }
+	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
+
+	push $self->{zones}, CaptainAscii::Zones->new({ x => 200, y => 200});
+	print Dumper($self->{zones});
 }
 
 sub getColorById {
@@ -199,12 +214,14 @@ sub _despawnShips {
 	my $self = shift;
 	my @shipsToDespawn = ();
 	foreach my $ship ($self->getShips()){
+		next if(!$ship->isBot());
 		my ($id, $distance, $dir) = $self->_findClosestShip(
 			$ship->{'x'},
 			$ship->{'y'},
 			{ 'skipId' => $ship->{'id'}, isBot => 0 }
 		);
 		if ($distance > 200){
+			print "$ship->{id} dis $distance\n";
 			push(@shipsToDespawn, $ship->{id});
 		}
 	};
@@ -220,7 +237,7 @@ sub _despawnShips {
 sub _spawnShips {
 	my $self = shift;
 	foreach my $ship ($self->getHumanShips()){
-		$self->setRadar($ship);
+		$self->setRadar($ship, 200);
 		if ($ship->{radarCount} < $self->{shipDensity}){
 			my $rand = rand();
 			my $level = $self->{level};
@@ -228,8 +245,11 @@ sub _spawnShips {
 				$level *= 3;
 			}
 			my $newShipDesign = $self->getEnemyDesign($level);
-			print "Adding random enemy $level\n";
-			my $shipNew = SpaceShip->new('X', rand(200) - 100, rand(200) - 100, $self->{shipIds}++, { color => 'red'});
+			my $dir = rand(PI * 2);
+			my $newX = $ship->{x} + (cos($dir) * 100);
+			my $newY = $ship->{y} + (sin($dir) * 100);
+			print "Adding random enemy $level, at $newX, $newY\n";
+			my $shipNew = SpaceShip->new('X', $newX, $newY, $self->{shipIds}++);
 
 			$shipNew->{faction} = $shipNew->getRandomFaction();
 			$shipNew->randomBuild($level);
@@ -269,7 +289,7 @@ sub setRadar {
 	
 	foreach my $innerShip ($self->getShips()){ 
 		next if ($innerShip->{id} eq $ship->{id});
-		my ($rho, $theta, $phi) = $self->_findShipDistanceDirection($ship->{x}, $ship->{y}, { ship_id => $ship->{id} });
+		my ($rho, $theta, $phi) = $self->_findShipDistanceDirection($ship->{x}, $ship->{y}, $innerShip, { ship_id => $ship->{id} });
 		if ($rho < $range){
 			$ship->{radar} = {
 				'distance' => $rho,
@@ -887,7 +907,17 @@ shields|sh <on|off>
 level <difficulty level>
 spawns <enemy ships nearby>), $ship);
 	} else {
-		$self->sendSystemMsg("Invalid command: $command, type /help for list of commands.", $ship);
+		my $matched = 0;
+		foreach my $module ($ship->getModules()){
+			if ($module->commandName() eq $command){
+				$matched = 1;
+				$module->command($arg, $ship);
+				print "turning $command $arg\n";
+			}
+		}
+		if ($matched == 0){
+			$self->sendSystemMsg("Invalid command: $command, type /help for list of commands.", $ship);
+		}
 	}
 }
 

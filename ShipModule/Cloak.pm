@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 package ShipModule::Cloak;
-use parent ShipModule;
+use parent 'ShipModule';
 
 sub _init {
 	my $self = shift;
@@ -22,7 +22,7 @@ sub name {
 }
 
 sub getDisplay {
-    return '[⁐]'   
+    return '[c]'   
 }
 
 1;
