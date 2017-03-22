@@ -76,8 +76,59 @@ sub _spawnZones {
 	if (!defined($self->{_topmostZone})){ $self->{_topmostZone} = 0; }
 	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
 
-	push $self->{zones}, CaptainAscii::Zones->new({ id => $self->{zoneIds}++ , x => 0, y => 0});
-    print Dumper($self->{zones});
+    foreach my $ship ($self->getHumanShips()){
+        if ($ship->{x} < $self->{_rightmostZone}){
+            my $zoneX = $ship->{x} - 200;
+            my $zoneY = $ship->{y};
+	        push $self->{zones}, CaptainAscii::Zones->new(
+                { 
+                    id => $self->{zoneIds}++ ,
+                    x => $zoneX,
+                    y => $zoneY
+                });
+        }
+        if ($ship->{x} > $self->{_leftmostZone}){
+            my $zoneX = $ship->{x} + 200;
+            my $zoneY = $ship->{y};
+	        push $self->{zones}, CaptainAscii::Zones->new(
+                { 
+                    id => $self->{zoneIds}++ ,
+                    x => $zoneX,
+                    y => $zoneY
+                });
+        }
+        if ($ship->{y} < $self->{_topmostZone}){
+            my $zoneX = $ship->{x};
+            my $zoneY = $ship->{y} - 200;
+	        push $self->{zones}, CaptainAscii::Zones->new(
+                { 
+                    id => $self->{zoneIds}++ ,
+                    x => $zoneX,
+                    y => $zoneY
+                });
+        }
+        if ($ship->{y} > $self->{_bottommostZone}){
+            my $zoneX = $ship->{x};
+            my $zoneY = $ship->{y} + 200;
+	        push $self->{zones}, CaptainAscii::Zones->new(
+                { 
+                    id => $self->{zoneIds}++ ,
+                    x => $zoneX,
+                    y => $zoneY
+                });
+        }
+    }
+    $self->calculateZoneSpace();
+}
+
+sub calculateZoneSpace {
+    my $self = shift;
+    foreach my $zone ($self->getZones()){
+        if ($zone->getTop() < $self->{_topmostZone}){ $self->{_topmostZone} = $zone->getTop(); }
+        if ($zone->getBottom() > $self->{_bottommostZone}){ $self->{_bottommostZone} = $zone->getBottom(); }
+        if ($zone->getLeft() < $self->{_leftmostZone}){ $self->{_leftmostZone} = $zone->getLeft(); }
+        if ($zone->getRight() > $self->{_rightmostZone}){ $self->{_rightmostZone} = $zone->getRight(); }
+    }
 }
 
 sub getZones {
@@ -256,7 +307,7 @@ sub setLevel {
 	my $self = shift;
 	my $level = shift;
 	$self->{level} = $level;
-	$self->{defaultSpawns} = (
+	$self->{defaultSpawns} = [
 		{'faction' => 'imperialist' , 'power' => $level * 1},
 		{'faction' => 'imperialist' , 'power' => $level * 1},
 		{'faction' => 'imperialist' , 'power' => $level * 1.2},
@@ -273,7 +324,7 @@ sub setLevel {
 		{'faction' => 'zealot' , 'power' => $level * 1.2},
 		{'faction' => 'zealot' , 'power' => $level * 3},
 		{'faction' => 'alien' , 'power' => $level * 5},
-	);
+	];
 }
 
 ### also sets the radar
@@ -292,11 +343,16 @@ sub _spawnShips {
 			my $dir = rand(PI * 2);
 			my $newX = $ship->{x} + (cos($dir) * 50);
 			my $newY = $ship->{y} + (sin($dir) * 50);
-			print "Adding random enemy $level, at $newX, $newY\n";
 			my $shipNew = SpaceShip->new('X', $newX, $newY, $self->{shipIds}++);
 
-		    $shipNew->{faction} = CaptainAscii::Factions::getRandomFaction();
-			$shipNew->randomBuild($level);
+            my @spawnArray = @{$self->{defaultSpawns}};
+            push @spawnArray, $ship->getZoneSpawns();
+
+            my $spawn = $spawnArray[rand @spawnArray];
+			print "Adding enemy $spawn->{faction} ($spawn->{power}), at $newX, $newY\n";
+
+		    $shipNew->{faction} = $spawn->{faction};
+			$shipNew->randomBuild($spawn->{power});
 			$shipNew->becomeAi();
 			$shipNew->{conn} = undef;
 			$self->broadcastMsg('newship', {
@@ -339,7 +395,8 @@ sub setRadar {
 				'distance' => $rho,
 				'dir'  => $theta,
 				'ship' => $ship->{id},
-				'bot'  => $ship->isBot()
+				'bot'  => $ship->isBot(),
+                'faction' => $ship->{faction}
 			};
 			$ship->{radarCount}++;
 		}
@@ -426,8 +483,8 @@ sub _ai {
 						$ship->{movingHoz}  = sin($move) * $factor;
 						$ship->{movingVert} = cos($move) * $factor;
 						if (rand() < .8){
-							$ship->{movingHozPress} = time();
-							$ship->{movingVertPress} = time();
+							$ship->{movingHozPress} = time() + rand();
+							$ship->{movingVertPress} = time() + rand();
 						}
 					}
 				} else {

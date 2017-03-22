@@ -103,6 +103,23 @@ sub getName {
 	return $self->{name};
 }
 
+sub getLeft {
+    my $self = shift;
+    return $self->{offsetx} + 100;
+}
+sub getRight {
+    my $self = shift;
+    return $self->{offsetx} - 100;
+}
+sub getTop {
+    my $self = shift;
+    return $self->{offsety} - 100;
+}
+sub getBottom {
+    my $self = shift;
+    return $self->{offsety} + 100;
+}
+
 sub inZone {
 	my $self = shift;
 	my ($x, $y) = @_;
