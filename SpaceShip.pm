@@ -10,7 +10,7 @@ use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
 use ShipModule;
-use CaptainAscii::Taunts;
+use CaptainAscii::Factions;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -119,6 +119,7 @@ sub _init {
 	$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
 	$self->{cash} = 0;
 	$self->{debug} = 'ship debug msgs';
+    $self->{zones} = {};
 
 	$self->{'aspectRatio'} = $aspectRatio;
 
@@ -175,214 +176,14 @@ sub randomBuild {
 	my $self = shift;
 	my $startCash = shift;
 	if (!defined($self->{faction})){
-		$self->{faction} = $self->getRandomFaction();
+		$self->{faction} = CaptainAscii::Factions::getRandomFaction();
 	}
 	my $type = $self->{faction};
 
 	$self->{cash} = $startCash;
 	
-	my $configI = {
-		'reflectX' => 1,
-		'reflectY' => 1,
-		'turnOdds' => 0.1,
-		'branchOdds' => 0.4,
-		'branchDir' => 'x',
-		'endOdds'   => 0.1,
-		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.3,    #one off side pieces
-		'capOdds'   => 1,    #ending cap piece
-		'parts1' => {
-			base   => ['-'],
-			embedx => ['|', 'O'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', '|'],
-			down   => ['^', '\\', '/', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts2' => {
-			base   => ['-'],
-			embedx => ['|', 'O', '0'],
-			embedy => ['_', 'O', '@', '$'],
-			up     => ['v', '\\', '/', '|'],
-			down   => ['^', '\\', '/', '|'],
-			right  => [')', '}'],
-			left   => ['(', '{'],
-		},
-		'parts3' => {
-			base   => ['+'],
-			embedx => ['|', 'O', '0', 'I', '$'],
-			embedy => ['_', 'O', '@', '$', 'L'],
-			up     => ['v', '\\', '/', '|'],
-			down   => ['^', '\\', '/', '|'],
-			right  => ['}'],
-			left   => ['{'],
-		},
-	};
-	my $configC = {
-		'reflectX' => 1,
-		'reflectY' => 0,
-		'turnOdds' => 0.2,
-		'branchOdds' => 0.2,
-		'branchDir' => 'y',
-		'endOdds'   => 0.1,
-		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.2,    #one off side pieces
-		'capOdds'   => 1,    #ending cap piece
-		'parts1' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', 'H', '|', 'H'],
-			down   => ['^', '\\', '/', 'H', '|', 'H'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts2' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O', '$'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', '8', '|', 'H', 'H'],
-			down   => ['^', '\\', '/', '8', '|', 'H', 'H'],
-			right  => ['}'],
-			left   => ['{'],
-		},
-		'parts3' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', '8', '|'],
-			down   => ['^', '\\', '/', '8', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-	};
-	my $configZ = {
-		'reflectX' => 0,
-		'reflectY' => 1,
-		'turnOdds' => 0.05,
-		'branchOdds' => 0.3,
-		'branchDir' => 'x',
-		'endOdds'   => 0.1,
-		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.2,    #one off side pieces
-		'capOdds'   => 1,    #ending cap piece
-		'parts1' => {
-			base   => ['-'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', 'U', '|'],
-			down   => ['^', '\\', '/', 'U', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts2' => {
-			base   => ['+'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', '8', 'U', '|'],
-			down   => ['^', '\\', '/', '8', 'U', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts3' => {
-			base   => ['+'],
-			embedx => ['|', 'H', 'O', 'M'],
-			embedy => ['_', 'O', '@'],
-			up     => ['v', '\\', '/', '8', 'I'],
-			down   => ['^', '\\', '/', '8', 'I'],
-			right  => ['{'],
-			left   => ['}'],
-		},
-	};
-	my $configN = {
-		'reflectX' => 0,
-		'reflectY' => 0,
-		'turnOdds' => 0.2,
-		'branchOdds' => 0.2,
-		'branchDir' => 'y',
-		'endOdds'   => 0.1,
-		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.2,    #one off side pieces
-		'capOdds'   => 1,    #ending cap piece
-		'parts1' => {
-			base   => ["-"],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O'],
-			up     => ['v', 'H',],
-			down   => ['^', '\\', '/','|'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts2' => {
-			base   => ["-"],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O'],
-			up     => ['v', 'H',],
-			down   => ['^', '\\', '/', '8', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-		'parts3' => {
-			base   => ['+'],
-			embedx => ['|', 'H', 'O'],
-			embedy => ['_', 'O'],
-			up     => ['v', '\\', '/', '8', '|'],
-			down   => ['^', '\\', '/', '8', '|'],
-			right  => [')'],
-			left   => ['('],
-		},
-	};
-	my $configS = {
-		'reflectX' => 1,
-		'reflectY' => 0,
-		'turnOdds' => 0.45,
-		'branchOdds' => 0.4,
-		'branchDir' => 'x',
-		'endOdds'   => 0.1,
-		'pieceOdds' => 0.2,    #non plate piece
-		'sideOdds'  => 0.2,    #one off side pieces
-		'capOdds'   => 0.8,    #ending cap piece
-		'parts1' => {
-			base   => ['\''],
-			embedx => ['N', 'P'],
-			embedy => ['N', 'P'],
-			up     => ['w', 'N'],
-			down   => ['w', 'N'],
-			right  => ['O', 'w'],
-			left   => ['O', 'w'],
-		},
-		'parts2' => {
-			base   => ['\''],
-			embedx => ['N', 'P'],
-			embedy => ['N', 'P'],
-			up     => ['w', 'N', 'W'],
-			down   => ['w', 'N', 'W'],
-			right  => ['P', 'w', 'c'],
-			left   => ['P', 'w', 'c'],
-		},
-		'parts3' => {
-			base   => ['\'', '"'],
-			embedx => ['N', 'P'],
-			embedy => ['N', 'P'],
-			up     => ['w', 'N', 'W'],
-			down   => ['w', 'N', 'W'],
-			right  => ['P', 'w', 'C'],
-			left   => ['P', 'w', 'C'],
-		},
-	};
-	my $config = {};
-	if ($type eq 'imperialist'){
-		$config = $configI;
-	} elsif ($type eq 'communist'){
-		$config = $configC;
-	} elsif ($type eq 'nihilist'){
-		$config = $configN;
-	} elsif ($type eq 'zealot'){
-		$config = $configZ;
-	} else {
-		$config = $configS;
-	}
+	my $config = CaptainAscii::Factions::getBuildConfig($self->{faction});
+
 	my @trees = (
 		{ x => 1, y => 0, dir => 'x', 'vector' => 1, 'continue' => 1 },
 	);
@@ -550,6 +351,31 @@ sub _loadRandomBuildPart {
 }
 
 
+sub resetZones {
+    my $self = shift;
+    $self->{oldZones} = $self->{zones};
+    $self->{zones} = {};
+}
+
+### call resetZones first, finishZonesAdd after
+sub addZone {
+    my $self = shift;
+    my $zone = shift;
+    $self->{zones}->{$zone->{id}} = $zone;
+    if (!defined($self->{oldZones}->{$zone->{id}})){
+        $self->addServerInfoMsg("Entering into $zone->{primaryFaction} zone.");
+    }
+}
+
+sub finishZonesAdd {
+    my $self = shift;
+    foreach my $id (keys %{$self->{oldZones}}){
+        if (!defined($self->{zones}->{$id})){
+            my $zone = $self->{oldZones}->{$id};
+            $self->addServerInfoMsg("Leaving the $zone->{primaryFaction} zone.");
+        }
+    }
+}
 
 sub calculateDrops {
     my $self = shift;
@@ -617,22 +443,9 @@ sub becomeAi {
 	$self->{isBot} = 1;
     $self->{cash} = int($self->{cost} / 4);
 	if (!defined($self->{faction})){
-		$self->{faction} = $self->getRandomFaction();
+		$self->{faction} = CaptainAscii::Factions::getRandomFaction();
 	}
 	$self->setAiColor();
-}
-
-sub getRandomFaction {
-	my $self = shift;
-	my @factions = (
-		'communist',
-		'nihilist',
-		'imperialist',
-		'zealot',
-		'alien',
-		'store'
-	);
-	return $factions[rand(@factions)];
 }
 
 sub _setColor {
@@ -1018,7 +831,7 @@ sub changeAiMode {
 		print "mode not defined! $mode\n";
 	}
 	if ($mode ne $self->{aiMode}){
-		$self->setStatus('taunt', CaptainAscii::Taunts::getTaunt($self->{faction}, $mode));
+		$self->setStatus('taunt', CaptainAscii::Factions::getTaunt($self->{faction}, $mode));
 		$self->{aiMode} = $mode;
 		$self->{_aiVars} = {};
 	}

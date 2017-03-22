@@ -14,6 +14,7 @@ use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use Math::Trig ':radial';
 use CaptainAscii::Zones;
+use CaptainAscii::Factions;
 
 use IO::Socket::UNIX;
 use constant {
@@ -50,6 +51,7 @@ sub _init {
 	$self->_bindSocket($socket);
 	$self->{ships} = [];
 	$self->{shipIds} = 1;
+	$self->{zoneIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
 	$self->{level} = 200;
@@ -78,8 +80,13 @@ sub _spawnZones {
 	if (!defined($self->{_topmostZone})){ $self->{_topmostZone} = 0; }
 	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
 
-	push $self->{zones}, CaptainAscii::Zones->new({ x => 200, y => 200});
-	print Dumper($self->{zones});
+	push $self->{zones}, CaptainAscii::Zones->new({ id => $self->{zoneIds}++ , x => 0, y => 0});
+    print Dumper($self->{zones});
+}
+
+sub getZones {
+    my $self = shift;
+    return @{$self->{zones}};
 }
 
 sub getColorById {
@@ -173,13 +180,17 @@ sub loop {
 		$self->_loadNewPlayers();
 		$self->_calculateBullets();
 		$self->_calculateItems();
+        #TODO remove this, everything should be triggered
 		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
 		$self->_sendShipMsgs();
-		$self->_spawnShips();
-		$self->_despawnShips();
+        if ($self->timerCheck('spawn', 2)){
+		    $self->_spawnShips();
+		    $self->_despawnShips();
+            $self->assignZones();
+        }
 	}
 }
 
@@ -233,9 +244,39 @@ sub _despawnShips {
 	}
 }
 
+### checks if a sub is ready to be run in the loop
+sub timerCheck {
+	my $self = shift;
+    my $action = shift;
+    my $time = shift;
+    if (!defined($self->{_t}->{$action})){
+        $self->{_t}->{$action} = time() + $time;
+        return 1;
+    }
+    if (time() < $self->{_t}->{$action}){
+        return 0;
+    }
+    $self->{_t}->{$action} = time() + $time;
+    return 1;
+}
+
+sub assignZones {
+    my $self = shift;
+	foreach my $ship ($self->getHumanShips()){
+        $ship->resetZones();
+        foreach my $zone ($self->getZones()){
+            if ($zone->inZone($ship->{x}, $ship->{y})){
+                $ship->addZone($zone);
+            }
+        }
+        $ship->finishZonesAdd();
+    }
+}
+
 ### also sets the radar
 sub _spawnShips {
 	my $self = shift;
+
 	foreach my $ship ($self->getHumanShips()){
 		$self->setRadar($ship, 200);
 		if ($ship->{radarCount} < $self->{shipDensity}){
@@ -251,7 +292,7 @@ sub _spawnShips {
 			print "Adding random enemy $level, at $newX, $newY\n";
 			my $shipNew = SpaceShip->new('X', $newX, $newY, $self->{shipIds}++);
 
-			$shipNew->{faction} = $shipNew->getRandomFaction();
+		    $shipNew->{faction} = CaptainAscii::Factions::getRandomFaction();
 			$shipNew->randomBuild($level);
 			$shipNew->becomeAi();
 			$shipNew->{conn} = undef;
@@ -617,7 +658,6 @@ sub _loadNewPlayers {
 			});
 			my $chrMap  = $oldShip->{collisionMap};
 			my $partMap = $oldShip->{partMap};
-			#print Dumper($map);
 			my $msg = {
 				'ship_id'  => $oldShip->{id},
 				'chr_map'  => $chrMap,
@@ -762,7 +802,6 @@ sub _recieveInputFromClients {
 					#print $ship->getShipDisplay();
 					my $chrMap  = $ship->{collisionMap};
 					my $partMap = $ship->{partMap};
-					#print Dumper($map);
 					my $msg = {
 						'ship_id'  => $ship->{id},
 						'chr_map'  => $chrMap,
@@ -785,7 +824,6 @@ sub _recieveInputFromClients {
 						if ($id != 0){
 							my $chrMap  = $ship->{collisionMap};
 							my $partMap = $ship->{partMap};
-							#print Dumper($map);
 							my $msg = {
 								'ship_id'  => $ship->{id},
 								'chr_map'  => $chrMap,
@@ -829,7 +867,6 @@ sub _recieveInputFromClients {
 			if ($chr eq '^'){
 				my $map = $ship->{collisionMap};
 				my $partMap = $ship->{partMap};
-				#print Dumper($map);
 				my $msg = {
 					ship_id => $ship->{id},
 					'map' => $map,
