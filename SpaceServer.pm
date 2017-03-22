@@ -54,7 +54,7 @@ sub _init {
 	$self->{zoneIds} = 1;
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
-	$self->{level} = 200;
+	$self->setLevel(300);
 	$self->{shipDensity} = 5;
 	$self->{highestEnemy} = 1;
 	if (defined($options->{maxInitialCost})){
@@ -62,10 +62,6 @@ sub _init {
 	}
 
 	$self->{lastPlayerColor} = 'green';
-
-	$self->loadEnemyDir('ships/enemy1', 1);
-	$self->loadEnemyDir('ships/enemy2', 2);
-	$self->loadEnemyDir('ships/enemy3', 3);
 
 	$self->{zones} = [];
 	$self->_spawnZones();
@@ -97,23 +93,6 @@ sub getColorById {
 
 sub getNextPlayerColor {
 	my $self = shift;
-}
-
-sub loadEnemyDir {
-	my $self  = shift;
-	my $dir   = shift;
-	my $level = shift;
-	opendir(my $dh, $dir) or die "Failed to open enemy dir\n";
-	my @ships = grep { /\.ascii$/ && -f "$dir/$_" } readdir($dh);
-	foreach my $file (@ships){
-		open my $fh, '<', "$dir/$file";
-		my $shipDesign = "";
-		while (<$fh>){
-			$shipDesign .= $_;
-		}
-		$self->addEnemyDesign($level, $shipDesign);
-	}
-
 }
 
 sub getEnemyDesign {
@@ -273,13 +252,37 @@ sub assignZones {
     }
 }
 
+sub setLevel {
+	my $self = shift;
+	my $level = shift;
+	$self->{level} = $level;
+	$self->{defaultSpawns} = (
+		{'faction' => 'imperialist' , 'power' => $level * 1},
+		{'faction' => 'imperialist' , 'power' => $level * 1},
+		{'faction' => 'imperialist' , 'power' => $level * 1.2},
+		{'faction' => 'imperialist' , 'power' => $level * 3},
+		{'faction' => 'communist' , 'power' => $level * 1},
+		{'faction' => 'communist' , 'power' => $level * 1},
+		{'faction' => 'communist' , 'power' => $level * 1},
+		{'faction' => 'communist' , 'power' => $level * 2},
+		{'faction' => 'nihilist' , 'power' => $level * 1},
+		{'faction' => 'nihilist' , 'power' => $level * 1},
+		{'faction' => 'nihilist' , 'power' => $level * 1},
+		{'faction' => 'nihilist' , 'power' => $level * 1.5},
+		{'faction' => 'nihilist' , 'power' => $level * 5},
+		{'faction' => 'zealot' , 'power' => $level * 1.2},
+		{'faction' => 'zealot' , 'power' => $level * 3},
+		{'faction' => 'alien' , 'power' => $level * 5},
+	);
+}
+
 ### also sets the radar
 sub _spawnShips {
 	my $self = shift;
 
 	foreach my $ship ($self->getHumanShips()){
 		$self->setRadar($ship, 200);
-		if ($ship->{radarCount} < $self->{shipDensity}){
+		if ($ship->{radarCount} < $self->{shipDensity} + $ship->getZoneSpawnRate()){
 			my $rand = rand();
 			my $level = $self->{level};
 			if ($rand < 0.2){
@@ -287,8 +290,8 @@ sub _spawnShips {
 			}
 			my $newShipDesign = $self->getEnemyDesign($level);
 			my $dir = rand(PI * 2);
-			my $newX = $ship->{x} + (cos($dir) * 100);
-			my $newY = $ship->{y} + (sin($dir) * 100);
+			my $newX = $ship->{x} + (cos($dir) * 50);
+			my $newY = $ship->{y} + (sin($dir) * 50);
 			print "Adding random enemy $level, at $newX, $newY\n";
 			my $shipNew = SpaceShip->new('X', $newX, $newY, $self->{shipIds}++);
 
@@ -915,7 +918,7 @@ sub parseCommand {
 		}
 	} elsif ($command eq 'level'){
 		if ($arg =~ m/^\d+$/){
-			$self->{level} = $arg;
+			$self->setLevel($arg);
 			$self->sendSystemMsg("Difficulty level changed to $arg.");
 			print "Level changed to $arg\n";
 		} else {

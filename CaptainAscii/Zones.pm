@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict; use warnings;
 package CaptainAscii::Zones;
-#use CaptainAscii::Factions;
+use CaptainAscii::Factions;
 
 sub new {
     my $class = shift;
@@ -26,27 +26,63 @@ sub _init {
     $self->{id} = (defined($options->{id}) ? $options->{id} : int(rand(100000)));
 
     $self->{nodeCount} = 0;
-    $self->{nodeSpawns} = {};
+    $self->{nodeSpawns} = [];
 
     $self->{power} = (defined($options->{power}) ? $options->{power} : int((rand() ** 3) * 100000)  + 400);
     $self->{powerDiminish} = $self->{power};
-	$self->{primaryFaction} = (defined($options->{faction}) ? $options->{faction} : $self->getRandomFaction());
+	$self->{primaryFaction} = (defined($options->{faction}) ? $options->{faction} : CaptainAscii::Factions::getRandomFaction());
+	$self->{secondaryFaction} = (defined($options->{secondfaction}) ? $options->{secondfaction} : CaptainAscii::Factions::getRandomFaction());
 
 	$self->_createNode(0, 0, $self->getRandomSize());
+	$self->_setSpawnRates();
+
+	$self->{name} = $self->{primaryFaction} . '.' . $self->{secondaryFaction} . '.' . $self->{power} . ":" . $self->{offsetx} . '.' . $self->{offsety};
 
     return 1;
 }
 
-sub setSpawnRates {
+sub _setSpawnRates {
 	my $self = shift;
-}
-
-sub getRandomFaction {
-	return 'communist';
+	my $ownSpawns = 5;
+	my $secondSpawns = 3;
+	if ($self->{power} > 10000){ $ownSpawns += 5; $secondSpawns += 3; }
+	if ($self->{power} > 25000){ $ownSpawns += 5; $secondSpawns += 3; }
+	if ($self->{power} > 50000){ $ownSpawns += 5; $secondSpawns += 3; }
+	if ($self->{power} > 75000){ $ownSpawns += 5; $secondSpawns += 3; }
+	if ($self->{power} > 100000){ $ownSpawns += 5; $secondSpawns += 3; }
+	foreach (0 .. $ownSpawns){
+		push(@{$self->{nodeSpawns}}, {
+			'faction' => $self->{primaryFaction},
+			'power'   => $self->{power} * rand()
+			});
+	}
+	foreach (0 .. $secondSpawns){
+		push(@{$self->{nodeSpawns}}, {
+			'faction' => $self->{secondaryFaction},
+			'power'   => $self->{power} * rand()
+			});
+	}
+	foreach (0 .. 7){
+		push(@{$self->{nodeSpawns}}, {
+			'faction' => CaptainAscii::Factions::getRandomFaction(), 
+			'power'   => $self->{power} * rand()
+			});
+	}
+	$self->{spawnRate} = 10;
 }
 
 sub getRandomSize {
 	return rand(100) + 100;
+}
+
+sub getSpawns {
+	my $self = shift;
+	return @{$self->{nodeSpawns}};
+}
+
+sub getSpawnRate {
+	my $self = shift;
+	return $self->{spawnRate};
 }
 
 sub _createNode {
@@ -62,13 +98,17 @@ sub _createNode {
     $self->{powerDiminish} *= 0.8;
 }
 
+sub getName {
+	my $self = shift;
+	return $self->{name};
+}
+
 sub inZone {
 	my $self = shift;
 	my ($x, $y) = @_;
 	$x += $self->{offsetx};
 	$y += $self->{offsety};
 	foreach my $node (@{$self->{nodes}}){
-        print "$x, $y, vs $node->{size}";
 		if (sqrt(($x ** 2) + ($y ** 2)) < $node->{size}){
 			return 1;
 		}

@@ -363,7 +363,7 @@ sub addZone {
     my $zone = shift;
     $self->{zones}->{$zone->{id}} = $zone;
     if (!defined($self->{oldZones}->{$zone->{id}})){
-        $self->addServerInfoMsg("Entering into $zone->{primaryFaction} zone.");
+        $self->addServerInfoMsg("Entering into " . $zone->getName() . " zone.");
     }
 }
 
@@ -372,9 +372,27 @@ sub finishZonesAdd {
     foreach my $id (keys %{$self->{oldZones}}){
         if (!defined($self->{zones}->{$id})){
             my $zone = $self->{oldZones}->{$id};
-            $self->addServerInfoMsg("Leaving the $zone->{primaryFaction} zone.");
+			$self->addServerInfoMsg("Leaving the " . $zone->getName() . " zone.");
         }
     }
+}
+
+sub getZoneSpawns {
+	my $self = shift;
+	my @spawns = ();
+	foreach my $zone (values %{$self->{zones}}){
+		push @spawns, $zone->getSpawns();
+	}
+	return @spawns;
+}
+
+sub getZoneSpawnRate {
+	my $self = shift;
+	my $spawnRate = 0;
+	foreach my $zone (values %{$self->{zones}}){
+		$spawnRate += $zone->getSpawnRate();
+	}
+	return $spawnRate;
 }
 
 sub calculateDrops {
