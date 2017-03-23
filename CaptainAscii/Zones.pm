@@ -28,7 +28,7 @@ sub _init {
     $self->{nodeCount} = 0;
     $self->{nodeSpawns} = [];
 
-    $self->{power} = (defined($options->{power}) ? $options->{power} : int((rand() ** 3) * 100000)  + 400);
+    $self->{power} = int(defined($options->{power}) ? $options->{power} : int((rand() ** 3) * 100000)  + 400);
     $self->{powerDiminish} = $self->{power};
 	$self->{primaryFaction} = (defined($options->{faction}) ? $options->{faction} : CaptainAscii::Factions::getRandomFaction());
 	$self->{secondaryFaction} = (defined($options->{secondfaction}) ? $options->{secondfaction} : CaptainAscii::Factions::getRandomFaction());
@@ -36,7 +36,7 @@ sub _init {
 	$self->_createNode(0, 0, $self->getRandomSize());
 	$self->_setSpawnRates();
 
-	$self->{name} = $self->{primaryFaction} . '.' . $self->{secondaryFaction} . '.' . $self->{power} . ":" . $self->{offsetx} . '.' . $self->{offsety};
+	$self->{name} = $self->{primaryFaction} . '.' . $self->{secondaryFaction} . '.' . $self->{power} . ":" . int($self->{offsetx}) . '.' . int($self->{offsety});
 
     return 1;
 }
@@ -105,11 +105,11 @@ sub getName {
 
 sub getLeft {
     my $self = shift;
-    return $self->{offsetx} + 100;
+    return $self->{offsetx} - 100;
 }
 sub getRight {
     my $self = shift;
-    return $self->{offsetx} - 100;
+    return $self->{offsetx} + 100;
 }
 sub getTop {
     my $self = shift;

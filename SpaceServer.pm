@@ -77,57 +77,54 @@ sub _spawnZones {
 	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
 
     foreach my $ship ($self->getHumanShips()){
-        if ($ship->{x} < $self->{_rightmostZone}){
+        if ($ship->{x} > $self->{_rightmostZone}){
+			print "$ship->{x} < $self->{_rightmostZone}\n";
             my $zoneX = $ship->{x} - 200;
             my $zoneY = $ship->{y};
-	        push $self->{zones}, CaptainAscii::Zones->new(
-                { 
-                    id => $self->{zoneIds}++ ,
-                    x => $zoneX,
-                    y => $zoneY
-                });
+			$self->addZone($zoneX, $zoneY);
         }
-        if ($ship->{x} > $self->{_leftmostZone}){
+        if ($ship->{x} < $self->{_leftmostZone}){
+			print "$ship->{x} < $self->{_leftmostZone}\n";
             my $zoneX = $ship->{x} + 200;
             my $zoneY = $ship->{y};
-	        push $self->{zones}, CaptainAscii::Zones->new(
-                { 
-                    id => $self->{zoneIds}++ ,
-                    x => $zoneX,
-                    y => $zoneY
-                });
+			$self->addZone($zoneX, $zoneY);
         }
         if ($ship->{y} < $self->{_topmostZone}){
+			print "$ship->{y} < $self->{_topmostZone}\n";
             my $zoneX = $ship->{x};
             my $zoneY = $ship->{y} - 200;
-	        push $self->{zones}, CaptainAscii::Zones->new(
-                { 
-                    id => $self->{zoneIds}++ ,
-                    x => $zoneX,
-                    y => $zoneY
-                });
+			$self->addZone($zoneX, $zoneY);
         }
         if ($ship->{y} > $self->{_bottommostZone}){
+			print "y: $ship->{y} < b:$self->{_bottommostZone}\n";
             my $zoneX = $ship->{x};
             my $zoneY = $ship->{y} + 200;
-	        push $self->{zones}, CaptainAscii::Zones->new(
-                { 
-                    id => $self->{zoneIds}++ ,
-                    x => $zoneX,
-                    y => $zoneY
-                });
+			$self->addZone($zoneX, $zoneY);
         }
     }
     $self->calculateZoneSpace();
 }
 
+sub addZone {
+	my $self = shift;
+	my ($zoneX, $zoneY) = @_;
+	print " **** adding zone at $zoneX, $zoneY\n";
+	$self->sendSystemMsg("adding zone at $zoneX, $zoneY");
+	push $self->{zones}, CaptainAscii::Zones->new(
+		{ 
+			id => $self->{zoneIds}++ ,
+			x => $zoneX,
+			y => $zoneY
+		});
+}
+
 sub calculateZoneSpace {
     my $self = shift;
     foreach my $zone ($self->getZones()){
-        if ($zone->getTop() < $self->{_topmostZone}){ $self->{_topmostZone} = $zone->getTop(); }
-        if ($zone->getBottom() > $self->{_bottommostZone}){ $self->{_bottommostZone} = $zone->getBottom(); }
         if ($zone->getLeft() < $self->{_leftmostZone}){ $self->{_leftmostZone} = $zone->getLeft(); }
         if ($zone->getRight() > $self->{_rightmostZone}){ $self->{_rightmostZone} = $zone->getRight(); }
+        if ($zone->getTop() < $self->{_topmostZone}){ $self->{_topmostZone} = $zone->getTop(); }
+        if ($zone->getBottom() > $self->{_bottommostZone}){ $self->{_bottommostZone} = $zone->getBottom(); }
     }
 }
 
@@ -219,6 +216,7 @@ sub loop {
         if ($self->timerCheck('spawn', 2)){
 		    $self->_spawnShips();
 		    $self->_despawnShips();
+			$self->_spawnZones();
             $self->assignZones();
         }
 	}
@@ -988,11 +986,15 @@ sub parseCommand {
 		} else {
 			$self->sendSystemMsg("Invalid color: $arg", $ship);
 		}
-	} elsif ($command eq 'status'){
+	} elsif ($command eq 'status' || $command eq 's'){
 		$self->sendSystemMsg("status $arg: " . $ship->getStatus($arg), $ship);
-	} elsif ($command eq 'statusDump'){
-		$self->sendSystemMsg("status $arg: " . Dumper($ship->getStatus($arg)), $ship);
-	} elsif ($command eq 'statusSet'){
+	} elsif ($command eq 'serverStatus' || $command eq 'ss'){
+		$self->sendSystemMsg("server status $arg:\n" . $self->{$arg}, $ship);
+	} elsif ($command eq 'serverStatusDump' || $command eq 'ssd'){
+		$self->sendSystemMsg("server status $arg:\n" . Dumper($self->{$arg}), $ship);
+	} elsif ($command eq 'statusDump' || $command eq 'sd'){
+		$self->sendSystemMsg("status $arg:\n" . Dumper($ship->getStatus($arg)), $ship);
+	} elsif ($command eq 'statusSet' || $command eq 'sset'){
 		my ($stat, $val) = split('=', $arg);
 		$ship->setStatus($stat, $val);
 		$self->sendSystemMsg("set status $stat to $val", $ship);
