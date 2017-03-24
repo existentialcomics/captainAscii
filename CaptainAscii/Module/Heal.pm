@@ -1,8 +1,7 @@
 #!/usr/bin/perl
-
-package ShipModule::Heal;
-use parent ShipModule;
 use strict; use warnings;
+package CaptainAscii::Module::Heal;
+use parent 'CaptainAscii::Module';
 
 sub _init {
 	my $self = shift;

@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #
-use SpaceClient;
+use strict; use warnings;
+use CaptainAscii::Client;
 
 my $ship = shift;
 my $socket = '/tmp/captainAscii.sock';
@@ -47,6 +48,4 @@ if (! -f $ship){
 	exit;
 }
 
-my $client = SpaceClient->new($ship, $socket, $color);
-
-
+my $client = CaptainAscii::Client->new($ship, $socket, $color);

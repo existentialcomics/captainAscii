@@ -3,16 +3,16 @@
 #
 #
 use strict; use warnings;
-package SpaceServer;
+package CaptainAscii::Server;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 require Term::Screen;
 use List::MoreUtils qw(zip);
-use SpaceShip;
 use Storable;
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use Math::Trig ':radial';
+use CaptainAscii::Ship;
 use CaptainAscii::Zones;
 use CaptainAscii::Factions;
 
@@ -77,29 +77,41 @@ sub _spawnZones {
 	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
 
     foreach my $ship ($self->getHumanShips()){
-        if ($ship->{x} > $self->{_rightmostZone}){
-			print "$ship->{x} < $self->{_rightmostZone}\n";
-            my $zoneX = $ship->{x} - 200;
-            my $zoneY = $ship->{y};
-			$self->addZone($zoneX, $zoneY);
-        }
         if ($ship->{x} < $self->{_leftmostZone}){
-			print "$ship->{x} < $self->{_leftmostZone}\n";
-            my $zoneX = $ship->{x} + 200;
-            my $zoneY = $ship->{y};
-			$self->addZone($zoneX, $zoneY);
+            my $y = $self->{_topmostZone};
+            while ($y < $self->{_bottommostZone}){
+                $y += (rand(300) + 40);
+                my $zoneX = $self->{_topmostZone} - (rand(50) + 150);
+                my $zoneY = $y;
+                $self->addZone($zoneX, $zoneY);
+            }
+        }
+        if ($ship->{x} > $self->{_rightmostZone}){
+            my $y = $self->{_topmostZone};
+            while ($y < $self->{_bottommostZone}){
+                $y += (rand(300) + 40);
+                my $zoneX = $self->{_bottommostZone} + (rand(50) + 150);
+                my $zoneY = $y;
+                $self->addZone($zoneX, $zoneY);
+            }
         }
         if ($ship->{y} < $self->{_topmostZone}){
-			print "$ship->{y} < $self->{_topmostZone}\n";
-            my $zoneX = $ship->{x};
-            my $zoneY = $ship->{y} - 200;
-			$self->addZone($zoneX, $zoneY);
+            my $x = $self->{_leftmostZone};
+            while ($x < $self->{_rightmostZone}){
+                $x += (rand(300) + 40);
+                my $zoneX = $x;
+                my $zoneY = $self->{_topmostZone} - (rand(50) + 150);
+                $self->addZone($zoneX, $zoneY);
+            }
         }
         if ($ship->{y} > $self->{_bottommostZone}){
-			print "y: $ship->{y} < b:$self->{_bottommostZone}\n";
-            my $zoneX = $ship->{x};
-            my $zoneY = $ship->{y} + 200;
-			$self->addZone($zoneX, $zoneY);
+            my $x = $self->{_leftmostZone};
+            while ($x < $self->{_rightmostZone}){
+                $x += (rand(300) + 40);
+                my $zoneX = $x;
+                my $zoneY = $self->{_bottommostZone} + (rand(50) + 150);
+			    $self->addZone($zoneX, $zoneY);
+            }
         }
     }
     $self->calculateZoneSpace();
@@ -341,7 +353,7 @@ sub _spawnShips {
 			my $dir = rand(PI * 2);
 			my $newX = $ship->{x} + (cos($dir) * 50);
 			my $newY = $ship->{y} + (sin($dir) * 50);
-			my $shipNew = SpaceShip->new('X', $newX, $newY, $self->{shipIds}++);
+			my $shipNew = CaptainAscii::Ship->new('X', $newX, $newY, $self->{shipIds}++);
 
             my @spawnArray = @{$self->{defaultSpawns}};
             push @spawnArray, $ship->getZoneSpawns();
@@ -676,7 +688,7 @@ sub _loadNewPlayers {
 			print "color from id " . ($self->{shipIds} + 1 ) . ": $options{color}\n";
 		#}
 
-		my $shipNew = SpaceShip->new($newShipDesign, rand(100) - 50, rand(100) - 50, $self->{shipIds}++, \%options);
+		my $shipNew = CaptainAscii::Ship->new($newShipDesign, rand(100) - 50, rand(100) - 50, $self->{shipIds}++, \%options);
 		foreach my $ship ($self->getShips()){
 			$self->sendMsg($ship, 'newship', {
 				design => $newShipDesign,
@@ -986,6 +998,12 @@ sub parseCommand {
 		} else {
 			$self->sendSystemMsg("Invalid color: $arg", $ship);
 		}
+	} elsif ($command eq 'zones' || $command eq 'z'){
+        my $zones = "\n";
+        foreach my $zone ($self->getZones()){
+            $zones .= $zone->getName() . "\n";
+        }
+		$self->sendSystemMsg("zones nearby: " . $zones, $ship);
 	} elsif ($command eq 'status' || $command eq 's'){
 		$self->sendSystemMsg("status $arg: " . $ship->getStatus($arg), $ship);
 	} elsif ($command eq 'serverStatus' || $command eq 'ss'){

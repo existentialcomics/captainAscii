@@ -2,9 +2,9 @@
 #
 #
 #
-package ShipModule;
+package CaptainAscii::Module;
 use strict; use warnings;
-use Module::Pluggable search_path => [ 'ShipModule' ], require => 1;
+use Module::Pluggable search_path => [ 'CaptainAscii::Module' ], require => 1;
 
 sub new {
 	my $class = shift;

@@ -1,17 +1,17 @@
 use strict; use warnings;
-package SpaceClient;
+package CaptainAscii::Client;
+
 use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
 require Term::Screen;
 use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
-use SpaceShip;
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 use Math::Trig ':radial';
 use Text::Wrap;
 
-use ShipModule;
+use CaptainAscii::Ship;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -44,6 +44,8 @@ sub _init {
 	#$self->{height} = 35;
 	#$self->{width}  = 120;
 	#
+    $self->{lastShieldHit} = 0;
+    $self->{lastHit} = 0;
 	
 	$self->{zoom} = 1;
 
@@ -109,7 +111,7 @@ sub designShip {
 	my $cash = 1500;
 	my $scr = new Term::Screen;
 
-	my $ship = new SpaceShip($inputDesign, 0, 0, 1);
+	my $ship = new CaptainAscii::Ship($inputDesign, 0, 0, 1);
 	$self->{ship} = $ship;
 	my @shipArr = @{ $ship->getDisplayArray(5, 5) };
 
@@ -154,7 +156,7 @@ sub designShip {
 						$shipDesign .= join "", @{$row};
 						$shipDesign .= "\n";
 					}
-					$ship = SpaceShip->new($shipDesign, 0, 0, 'self');
+					$ship = CaptainAscii::Ship->new($shipDesign, 0, 0, 'self');
 					$self->{ship} = $ship;
 				} elsif ($chr eq 'q'){
 					$shipDesign = "";
@@ -162,7 +164,7 @@ sub designShip {
 						$shipDesign .= join "", @{$row};
 						$shipDesign .= "\n";
 					}
-					$ship = SpaceShip->new($shipDesign, 0, 0, 'self');
+					$ship = CaptainAscii::Ship->new($shipDesign, 0, 0, 'self');
 					$self->{ship} = $ship;
 					$designing = 0;
 				}
@@ -198,7 +200,7 @@ sub _loadShip {
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
 	print "loaded\n";
-	$self->{ship} = SpaceShip->new($shipStr, 5, 5, 'self', {color => $color});
+	$self->{ship} = CaptainAscii::Ship->new($shipStr, 5, 5, 'self', {color => $color});
 	$self->_addShip($self->{ship});
 	
 	return 1;
@@ -357,6 +359,7 @@ sub printInfo {
 	if ((time() - $self->{lastInfoPrint}) < (1 / $self->{maxInfoFps})){
 		return;
 	}
+    $self->printBorder();
 
 	my $ship = $self->{ship};
 	my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
@@ -611,17 +614,26 @@ sub resize {
 sub printBorder {
 	my $self = shift;
 	my $scr = $self->{scr};
+    my $color; 
+    if ($self->{lastHit} - time() < 0.2){
+        $color = $self->getColor('RED ON_BLACK');
+    } elsif ($self->{lastShieldHit} - time() < 0.2){
+        $color = $self->getColor('BLUE ON_BLACK');
+    } else {
+        $color = $self->getColor('WHITE ON_BLACK');
+    }
+
 	$scr->at(0, 0);
-	$scr->puts("╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗");
+	$scr->puts($color . "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗");
 	$scr->at($self->{height} + 2, 0);
-	$scr->puts("╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝");
+	$scr->puts($color . "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝");
 	foreach my $i (1 .. $self->{height} + 1){
 		$scr->at($i, 0);
-		$scr->puts("║");
+		$scr->puts($color . "║");
 		$scr->at($i, $self->{width} + 2);
-		$scr->puts("║");
+		$scr->puts($color . "║");
 		$scr->at($i, $self->{width} + $self->{chatWidth});
-		$scr->puts("║");
+		$scr->puts($color . "║");
 	}
 }
 
@@ -859,7 +871,7 @@ sub _getMessagesFromServer {
 				$ship->{isBot} = $data->{isBot};
 			}
 		} elsif ($msg->{c} eq 'newship'){
-			my $shipNew = SpaceShip->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
+			my $shipNew = CaptainAscii::Ship->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
 			if ($data->{'map'}){
 				$shipNew->_loadShipByMap($data->{'map'});
 			}
@@ -872,6 +884,14 @@ sub _getMessagesFromServer {
 			if (defined($data->{bullet_del})){
 				delete $self->{bullets}->{$data->{bullet_del}};
 			}
+            if ($data->{ship_id} eq $self->{'ship'}->{id}){
+                if (defined($data->{shield})){
+                    $self->{lastShieldHit} = time();
+                }
+                if (defined($data->{health})){
+                    $self->{lastHit} = time();
+                }
+            }
 			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){

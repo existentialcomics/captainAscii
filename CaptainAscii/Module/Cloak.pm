@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-
-package ShipModule::Cloak;
-use parent 'ShipModule';
+use strict; use warnings;
+package CaptainAscii::Module::Cloak;
+use parent 'CaptainAscii::Module';
 
 sub _init {
 	my $self = shift;

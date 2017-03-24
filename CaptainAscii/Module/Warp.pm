@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-package ShipModule::Warp;
 use strict; use warnings;
-use parent 'ShipModule';
+package CaptainAscii::Module::Warp;
+use parent 'CaptainAscii::Module';
 
 my $warpTimeDelay = 1.7;      # seconds
 my $lightLength   = 2.5;      # seconds

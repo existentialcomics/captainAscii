@@ -3,13 +3,14 @@
 #
 #
 use strict; use warnings;
-package SpaceShip;
+package CaptainAscii::Ship;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use Config::IniFiles;
 use Math::Trig ':radial';
-use ShipModule;
+
+use CaptainAscii::Module;
 use CaptainAscii::Factions;
 
 use constant {
@@ -132,7 +133,7 @@ sub _init {
 	$self->{'id'} = $id;
 	$self->{'lastTauntTime'} = 0;
 
-	my $shipModule = ShipModule->new();
+	my $shipModule = CaptainAscii::Module->new();
 	my @modules = $shipModule->plugins();
 	$self->{'modules'} = [];
 	foreach my $moduleName (@modules){
@@ -412,11 +413,13 @@ sub calculateDrops {
     }
     if (rand() < 0.1){
         my @modules = $self->getModules();
-        my $module = $modules[rand($#modules)];
-        push @drops, {
-            'module' => $module->name(),
-            'chr'    => $module->getDisplay()
-        };
+        if (@modules){
+            my $module = $modules[rand($#modules)];
+            push @drops, {
+                'module' => $module->name(),
+                'chr'    => $module->getDisplay()
+            };
+        }
     }
 
 	foreach my $part ($self->getParts()){
@@ -1611,8 +1614,9 @@ sub _loadShip {
 	$self->{shieldsOnly} = [];
 
 	my $command = undef;
-	my ($shipParts, $shipModules) = split("MODULES\n", $ship);
-	my @shipLines = split("\n", $shipParts);
+    #my ($shipParts, $shipModules) = split("MODULES\n", $ship);
+    #my @shipLines = split("\n", $shipParts);
+    my @shipLines = split("\n", $ship);
 	my $y = 0;
 	foreach my $line (@shipLines){
 		my @chrs = split('', $line);

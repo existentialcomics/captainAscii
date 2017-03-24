@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-use SpaceServer;
+use CaptainAscii::Server;
 use strict;
 use warnings;
 
@@ -23,6 +23,6 @@ $SIG{PIPE} = 'IGNORE';
 	#print "sig pipe error!\n";
 #}
 
-my $server = SpaceServer->new($socket, $options);
+my $server = CaptainAscii::Server->new($socket, $options);
 
 $server->loop();

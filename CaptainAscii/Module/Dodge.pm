@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-
-package ShipModule::Dodge;
-use parent ShipModule;
+use strict; use warnings;
+package CaptainAscii::Module::Dodge;
+use parent 'CaptainAscii::Module';
 
 sub _init {
 	my $self = shift;
