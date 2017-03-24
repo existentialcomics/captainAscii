@@ -71,16 +71,16 @@ sub _init {
 
 sub _spawnZones {
 	my $self = shift;
-	if (!defined($self->{_leftmostZone})){ $self->{_leftmostZone} = 0; }
-	if (!defined($self->{_rightmostZone})){ $self->{_rightmostZone} = 0; }
-	if (!defined($self->{_topmostZone})){ $self->{_topmostZone} = 0; }
-	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 0; }
+	if (!defined($self->{_leftmostZone})){ $self->{_leftmostZone} = -100; }
+	if (!defined($self->{_rightmostZone})){ $self->{_rightmostZone} = 100; }
+	if (!defined($self->{_topmostZone})){ $self->{_topmostZone} = -100; }
+	if (!defined($self->{_bottommostZone})){ $self->{_bottommostZone} = 100; }
 
     foreach my $ship ($self->getHumanShips()){
         if ($ship->{x} < $self->{_leftmostZone}){
             my $y = $self->{_topmostZone};
             while ($y < $self->{_bottommostZone}){
-                $y += (rand(300) + 40);
+                $y += (rand(200) + 40);
                 my $zoneX = $self->{_topmostZone} - (rand(50) + 150);
                 my $zoneY = $y;
                 $self->addZone($zoneX, $zoneY);
@@ -89,7 +89,7 @@ sub _spawnZones {
         if ($ship->{x} > $self->{_rightmostZone}){
             my $y = $self->{_topmostZone};
             while ($y < $self->{_bottommostZone}){
-                $y += (rand(300) + 40);
+                $y += (rand(200) + 40);
                 my $zoneX = $self->{_bottommostZone} + (rand(50) + 150);
                 my $zoneY = $y;
                 $self->addZone($zoneX, $zoneY);
@@ -98,7 +98,7 @@ sub _spawnZones {
         if ($ship->{y} < $self->{_topmostZone}){
             my $x = $self->{_leftmostZone};
             while ($x < $self->{_rightmostZone}){
-                $x += (rand(300) + 40);
+                $x += (rand(200) + 40);
                 my $zoneX = $x;
                 my $zoneY = $self->{_topmostZone} - (rand(50) + 150);
                 $self->addZone($zoneX, $zoneY);
@@ -107,7 +107,7 @@ sub _spawnZones {
         if ($ship->{y} > $self->{_bottommostZone}){
             my $x = $self->{_leftmostZone};
             while ($x < $self->{_rightmostZone}){
-                $x += (rand(300) + 40);
+                $x += (rand(200) + 40);
                 my $zoneX = $x;
                 my $zoneY = $self->{_bottommostZone} + (rand(50) + 150);
 			    $self->addZone($zoneX, $zoneY);

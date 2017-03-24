@@ -35,11 +35,12 @@ sub active {
 	my $x = 0;
 	my $y = 0;
 
-	print "key: $key\n";
-	if ($key eq 'W'){ $y = -1; }
-	if ($key eq 'S'){ $y = 1; }
-	if ($key eq 'A'){ $x = -1; }
-	if ($key eq 'D'){ $x = 1; }
+	if (defined($key)){
+		if ($key eq 'W'){ $y = -1; }
+		if ($key eq 'S'){ $y = 1; }
+		if ($key eq 'A'){ $x = -1; }
+		if ($key eq 'D'){ $x = 1; }
+	}
 
 	if ($ship->{currentPower} < $self->_powerNeccesary($ship)){
 		$ship->setStatus('light' => -0.2);

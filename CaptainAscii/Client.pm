@@ -41,9 +41,7 @@ sub _init {
 	$self->{msgs} = ();
 	$self->{chatWidth} = 80;
 	$self->{chatOffset} = 0;
-	#$self->{height} = 35;
-	#$self->{width}  = 120;
-	#
+
     $self->{lastShieldHit} = 0;
     $self->{lastHit} = 0;
 	
@@ -292,8 +290,30 @@ sub loop {
 		$self->_drawItems($offx, $offy);
 		$self->_drawShips($offx, $offy);
 
-		$self->printScreen($scr);
+		if ($self->{mode} eq 'zonemap'){
+			$self->printZoneScreen($scr);
+		} else {
+			$self->printScreen($scr);
+		}
 		$self->printInfo($scr);
+	}
+}
+
+sub printZoneScreen {
+	my $self = shift;
+	my $scr = shift;
+	
+	my $map = $self->{map};
+
+	### draw the screen to Term::Screen
+	foreach my $i (0 .. $self->{height}){
+		my $iZ = (int($i * $self->{zoom}));
+		$scr->at($i + 1, 1);
+		my $row = '';
+		foreach my $j (0 .. $self->{width}){
+			my $jZ = (int($j * $self->{zoom}));
+		}
+		$scr->puts($row);
 	}
 }
 
@@ -301,16 +321,14 @@ sub printScreen {
 	my $self = shift;
 	my $scr = shift;
 	
-	my $height = $self->{height};
-	my $width = $self->{width};
 	my $map = $self->{map};
 
 	### draw the screen to Term::Screen
-	foreach my $i (0 .. $height){
+	foreach my $i (0 .. $self->{height}){
 		my $iZ = (int($i * $self->{zoom}));
 		$scr->at($i + 1, 1);
 		my $row = '';
-		foreach my $j (0 .. $width){
+		foreach my $j (0 .. $self->{width}){
 			my $jZ = (int($j * $self->{zoom}));
             my $lighting = $self->{lighting}->{$iZ}->{$jZ};
 			my $color = (defined($lighting) ? $self->getColor('ON_GREY' . ($lighting <= 23 ? $lighting : 23 )) : $self->getColor('ON_BLACK'));
@@ -362,7 +380,8 @@ sub printInfo {
     $self->printBorder();
 
 	my $ship = $self->{ship};
-	my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
+	#my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
+	my $height = $self->{height} + 1;
 	my $width = $self->{width};
 	my $left = 2;
 
@@ -370,7 +389,7 @@ sub printInfo {
 	$scr->at($height + 2, $left);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
     #$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
-	$scr->puts($self->getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  ', int($ship->{x}), int($ship->{y}), $self->_getShipCount()) );
+	$scr->puts($self->getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width));
 	$scr->at($height + 3, $left);
 	$scr->puts( $self->getColor('reset') . 
 		"fps: " . $self->{fps} . "  " . 
@@ -448,8 +467,8 @@ sub printInfo {
 	$scr->at($height + 11, $left);
 	#$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
 	$scr->puts($self->{debug});
-	$scr->at($height + 13, $left);
-	$scr->puts($self->{ship}->{debug});
+	#$scr->at($height + 13, $left);
+	#$scr->puts($self->{ship}->{debug});
 
 	########## modules #############
     my $mHeight = $height + 3;
