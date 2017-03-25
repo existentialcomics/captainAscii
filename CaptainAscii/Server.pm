@@ -210,7 +210,7 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-			#print "fps: $frames\n";
+			print "fps: $frames\n";
 			#$self->{shipSend} = 0;
 			$frames = 0;
 		}

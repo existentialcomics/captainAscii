@@ -1354,22 +1354,34 @@ sub move {
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
 
+    my $xThrottle = 0;
+    my $yThrottle = 0;
+
 	if ($time - $self->{aimingPress} < 0.15){
 		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
 		if ($self->{direction} > (PI * 2)){ $self->{direction} -= (PI * 2); }
 		if ($self->{direction} < 0){ $self->{direction} += (PI * 2); }
 	}
-	
-	if ($time - $self->{movingHozPress} < 0.2){
-		$self->{x} += ($self->{movingHoz} * $self->{speed} * $timeMod);
-	} else {
-		$self->{movingHoz} = 0;
-	}
-	if ($time - $self->{movingVertPress} < 0.2){
-		$self->{y} += ($self->{movingVert} * $self->{speed} * $timeMod * $aspectRatio);
-	} else {
-		$self->{movingVert} = 0;
-	}
+    
+    if ($time - $self->{movingHozPress} < 0.2){
+        $xThrottle += ($self->{movingHoz});
+    } elsif ($self->getStatus('cruise')){
+        $xThrottle = (sin($self->{direction}) * 0.7);
+    } else {
+        $self->{movingHoz} = 0;
+    }
+
+    if ($time - $self->{movingVertPress} < 0.2){
+        $yThrottle = ($self->{movingVert});
+    } elsif ($self->getStatus('cruise')){
+        $yThrottle = (cos($self->{direction}) * 0.7);
+    } else {
+        $self->{movingVert} = 0;
+    }
+
+    $self->{x} += ($xThrottle * $self->{speed} * $timeMod);
+    $self->{y} += ($yThrottle * $self->{speed} * $timeMod * $aspectRatio);
+
 	$self->{lastMove} = $time;
 }
 

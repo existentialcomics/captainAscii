@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 #
 use strict; use warnings;
-use SpaceShip;
+use CaptainAscii::Ship;
 use Data::Dumper;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 
-my $ship = SpaceShip->new('X');
+my $ship = CaptainAscii::Ship->new('X');
 my $cash = shift;
 my $type = shift;
 

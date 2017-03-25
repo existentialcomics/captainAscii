@@ -28,6 +28,7 @@ sub _init {
 	$self->{powerActive}   = 0;
 	$self->{powerPerPart}  = 0;
 	$self->{powerPerSpeed} = 0;
+	$self->{additionalStatuses} = {};
 	$self->{lastTick} = time();
     $self->{tickRate} = 0.1;    # time in seconds to tick
 	return 1;
@@ -197,6 +198,8 @@ sub command {
 	if (defined($self->{status})){
 		if ($arg =~ m/^on|off|toggle$/){
 			return $self->_statusActive($ship, $arg);
+        } elsif (defined($self->{additionalStatuses}->{arg})){
+			return $self->_statusActive($ship, $self->{additionalStatuses}->{$arg});
 		} else {
 			return 0;
 		}
