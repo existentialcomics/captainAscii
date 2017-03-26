@@ -54,7 +54,7 @@ sub active {
 		'x'    => $warpToX,
 		'y'    => $warpToY
 	};
-	$ship->{currentPower} -= $self->_powerNeccesary($ship);
+	$ship->addStatus('currentPower', -$self->_powerNeccesary($ship));
 	$ship->{lastHyperdrive} = time();
 
 	$ship->setStatus('light' => $lightLength);

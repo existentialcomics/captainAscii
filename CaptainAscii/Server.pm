@@ -20,10 +20,6 @@ use IO::Socket::UNIX;
 use constant {
 	ASPECTRATIO => 0.66666666,
 	PI          => 3.1415,
-	LEFT        => -200,
-	RIGHT       => 200,
-	TOP         => -200,
-	BOTTOM      => 200
 };
 
 sub new {
@@ -210,7 +206,7 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-			print "fps: $frames\n";
+			#print "fps: $frames\n";
 			#$self->{shipSend} = 0;
 			$frames = 0;
 		}
@@ -219,8 +215,6 @@ sub loop {
 		$self->_loadNewPlayers();
 		$self->_calculateBullets();
 		$self->_calculateItems();
-        #TODO remove this, everything should be triggered
-		$self->_sendShipsToClients();
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
@@ -272,13 +266,13 @@ sub _despawnShips {
 			{ 'skipId' => $ship->{'id'}, isBot => 0 }
 		);
 		if ($distance > 200){
-			print "$ship->{id} dis $distance\n";
+			#print "$ship->{id} dis $distance\n";
 			push(@shipsToDespawn, $ship->{id});
 		}
 	};
 
 	foreach my $id (@shipsToDespawn){
-		print "despawning $id\n"; 
+		#print "despawning $id\n"; 
 		$self->broadcastMsg('shipdelete', { id => $id });
 		$self->removeShip($id);
 	}
@@ -359,7 +353,7 @@ sub _spawnShips {
             push @spawnArray, $ship->getZoneSpawns();
 
             my $spawn = $spawnArray[rand @spawnArray];
-			print "Adding enemy $spawn->{faction} ($spawn->{power}), at $newX, $newY\n";
+			#print "Adding enemy $spawn->{faction} ($spawn->{power}), at $newX, $newY\n";
 
 		    $shipNew->{faction} = $spawn->{faction};
 			$shipNew->randomBuild($spawn->{power});
@@ -757,30 +751,6 @@ sub sendSystemMsg {
 
 }
 
-sub _sendShipsToClients {
-	my $self = shift;
-	foreach my $ship ($self->getShips()){
-		my $msg = {
-			#id => 'self' ,
-			id => $ship->{id} ,
-			x => $ship->{x},
-			y => $ship->{y},
-			dx => $ship->{movingHoz},
-			dy => $ship->{movingVert},
-			shieldHealth => $ship->{shieldHealth},
-			health       => $ship->{health},
-			currentPower => $ship->{currentPower},
-			currentHealth=> $ship->{currentHealth},
-			powergen     => $ship->{currentPowerGen},
-			direction    => $ship->{direction},
-			cloaked      => $ship->{cloaked},
-			shieldsOn    => $ship->{shieldsOn},
-			isBot        => $ship->{isBot},
-		};
-		$self->broadcastMsg('s', $msg);
-	}
-}
-
 sub sendFullShipStatus {
 	my $self = shift;
 	my $ship = shift;
@@ -818,7 +788,6 @@ sub _calculatePowerAndMovement {
 		$ship->power();
 		$ship->move();
 		$ship->moduleTick();
-        $self->_forceInBounds($ship);
         if ($ship->getStatus('autoaim')){
 		    my ($id, $distance, $dir) = $self->_findClosestShip(
                 $ship->{'x'},
@@ -830,24 +799,6 @@ sub _calculatePowerAndMovement {
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
 		}
-	}
-}
-
-sub _forceInBounds {
-	my $self = shift;
-	my $ship = shift;
-	return 0;
-	if ($ship->{x} < LEFT){
-		$ship->{x} = LEFT;
-	}
-	if ($ship->{x} > RIGHT){
-		$ship->{x} = RIGHT;
-	}
-	if ($ship->{y} < TOP){
-		$ship->{y} = TOP;
-	}
-	if ($ship->{y} > BOTTOM){
-		$ship->{y} = BOTTOM;
 	}
 }
 

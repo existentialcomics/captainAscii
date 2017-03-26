@@ -18,6 +18,11 @@ use constant {
 	PI => 3.1415
 };
 
+my %colors = ();
+my $starMapSize = 0;
+my @starMap;
+my @lighting;
+
 sub new {
 	my $class = shift;
 
@@ -37,14 +42,13 @@ sub _init {
 	my $socket = shift;
 	my $color = shift;
 
+	$self->_generateStarMap();
+
 	$self->{msg} = '';
 	$self->{msgs} = ();
 	$self->{chatWidth} = 80;
 	$self->{chatOffset} = 0;
 
-    $self->{lastShieldHit} = 0;
-    $self->{lastHit} = 0;
-	
 	$self->{zoom} = 1;
 
 	$self->resize();
@@ -92,6 +96,40 @@ sub _init {
 	return 1;
 }
 
+sub _generateStarMap {
+	my $self = shift;
+	my $size = shift;
+	if (!defined($size)){ $size = 1000; }
+
+	$starMapSize = $size;
+
+	foreach my $x (0 .. $size){
+		push @starMap, [ (' ') x $size ];
+		foreach my $y (0 .. $size){
+			my $rand = rand();
+			if ($rand > 0.03){ next; }
+			my $starRand = rand();
+			my $chr = '.';
+			my $col = "";
+			if ($starRand < 0.02){
+				$chr = '*';
+				if ($starRand < 0.1){
+					$col = getColor("YELLOW");
+				}
+			} elsif ($starRand < 0.5){
+				$col = getColor("GREY" . int(rand(22)));
+			} elsif ($starRand < 0.10){
+				$col = getColor("YELLOW");
+			} elsif ($starRand < 0.30){
+				$col = getColor("GREY2");
+			} else {
+				$col = getColor("GREY5");
+			}
+			$starMap[$x]->[$y] = $col . $chr;
+		}
+	}
+}
+
 sub sprite {
 	my $self = shift;
 	my $array = shift;
@@ -133,7 +171,7 @@ sub designShip {
 			$px++;
 			$scr->at($px, 0);
 			my $rowPrint = join "", @{$row};
-			$scr->puts($self->getColor('ON_GREY3') . $rowPrint . $self->getColor('RESET'));
+			$scr->puts(getColor('ON_GREY3') . $rowPrint . getColor('RESET'));
 			$scr->at($x, $y);
 		}
 		my $chr = undef;
@@ -278,7 +316,6 @@ sub loop {
 		$self->_sendKeystrokesToServer($scr);
 		$self->_getMessagesFromServer();
 
-		$self->{lighting} = {};
 		my $cenX = int(($self->{width} * $self->{zoom})  / 2);
 		my $cenY = int(($self->{height} * $self->{zoom}) / 2);
 		my $offx = $cenX - int($self->{ship}->{x});
@@ -320,7 +357,6 @@ sub printZoneScreen {
 sub printScreen {
 	my $self = shift;
 	my $scr = shift;
-	
 	my $map = $self->{map};
 
 	### draw the screen to Term::Screen
@@ -328,45 +364,24 @@ sub printScreen {
 		my $iZ = (int($i * $self->{zoom}));
 		$scr->at($i + 1, 1);
 		my $row = '';
-		foreach my $j (0 .. $self->{width}){
-			my $jZ = (int($j * $self->{zoom}));
-            my $lighting = $self->{lighting}->{$iZ}->{$jZ};
-			my $color = (defined($lighting) ? $self->getColor('ON_GREY' . ($lighting <= 23 ? $lighting : 23 )) : $self->getColor('ON_BLACK'));
-			$row .= (defined($map->[$iZ]->[$jZ]) ? $color . $map->[$iZ]->[$jZ] : $color . $self->getStar($i, $j));
+		foreach (0 .. $self->{width}){
+			my $jZ = (int($_ * $self->{zoom}));
+			my $lighting = $lighting[$iZ]->[$jZ];
+			my $color = getColor('ON_GREY' . ($lighting <= 23 ? $lighting : 23 ));
+			$self->{debug} = "light: $lighting[3]->[2]";
+			$row .= (defined($map->[$iZ]->[$jZ]) ? $color . $map->[$iZ]->[$jZ] : $color . $self->getStar($i, $_));
 		}
 		$scr->puts($row);
 	}
 }
 
 sub getStar {
-    my $self = shift;
-    my ($x, $y) = @_;
-	my $modVal = abs(cos(($x + $self->{ship}->{y}) * ($y + $self->{ship}->{x}) * 53 ));
-
-    if ($modVal > 0.03){ return ' '; }
-
-	my $chr = '.';
-	my $col = "";
-    if ($modVal < 0.0015){
-        $chr = '*';
-    } elsif ($modVal < 0.0030){
-        $col = $self->getColor("GREY" . int(rand(22)));
-    } elsif ($modVal < 0.0045){
-        $col = $self->getColor("yellow");
-    } elsif ($modVal < 0.02){
-        $col = $self->getColor("GREY2");
-    } else {
-        $col = $self->getColor("GREY5");
-    }
-    if ($self->{ship}->{movingVert} && $self->{ship}->{movingHoz}){
-        # TODO moving upleft = \, or /
-    } elsif ($self->{ship}->{movingVert}){
-        $chr = '|';
-    } elsif ($self->{ship}->{movingHoz}){
-        $chr = '–';
-    }
-
-    return $col . $chr;
+    #my $self = shift;
+    #my ($x, $y) = @_;
+	# Do not assign variables for performance
+	return $starMap[
+		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize]->[
+		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize];
 }
 
 sub printInfo {
@@ -389,9 +404,9 @@ sub printInfo {
 	$scr->at($height + 2, $left);
 	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
     #$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
-	$scr->puts($self->getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width));
+	$scr->puts(getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width));
 	$scr->at($height + 3, $left);
-	$scr->puts( $self->getColor('reset') . 
+	$scr->puts( getColor('reset') . 
 		"fps: " . $self->{fps} . "  " . 
 		"id "   . $self->{ship}->{id} . "  " . 
 		"weight: " .  $ship->{weight} .
@@ -414,14 +429,14 @@ sub printInfo {
 	my $healthWidth = int( $barWidth * $healthRatio);
 	my $healthPad   = $barWidth - $healthWidth;
 	$scr->puts(sprintf('%-10s│%s│',
-	$ship->{health} . ' / ' . int($ship->{currentHealth}) , 
-	($self->getColor('ON_RGB' .
+		int($ship->{currentHealth}) . ' / ' . int($ship->{health}) , 
+	(getColor('ON_RGB' .
 		0 .
 		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
 		(int(5 * $healthRatio)) .
 		0
 		) . (" " x $healthWidth) . 
-		$self->getColor('RESET') . (' ' x $healthPad) )
+		getColor('RESET') . (' ' x $healthPad) )
 	));
 	
 	############ power
@@ -431,12 +446,12 @@ sub printInfo {
 	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
 	my $powerPad   = $barWidth - $powerWidth;
 	$scr->puts(sprintf('%-10s│%s│',
-	$ship->{power} . ' / ' . int($ship->{currentPower}) , 
-	($self->getColor('ON_RGB' .
+		int($ship->{currentPower}) . ' / ' . int($ship->{power}) , 
+	(getColor('ON_RGB' .
 		5 . 
 		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
 		0) . (" " x $powerWidth) . 
-		$self->getColor('RESET') . (' ' x $powerPad) )
+		getColor('RESET') . (' ' x $powerPad) )
 	));
 
 	############# display shield
@@ -450,11 +465,11 @@ sub printInfo {
 		if ($shieldPercent > 1){ $shieldPercent = 1; }
 		$scr->puts(sprintf('%-10s│%s│',
 		int($ship->{shield}) . ' / ' . int($ship->{shieldHealth}),
-		($self->getColor('ON_RGB' .
+		(getColor('ON_RGB' .
 			0 . 
 			(int(5 * $shieldPercent)) .
 			5) . (" " x $shieldWidth) .
-			$self->getColor('RESET') . (" " x $shieldPad))
+			getColor('RESET') . (" " x $shieldPad))
 		));
 	} else {
 		$scr->puts( ' ' x 10 .'│' . ' ' x $barWidth . '│');
@@ -477,8 +492,8 @@ sub printInfo {
 	foreach my $module ( sort $ship->getModules){
 	    $scr->at($mHeight, $width + 2);
         # TODO grey for you don't even have the module
-		my $color = $self->getColor($module->getColor($ship));
-        $scr->puts(sprintf('│ ' . $color . '%-18s ' . $self->getColor('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys())) );
+		my $color = getColor($module->getColor($ship));
+        $scr->puts(sprintf('│ ' . $color . '%-18s ' . getColor('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys())) );
         $mHeight++;
 	}
     $scr->at($mHeight, $width + 2);
@@ -504,7 +519,7 @@ sub printInfo {
 					next if ($part->{show} eq 'no');
 				}
 				push(@{ $self->{partsDisplay} },
-					($ship->hasSparePart($ref) > 0 ? $self->getColor('white') : $self->getColor('grey10')) .
+					($ship->hasSparePart($ref) > 0 ? getColor('white') : getColor('grey10')) .
 					sprintf($sprintf,
 						$ref,
 						'x' . $ship->hasSparePart($ref),
@@ -514,7 +529,7 @@ sub printInfo {
 						(defined($part->{damage}) ? $part->{damage} : ''),
 						(defined($part->{rate}) ? $part->{rate} : ''),
 						(defined($part->{shield}) ? $part->{shield} : ''),
-					) . $self->getColor('reset')
+					) . getColor('reset')
 				);
 			}
 			$self->{partOffset} = 0;
@@ -551,10 +566,10 @@ sub printInfo {
 				$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $msgLine));
 			}
 		}
-		my $boxColor = $self->getColor('ON_BLACK');
-		if ($self->{mode} eq 'type'){ $boxColor = $self->getColor('ON_GREY4'); }
+		my $boxColor = getColor('ON_BLACK');
+		if ($self->{mode} eq 'type'){ $boxColor = getColor('ON_GREY4'); }
 		$scr->at($height, $width + 4);
-		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . $self->getColor('reset')));
+		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . getColor('reset')));
 		$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
 	}
 }
@@ -566,6 +581,11 @@ sub _resetMap {
 
 	foreach my $x (0 .. $height){
 		push @map, [(undef) x $width];
+	}
+
+	@lighting = ();
+	foreach my $x (0 .. $height + 1){
+		push @lighting, [(0) x ($width + 1)];
 	}
 
 	return \@map;
@@ -633,14 +653,7 @@ sub resize {
 sub printBorder {
 	my $self = shift;
 	my $scr = $self->{scr};
-    my $color; 
-    if ($self->{lastHit} - time() < 0.2){
-        $color = $self->getColor('RED ON_BLACK');
-    } elsif ($self->{lastShieldHit} - time() < 0.2){
-        $color = $self->getColor('BLUE ON_BLACK');
-    } else {
-        $color = $self->getColor('WHITE ON_BLACK');
-    }
+	my $color = $self->borderColor();
 
 	$scr->at(0, 0);
 	$scr->puts($color . "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗");
@@ -654,6 +667,17 @@ sub printBorder {
 		$scr->at($i, $self->{width} + $self->{chatWidth});
 		$scr->puts($color . "║");
 	}
+}
+
+sub borderColor {
+	my $self = shift;
+    if (time() - $self->{'ship'}->getStatus('lastHit') < 0.2){
+        return getColor('RED ON_BLACK');
+    } elsif (time() - $self->{ship}->getStatus('lastShieldHit') < 0.2){
+        return getColor('BLUE ON_BLACK');
+    } else {
+        return getColor('WHITE ON_BLACK');
+    }
 }
 
 sub setMapString {
@@ -684,13 +708,13 @@ sub _drawShips {
 			$self->setMapString($taunt, $tx, $ty);
 		}
 		foreach my $part ($ship->getParts()){
-			my $highlight = ((time() - $part->{'healing'} < .3 ) ? $self->getColor('ON_RGB020') : ((time() - $part->{'hit'} < .3) ? $self->getColor('ON_RGB222') : ''));
+			my $highlight = ((time() - $part->{'healing'} < .3 ) ? getColor('ON_RGB020') : ((time() - $part->{'hit'} < .3) ? getColor('ON_RGB222') : ''));
 			my $bold = '';
 			if (defined($part->{lastShot})){
-				$bold = (($time - $part->{'lastShot'} < .3) ? $self->getColor('bold') : '');
+				$bold = (($time - $part->{'lastShot'} < .3) ? getColor('bold') : '');
 			}
 			my $timeRainbow = int($time * 2);
-			my $rainbow = $self->getColor("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
+			my $rainbow = getColor("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
 
 			my $partColor = ( $part->{'part'}->{'color'} ne 'ship' ?
 				( $part->{'part'}->{color} eq 'rainbow' ? $rainbow : $part->{'part'}->{color} )
@@ -709,9 +733,9 @@ sub _drawShips {
 				# remove coloring TODO change to color + chr
 
 				if ($ship->{id} eq $self->{ship}->{id}){
-					$self->setMap($px, $py, $chr,  $self->getColor('on_black GREY3'));
+					$self->setMap($px, $py, $chr,  getColor('on_black GREY3'));
 				} else {
-					$self->setMap($px, $py, $chr, $self->getColor('on_black GREY0'));
+					$self->setMap($px, $py, $chr, getColor('on_black GREY0'));
 				}
 			} else { 
 				$self->setMap($px, $py, $chr, $highlight . $bold . $partColor);
@@ -744,16 +768,16 @@ sub _drawShips {
 		my $px = ($offy + int($ship->{y})) + $aimx;
 		my $py = ($offx + int($ship->{x})) + $aimy;
 		if ($self->{ship}->{id} eq $ship->{id}){ # draw the aiming dot for yourself
-			$self->setMap($px, $py, $self->getColor('GREEN') . "+");
+			$self->setMap($px, $py, getColor('GREEN') . "+");
 		} elsif ($self->{ship}->{radar}){ # if your radar is active
 			($aimx, $aimy) = $self->{ship}->getRadar($ship);
 			$px = ($offy + int($self->{ship}->{y})) + $aimx;
 			$py = ($offx + int($self->{ship}->{x})) + $aimy;
 			if (!$ship->{cloaked}){
 				if ($ship->{isBot}){
-					$self->setMap($px, $py, $self->getColor('red') . "+");
+					$self->setMap($px, $py, getColor('red') . "+");
 				} else {
-					$self->setMap($px, $py, $self->getColor('BOLD BRIGHT_BLUE') . "+");
+					$self->setMap($px, $py, getColor('BOLD BRIGHT_BLUE') . "+");
 				}
 			}
 		}
@@ -761,7 +785,7 @@ sub _drawShips {
 		#if (($self->{ship}->{id} eq $ship->{id})){
 			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
 			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
-			$self->setMap($cx, $cy, $self->getColor("BLACK ON_WHITE") . '+');
+			$self->setMap($cx, $cy, getColor("BLACK ON_WHITE") . '+');
 		}
 	}
 }
@@ -873,22 +897,6 @@ sub _getMessagesFromServer {
 			delete $self->{items}->{$key};
 		} elsif($msg->{c} eq 'exit'){
 			$self->exitGame($data->{'msg'});
-		} elsif ($msg->{c} eq 's'){
-			foreach my $ship ($self->_getShips()){
-				next if ($ship->{id} ne $data->{id});
-				$ship->{x} = int($data->{x});
-				$ship->{y} = int($data->{y});
-				$ship->{movingVert} = $data->{dy},
-				$ship->{movingHoz} = $data->{dx},
-				$ship->{powergen} = $data->{powergen};
-				$ship->{direction} = $data->{direction};
-				$ship->{health} = $data->{health};
-				$ship->{currentPower} = $data->{currentPower};
-				$ship->{currentPowerGen} = $data->{powergen};
-				$ship->{shieldHealth} = $data->{shieldHealth};
-				$ship->{currentHealth} = $data->{currentHealth};
-				$ship->{isBot} = $data->{isBot};
-			}
 		} elsif ($msg->{c} eq 'newship'){
 			my $shipNew = CaptainAscii::Ship->new($data->{design}, $data->{x}, $data->{y}, $data->{id}, $data->{options});
 			if ($data->{'map'}){
@@ -903,14 +911,6 @@ sub _getMessagesFromServer {
 			if (defined($data->{bullet_del})){
 				delete $self->{bullets}->{$data->{bullet_del}};
 			}
-            if ($data->{ship_id} eq $self->{'ship'}->{id}){
-                if (defined($data->{shield})){
-                    $self->{lastShieldHit} = time();
-                }
-                if (defined($data->{health})){
-                    $self->{lastHit} = time();
-                }
-            }
 			foreach my $s ($self->_getShips()){
 				if ($s->{id} eq $data->{ship_id}){
 					if (defined($data->{shield})){
@@ -954,9 +954,9 @@ sub _getMessagesFromServer {
 			$self->{debug} = "wrapped: $#wrappedMsgs";
 			foreach my $msgString (@wrappedMsgs){
 			if (defined($data->{'color'})){
-				$msgString = $self->getColor($data->{'color'}) . $msgString;
+				$msgString = getColor($data->{'color'}) . $msgString;
 			}
-			$msgString .= $self->getColor('reset');
+			$msgString .= getColor('reset');
 			push @{ $self->{msgs} }, $msgString;
 			}
         } elsif ($msg->{c} eq 'sparepart'){
@@ -991,30 +991,31 @@ sub _bindSocket {
 }
 
 sub getColor {
-    my $self = shift;
-    my $name = shift;
-    if (!defined($self->{_colors}->{$name})){
-        $self->{_colors}->{$name} = color($name);
+    #my $self = shift;
+    #my $name = shift;
+	# Do not assign variables for performance
+    if (!defined($colors{$_[0]})){
+        $colors{$_[0]} = color($_[0]);
     }
-    return $self->{_colors}->{$name};
+    return $colors{$_[0]};
 }
 
 sub setMap {
 	my $self = shift;
 	my ($x, $y, $chr, $color) = @_;
-	if (!defined($color)){ $color = $self->getColor('reset') }
+	if (!defined($color)){ $color = getColor('reset') }
 	if (ref($chr) eq 'ARRAY'){
 		$chr = $self->sprite($chr);
 	}
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$self->{map}->[$x]->[$y] = $color . $chr . $self->getColor('reset');
+	$self->{map}->[$x]->[$y] = $color . $chr . getColor('reset');
 }
 
 sub colorMap {
 	my $self = shift;
 	my ($x, $y, $color) = @_;
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	my $chr = $self->getColor($color) . colorstrip($self->{map}->[$x]->[$y]);
+	my $chr = getColor($color) . colorstrip($self->{map}->[$x]->[$y]);
 	$self->{map}->[$x]->[$y] = $chr;
 
 }
@@ -1023,7 +1024,7 @@ sub addLighting {
 	my $self = shift;
 	my ($x, $y, $level) = @_;
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$self->{lighting}->{$x}->{$y} += $level;
+	$lighting[$x]->[$y] += $level;
 }
 
 sub onMap {

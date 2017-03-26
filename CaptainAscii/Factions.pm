@@ -283,7 +283,6 @@ sub getTaunt {
 
 sub getBuildConfig {
     my $faction = shift;
-    print "faction: $faction\n";
     return $factions{$faction}->{'buildConfig'};
 }
 

@@ -113,11 +113,16 @@ sub _init {
 
 	$self->_loadPartConfig('parts.ini');
 
-	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white);
+	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
+	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
+
+	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white RGB113);
 	$self->{allowedColors} = \@allowedColors;
 
-	$self->{color} = color((defined($options->{color}) ? $options->{color} : 'RGB113'));
-	$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
+	#$self->{color} = color((defined($options->{color}) ? $options->{color} : 'RGB113'));
+	#$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
+	$self->setStatus('color', (defined($options->{color}) ? $options->{color} : 'RGB113'));
+
 	$self->{cash} = 0;
 	$self->{debug} = 'ship debug msgs';
     $self->{zones} = {};
@@ -127,9 +132,9 @@ sub _init {
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
  
-	$self->{'x'} = $x;	
-	$self->{'y'} = $y;	
-	$self->{'direction'} = PI;
+	$self->setStatus('x', $x);
+	$self->setStatus('y', $y);
+	$self->setStatus('direction', PI);
 	$self->{'id'} = $id;
 	$self->{'lastTauntTime'} = 0;
 
@@ -154,10 +159,10 @@ sub _init {
 	$self->{'aiTick'} = time();
 	$self->{'isBot'} = 0;
 
-    $self->{'_spareParts'} = {};
+	$self->setStatus('lastHit', time());
+	$self->setStatus('lastShieldHit', time());
 
-	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
-	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
+    $self->{'_spareParts'} = {};
 
 	my $loaded = $self->_loadShip($shipDesign);
 	if (!$loaded){ return 0; }
@@ -165,9 +170,9 @@ sub _init {
 	$self->_calculatePower();
 	$self->_recalculate();
 	$self->orphanParts();
-	$self->{shieldHealth} = $self->{shield};
-	$self->{currentHealth} = $self->{health};
-	$self->{shieldsOn} = 1;
+	$self->setStatus('shieldHealth', $self->{shield});
+	$self->setStatus('currentHealth', $self->{health});
+	$self->setStatus('shieldsOn', 1);
 	$self->{empOn} = 0;
 	$self->{'shieldStatus'} = 'full';
 	return 1;
@@ -461,10 +466,10 @@ sub becomeAi {
 	$self->{aiModeChange} = 0;
 	$self->{aiStateChange} = 0;
 	$self->{aiTowardsShipId} = 0;
-	$self->{isBot} = 1;
+	$self->setStatus('isBot', 1);
     $self->{cash} = int($self->{cost} / 4);
 	if (!defined($self->{faction})){
-		$self->{faction} = CaptainAscii::Factions::getRandomFaction();
+		$self->setStatus('faction', CaptainAscii::Factions::getRandomFaction());
 	}
 	$self->setAiColor();
 }
@@ -526,7 +531,7 @@ sub shoot {
 			if (! defined($part->{quadrants}->{$quad})){
 				next;
 			}
-			$self->{currentPower} += $part->{'part'}->{poweruse};
+			$self->addStatus('currentPower', $part->{'part'}->{poweruse});
 			my $direction = $self->{direction};
 
 			if ($part->{part}->{spread}){
@@ -585,33 +590,39 @@ sub _calculateCost {
 sub _recalculatePower {
 	my $self = shift;
 	my $current = $self->{currentPower};
-	my $max = $self->{power};
+	my $max = $self->getStatus('power');
 	$self->_calculatePower();
 
 	# reset current power
-	$self->{currentPower} = $current;
+	$self->setStatus('currentPower', $current);
 
 	# subtract power for any lost generators
 	if ($max > $self->{power}){
-		$self->{currentPower} -= abs($max - $self->{power});
-		if ($self->{currentPower} < 0){ $self->{currentPower} = 0 }
+		$self->addStatus('currentPower', -abs($max - $self->{power}));
+		if ($self->{currentPower} < 0){
+			$self->setStatus('currentPower', 0);
+		}
 	}
 }
 
 sub _calculatePower {
 	my $self = shift;
-	$self->{power} = 1;
-	$self->{powergen} = 0;
+	my $power = 1;
+	my $powergen = 0;
+
 	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{power})){
-			$self->{power} += $part->{part}->{power};
+			$power += $part->{part}->{power};
 		}
 		if (defined($part->{part}->{powergen})){
-			$self->{powergen} += $part->{part}->{powergen};
+			$powergen += $part->{part}->{powergen};
 		}
 	}
-	$self->{currentPower}    = $self->{power};
-	$self->{currentPowerGen} = $self->{powergen};
+
+	$self->setStatus('power', $power);
+	$self->setStatus('powergen', $powergen);
+	$self->setStatus('currentPower', $self->{power});
+	$self->setStatus('currentPowerGen', $self->{powergen});
 }
 
 sub _calculateSpeed {
@@ -634,10 +645,11 @@ sub _calculateWeight {
 
 sub _calculateHealth {
 	my $self = shift;
-	$self->{health} = 0.0;
+	my $health = 0;
 	foreach my $part ($self->getParts()){
-		$self->{health} += $part->{part}->{health};
+		$health += $part->{part}->{health};
 	}
+	$self->setStatus('health', $health);
 }
 
 sub _recalculate {
@@ -798,7 +810,7 @@ sub resolveCollision {
 			}
 			$part->{'hit'} = time();
 			if ($bullet->{emp}){
-				$self->{currentPower} -= $bullet->{damage};
+				$self->setStatus('currentPower', $self->{currentPower} - $bullet->{damage});
 				$self->_limitPower();
 			} else {
 				$part->{'health'} -= $bullet->{damage};
@@ -921,6 +933,7 @@ sub setPartHealth {
 	}
     if ($part->{health} > $health){
 	    $part->{'hit'} = time();
+		$self->setStatus('lastHit', time());
     } elsif ($part->{health} < $health) {
 	    $part->{'healing'} = time();
     }  
@@ -936,6 +949,7 @@ sub damageShield {
 	### it lost health, so it was hit
 	if ($part->{shieldHealth} > $health){
 		$part->{'hit'} = time();
+		$self->setStatus('lastShieldHit', time());
 	}
 	$part->{shieldHealth} = $health;
 	return $part->{shieldHealth};
@@ -1029,7 +1043,6 @@ sub _removePart {
 		#print Dumper($part);
 	}
 	delete $self->{parts}->{$id};
-
 }
 
 sub removeConnection {
@@ -1103,6 +1116,14 @@ sub _resolveModuleKeypress {
 	return undef;
 }
 
+sub addStatus {
+	my $self = shift;
+	my $status = shift;
+	my $value = shift;
+
+	$self->setStatus($status, $self->getStatus($status) + $value);
+}
+
 sub setStatus {
 	my $self = shift;
 	my $status = shift;
@@ -1114,7 +1135,7 @@ sub setStatus {
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
-	} elsif($status eq 'color'){
+	} elsif($status eq 'color' || $status eq 'colorDef'){
 		if ($self->_setColor($value)){
 			$self->{'statusChange'}->{$status} = $value;
 		}
@@ -1285,25 +1306,24 @@ sub power {
 	#if ((time() - $self->{lastPower}) < 0.2){ return 0; }
 	my $timeMod = time() - $self->{lastPower};
 
+	my $shieldHealth = 0;
+	my $currentHealth = 0;
+	my $currentPowerGen = $self->getStatus('powergen');
+
 	# if the thrusters are activated
 	if ($self->{movingHoz} != 0 || $self->{movingVert} != 0){
 		if (int($self->{currentPower} < $self->{thrust} / 100)){
-			$self->{currentPowerGen} = $self->{powergen};
 			$self->{moving} = 0;
 		} else {
-			$self->{currentPowerGen} = $self->{powergen} - sprintf('%.2f', ($self->{thrust} / 100));
+			$currentPowerGen -= sprintf('%.2f', ($self->{thrust} / 100));
 		}
-	} else {
-		$self->{currentPowerGen} = $self->{powergen};
 	}
 
-	$self->{currentPowerGen} += $self->_resolveModulePower();
+	$currentPowerGen += $self->_resolveModulePower();
 	
-	$self->{shieldHealth} = 0;
-	$self->{currentHealth} = 0;
 	# if shields are regenerating
 	foreach my $part ($self->getParts()){
-		$self->{currentHealth} += ($part->{health} > 0 ? $part->{health} : 0);
+		$currentHealth += ($part->{health} > 0 ? $part->{health} : 0);
 		if ($part->{'part'}->{'type'} eq 'shield'){
 			if (($self->{currentPower} / $self->{power} < 0.2) || !$self->{shieldsOn}){
 				# drain shields if power is low and they are on
@@ -1311,10 +1331,10 @@ sub power {
 					$part->{shieldHealth} -= ($part->{'part'}->{shieldgen} * $timeMod);
 				}
 				# recover the passive part of shieldgen (substract because it is negative)
-				$self->{currentPowerGen} -= $part->{'part'}->{powergen};
+				$currentPowerGen -= $part->{'part'}->{powergen};
 			} else { # shield is operational
 				if ($part->{shieldHealth} < $part->{'part'}->{shield}){
-					$self->{currentPowerGen} += $part->{'part'}->{'poweruse'};
+					$currentPowerGen += $part->{'part'}->{'poweruse'};
 					$part->{shieldHealth} += ($part->{'part'}->{shieldgen} * $timeMod);
 					#TODO only send if it passes 0
 					$self->addServerMsg('dam', { 
@@ -1328,22 +1348,27 @@ sub power {
 					$part->{shieldHealth} = $part->{'part'}->{shield};
 				}
 			}
-			$self->{shieldHealth} += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
+			$shieldHealth += ($part->{shieldHealth} > 0 ? $part->{shieldHealth} : 0);
 		}
 	}
 
-	$self->{currentPower} += ($self->{currentPowerGen} * $timeMod * 0.2);
+	$self->setStatus('shieldHealth', int($shieldHealth));
+	$self->setStatus('currentHealth', $currentHealth);
+	$self->setStatus('currentPowerGen', int($currentPowerGen));
+	$self->addStatus('currentPower', ($currentPowerGen * $timeMod * 0.2));
 	$self->_limitPower();
 	$self->{lastPower} = time();
 }
 
+# TODO make a global list of statuses that are limited
 sub _limitPower {
 	my $self = shift;
 	if ($self->{currentPower} > $self->{power}){
 		$self->{currentPower} = $self->{power};
+		$self->setStatus('currentPower', $self->{power});
 	}
 	if ($self->{currentPower} < 0){
-		$self->{currentPower} = 0;
+		$self->setStatus('currentPower', 0);
 	}
 }
 
@@ -1358,29 +1383,28 @@ sub move {
     my $yThrottle = 0;
 
 	if ($time - $self->{aimingPress} < 0.15){
-		$self->{direction} += (1 * $self->{aimingDir} * $timeMod);
-		if ($self->{direction} > (PI * 2)){ $self->{direction} -= (PI * 2); }
-		if ($self->{direction} < 0){ $self->{direction} += (PI * 2); }
+		my $direction = $self->getStatus('direction') + (1 * $self->{aimingDir} * $timeMod);
+		if ($direction > (PI * 2)){ $direction -= (PI * 2); }
+		if ($direction < 0){ $direction += (PI * 2); }
+		$self->setStatus('direction', $direction);
 	}
     
     if ($time - $self->{movingHozPress} < 0.2){
-        $xThrottle += ($self->{movingHoz});
+        $xThrottle = $self->{movingHoz};
     } elsif ($self->getStatus('cruise')){
         $xThrottle = (sin($self->{direction}) * 0.7);
-    } else {
-        $self->{movingHoz} = 0;
     }
 
     if ($time - $self->{movingVertPress} < 0.2){
-        $yThrottle = ($self->{movingVert});
+        $yThrottle = $self->{movingVert};
     } elsif ($self->getStatus('cruise')){
         $yThrottle = (cos($self->{direction}) * 0.7);
-    } else {
-        $self->{movingVert} = 0;
     }
 
-    $self->{x} += ($xThrottle * $self->{speed} * $timeMod);
-    $self->{y} += ($yThrottle * $self->{speed} * $timeMod * $aspectRatio);
+	$self->addStatus('x', $xThrottle * $self->{speed} * $timeMod);
+	$self->addStatus('y', $yThrottle * $self->{speed} * $timeMod * $aspectRatio);
+	$self->setStatus('movingHoz' , $xThrottle);
+	$self->setStatus('movingVert', $yThrottle);
 
 	$self->{lastMove} = $time;
 }
