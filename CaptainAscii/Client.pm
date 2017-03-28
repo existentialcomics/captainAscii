@@ -7,7 +7,6 @@ BEGIN {
 }
 use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
 require Term::Screen;
-use List::MoreUtils qw(zip);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use JSON::XS qw(encode_json decode_json);
@@ -24,12 +23,74 @@ use constant {
 };
 
 my %colors = ();
+my %cursesColors = ();
 my $starMapSize = 0;
 my @starMap;
 my @starMapStr;
 my @lighting;
 
 my $useCurses = 1;
+
+my %colorCodes = (
+    BLACK   => 0,
+    RED     => 1,
+    GREEN   => 2,
+    YELLOW  => 3,
+    BLUE    => 4,
+    MAGENTA => 5,
+    CYAN    => 6,
+    WHITE   => 7,
+    ON_BLACK   => 0,
+    ON_RED     => 1,
+    ON_GREEN   => 2,
+    ON_YELLOW  => 3,
+    ON_BLUE    => 4,
+    ON_MAGENTA => 5,
+    ON_CYAN    => 6,
+    ON_WHITE   => 7,
+    DARKGREY     => 8,
+    LIGHTRED     => 9,
+    LIGHTGREEN   => 10,
+    LIGHTYELLOW  => 11,
+    LIGHTBLUE    => 12,
+    LIGHTMAGENTA => 13,
+    LIGHTCYAN    => 14,
+    LIGHTWHITE   => 15,
+    ON_DARKGREY     => 8,
+    ON_LIGHTRED     => 9,
+    ON_LIGHTGREEN   => 10,
+    ON_LIGHTYELLOW  => 11,
+    ON_LIGHTBLUE    => 12,
+    ON_LIGHTMAGENTA => 13,
+    ON_LIGHTCYAN    => 14,
+    ON_LIGHTWHITE   => 15,
+);
+
+# The first 16 256-color codes are duplicates of the 16 ANSI colors,
+# included for completeness.
+foreach (0 .. 15){
+    $colorCodes{"ANSI$_"} = $_;
+    $colorCodes{"ON_ANSI$_"} = $_;
+}
+
+# 256-color RGB colors.  Red, green, and blue can each be values 0 through 5,
+# and the resulting 216 colors start with color 16.
+for my $r (0 .. 5) {
+    for my $g (0 .. 5) {
+        for my $b (0 .. 5) {
+            my $code = 16 + (6 * 6 * $r) + (6 * $g) + $b;
+            $colorCodes{"RGB$r$g$b"}    = $code;
+            $colorCodes{"ON_RGB$r$g$b"} = $code;
+        }
+    }
+}
+
+# The last 256-color codes are 24 shades of grey.
+for my $n (0 .. 23) {
+    my $code = $n + 232;
+    $colorCodes{"GREY$n"}    = $code;
+    $colorCodes{"ON_GREY$n"} = $code;
+}
 
 sub new {
 	my $class = shift;
@@ -185,7 +246,7 @@ sub designShip {
 			my $rowPrint = join "", @{$row};
 			$self->putStr(
                 $px, 0,
-                getColor('ON_GREY3') . $rowPrint . getColor('RESET')
+                getColor('ON_GREY3') . $rowPrint
             );
 		}
 		my $chr = undef;
@@ -1124,10 +1185,13 @@ sub _bindSocket {
 
 sub getColor {
     #my $self = shift;
-    #my $name = shift;
+    #my ($foreground, $background) = @_;
 	# Do not assign variables for performance
     if (!defined($colors{$_[0]})){
         $colors{$_[0]} = color($_[0]);
+        my $colorId = $_[0]->{cursesColorCount}++;
+        init_pair($colorId, $colorCodes{$_[1]}, $colorCodes{$_[1]});
+        $cursesColors{$_[0].$_[1]} = $colorId;
     }
     return $colors{$_[0]};
 }
