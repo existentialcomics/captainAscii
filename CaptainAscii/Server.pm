@@ -733,7 +733,7 @@ sub _loadNewPlayers {
 		my $id = $self->addShip($shipNew);
 		print "player loaded, " . $self->getShipCount() . " in game.\n";
 		$shipNew->setStatus('name', $options{name});
-		$self->sendSystemMsg("Player " . color($shipNew->{colorDef}) . "$options{name} " . color('green') . " has entered the game.");
+		$self->sendSystemMsg("Player $options{name} has entered the game.");
 		return $id;
 	}
 	return 0;
@@ -945,7 +945,7 @@ sub parseCommand {
 	} elsif ($command eq 'color'){
 		if ($ship->isValidColor($arg)){
 			$ship->setStatus('color', $arg);	
-			$self->sendSystemMsg($ship->{name} . " changed to color " . $ship->{color} . $arg . color('reset'));
+			$self->sendSystemMsg($ship->{name} . " changed to color " . $arg);
 		} else {
 			$self->sendSystemMsg("Invalid color: $arg", $ship);
 		}

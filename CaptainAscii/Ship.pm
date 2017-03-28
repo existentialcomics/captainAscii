@@ -413,7 +413,8 @@ sub calculateDrops {
 		print "cash : $cash, $self->{cash}\n";
         push @drops, {
             cash => $cash,
-            'chr'  => color('green ON_RGB121') . '$' . color('reset')
+            'chr'  => '$',
+            'col'  => 'green ON RGB121'
         };
     }
     if (rand() < 0.1){
@@ -479,7 +480,7 @@ sub _setColor {
 	my $color = shift;
 	if (!$self->isValidColor($color)){ return 0; }
 	$self->{'colorDef'} = $color;
-	$self->{'color'} = color($color);
+	$self->{'color'} = $color;
 	return 1;
 }
 
@@ -546,7 +547,7 @@ sub shoot {
 				y => ($self->{'x'} + $part->{'x'}),
 				x => ($self->{'y'} + $part->{'y'}),
 				'chr'   => $part->{'part'}->{'shotChr'},
-				'col'   => ($self->getStatus('emp') ? color('bold blue') : color($part->{'part'}->{'shotColor'})),
+				'col'   => ($self->getStatus('emp') ? 'bold blue' : $part->{'part'}->{'shotColor'}),
 				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
 				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
@@ -1544,7 +1545,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
 		$parts{$chr}->{'show'}   = $cfg->val($section, 'show', 1);
 		my $color = $cfg->val($section, 'color', 'ship');
-		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : color($color));
+		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
 	}
 
 	my @guns = $cfg->GroupMembers('gun');
@@ -1912,9 +1913,7 @@ sub getShipDisplay {
 						if ($design){
 							$chr = $part->{defchr};
 						} else {
-							my $partcolor = ($part->{part}->{color} eq 'rainbow' ? color('MAGENTA ON_RGB112') : $part->{part}->{color});
-							#$chr = $self->{color} . $partcolor . $part->{chr} . color('reset');
-							$chr = $partcolor . (ref($part->{chr}) eq 'ARRAY' ? $part->{chr}->[0] : $part->{chr})  . color('reset');
+							$chr = (ref($part->{chr}) eq 'ARRAY' ? $part->{chr}->[0] : $part->{chr});
 						}
 						last;
 					}

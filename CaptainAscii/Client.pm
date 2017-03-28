@@ -10,6 +10,7 @@ use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 use Math::Trig ':radial';
 use Text::Wrap;
+use Curses;
 
 use CaptainAscii::Ship;
 
@@ -51,7 +52,7 @@ sub _init {
 
 	$self->{zoom} = 1;
 
-	$self->resize();
+	$self->resizeScr();
 
 	$self->{lastFrame} = time();
 	$self->{lastInfoPrint} = time();
@@ -59,10 +60,10 @@ sub _init {
 	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
-	$self->{maxFps} = 40;
+	$self->{maxFps} = 400;
 	$self->{maxBackgroundFps} = 6;
 	$self->{maxInfoFps} = 6;
-	$self->{fps} = 40;
+	$self->{fps} = 400;
 	$self->{mode} = 'drive';
 
 	$self->{cursorx} = 0;
@@ -166,13 +167,14 @@ sub designShip {
 
 	while ($designing == 1){
 		my $px = 0;
-		$self->printInfo($scr);
+		$self->printInfo();
 		for my $row (@ship){
 			$px++;
-			$scr->at($px, 0);
 			my $rowPrint = join "", @{$row};
-			$scr->puts(getColor('ON_GREY3') . $rowPrint . getColor('RESET'));
-			$scr->at($x, $y);
+			$self->putStr(
+                $px, 0,
+                getColor('ON_GREY3') . $rowPrint . getColor('RESET')
+            );
 		}
 		my $chr = undef;
 		while (!defined($chr)){
@@ -281,14 +283,19 @@ sub loop {
 	my $fps = $self->{maxFps};
 
 	my $scr = new Term::Screen;
-	$scr->clrscr();
-	$scr->noecho();
+#	$scr->clrscr();
+#	$scr->noecho();
+    #
+#	$self->{scr} = $scr;
 
-	$self->{scr} = $scr;
+    $self->{win} = Curses->new();
+    initscr;
+
+
 	my $lastPing = time();
 
 	$self->setHandlers();
-	$self->printBorder($scr);
+	$self->printBorder();
 
 	my $playing = 1;
 	while ($playing){
@@ -332,7 +339,8 @@ sub loop {
 		} else {
 			$self->printScreen($scr);
 		}
-		$self->printInfo($scr);
+		$self->printInfo();
+        $self->{win}->refresh;
 	}
 }
 
@@ -345,12 +353,10 @@ sub printZoneScreen {
 	### draw the screen to Term::Screen
 	foreach my $i (0 .. $self->{height}){
 		my $iZ = (int($i * $self->{zoom}));
-		$scr->at($i + 1, 1);
 		my $row = '';
 		foreach my $j (0 .. $self->{width}){
 			my $jZ = (int($j * $self->{zoom}));
 		}
-		$scr->puts($row);
 	}
 }
 
@@ -362,7 +368,6 @@ sub printScreen {
 	### draw the screen to Term::Screen
 	foreach my $i (0 .. $self->{height}){
 		my $iZ = (int($i * $self->{zoom}));
-		$scr->at($i + 1, 1);
 		my $row = '';
 		foreach (0 .. $self->{width}){
 			my $jZ = (int($_ * $self->{zoom}));
@@ -371,7 +376,10 @@ sub printScreen {
 			$self->{debug} = "light: $lighting[3]->[2]";
 			$row .= (defined($map->[$iZ]->[$jZ]) ? $color . $map->[$iZ]->[$jZ] : $color . $self->getStar($i, $_));
 		}
-		$scr->puts($row);
+		$self->putStr(
+            $i + 1, 1,
+            $row
+        );
 	}
 }
 
@@ -384,9 +392,45 @@ sub getStar {
 		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize];
 }
 
+sub printStatusBar {
+    my $self = shift;
+    my $scr = shift;
+    my ($name, $value, $max, $width, $col, $row, $r, $g, $b) = @_;
+
+    my $statBar = '';
+    if ($max < 1000){
+        $statBar = sprintf(' ' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
+    } else {
+        $statBar = sprintf(' ' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
+    }
+    
+    my $widthStatus = $width - length($name);
+    $self->putStr(
+        $col, $row,
+        '╭' . '─' x ($widthStatus / 2) . $name . '-' x ($widthStatus / 2) . '╮'
+    );
+    $self->putStr(
+        $col + 1, $row,
+        $statBar
+    );
+    $self->putStr(
+        $col + 2, $row,
+        '╰' . '─' x $width . '╯'
+    );
+}
+
+sub putStr {
+    my $self = shift;
+    my ($col, $row, $str) = @_;
+
+    #$self->{scr}->at($col, $row);
+    #$self->{scr}->puts($str);
+
+    $self->{win}->addstr($col, $row, $str);
+}
+
 sub printInfo {
 	my $self = shift;
-	my $scr  = shift;
 	my $options = shift;
 
 	if ((time() - $self->{lastInfoPrint}) < (1 / $self->{maxInfoFps})){
@@ -401,12 +445,14 @@ sub printInfo {
 	my $left = 2;
 
 	#### ----- ship info ------ ####
-	$scr->at($height + 2, $left);
-	#$scr->puts("ships in game: " . ($#ships + 1) . " aim: " . $ship->getQuadrant());
-    #$scr->puts(sprintf('dir: %.2f  quad: %s   x: %s y: %s, cx: %s, cy: %s, ships: %s  ', $ship->{direction}, $ship->getQuadrant(), int($ship->{x}), int($ship->{y}), $self->{cursorx}, $self->{cursory}, $self->_getShipCount()) );
-	$scr->puts(getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width));
-	$scr->at($height + 3, $left);
-	$scr->puts( getColor('reset') . 
+    $self->putStr(
+        $height + 2, $left, 
+	    getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
+    );
+
+	$self->putStr(
+        $height + 3, $left,
+        getColor('reset') . 
 		"fps: " . $self->{fps} . "  " . 
 		"id "   . $self->{ship}->{id} . "  " . 
 		"weight: " .  $ship->{weight} .
@@ -419,85 +465,87 @@ sub printInfo {
 
 	my $barWidth = 50;
 	############ health
-	$scr->at($height + 4, $left);
-    $scr->puts( ' ' x 10 .'┌' . '─' x $barWidth . '┐');
-	$scr->at($height + 5, $left);
-
+#	$scr->at($height + 4, $left);
+#    $scr->puts(
+#        ' ' x 10 .'┌' . '─' x $barWidth . '┐'
+#    );
+#	$scr->at($height + 5, $left);
+    #
 	#TODO investigate why this goes above one
-	my $healthRatio = ($ship->{currentHealth} / $ship->{health});
-	if ($healthRatio > 1){ $healthRatio = 1 };
-	my $healthWidth = int( $barWidth * $healthRatio);
-	my $healthPad   = $barWidth - $healthWidth;
-	$scr->puts(sprintf('%-10s│%s│',
-		int($ship->{currentHealth}) . ' / ' . int($ship->{health}) , 
-	(getColor('ON_RGB' .
-		0 .
-		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
-		(int(5 * $healthRatio)) .
-		0
-		) . (" " x $healthWidth) . 
-		getColor('RESET') . (' ' x $healthPad) )
-	));
-	
-	############ power
-	$scr->at($height + 6, $left);
-	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
-	$scr->at($height + 7, $left);
-	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
-	my $powerPad   = $barWidth - $powerWidth;
-	$scr->puts(sprintf('%-10s│%s│',
-		int($ship->{currentPower}) . ' / ' . int($ship->{power}) , 
-	(getColor('ON_RGB' .
-		5 . 
-		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
-		0) . (" " x $powerWidth) . 
-		getColor('RESET') . (' ' x $powerPad) )
-	));
-
-	############# display shield
-	$scr->at($height + 8, $left);
-	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
-	$scr->at($height + 9, $left);
-	if ($ship->{shield} > 0){
-        my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
-        my $shieldPad   = $barWidth - $shieldWidth;
-		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
-		if ($shieldPercent > 1){ $shieldPercent = 1; }
-		$scr->puts(sprintf('%-10s│%s│',
-		int($ship->{shield}) . ' / ' . int($ship->{shieldHealth}),
-		(getColor('ON_RGB' .
-			0 . 
-			(int(5 * $shieldPercent)) .
-			5) . (" " x $shieldWidth) .
-			getColor('RESET') . (" " x $shieldPad))
-		));
-	} else {
-		$scr->puts( ' ' x 10 .'│' . ' ' x $barWidth . '│');
-		$scr->at($height + 9, $left);
-	}
-	$scr->at($height + 10, $left);
-	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
-	#$scr->at($height + 20, $left);
-	#$scr->puts($self->{debug});
-	$scr->at($height + 11, $left);
-	#$scr->puts("Keys: w,s,a,d to move. @ to disable shields. space to fire. q/e or Q/E to aim. Backtick (`) to build, / to chat.\n");
-	$scr->puts($self->{debug});
-	#$scr->at($height + 13, $left);
-	#$scr->puts($self->{ship}->{debug});
+#	my $healthRatio = ($ship->{currentHealth} / $ship->{health});
+#	if ($healthRatio > 1){ $healthRatio = 1 };
+#	my $healthWidth = int( $barWidth * $healthRatio);
+#	my $healthPad   = $barWidth - $healthWidth;
+#	$scr->puts(sprintf('%-10s│%s│',
+#		int($ship->{currentHealth}) . ' / ' . int($ship->{health}) , 
+#	(getColor('ON_RGB' .
+#		0 .
+#		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
+#		(int(5 * $healthRatio)) .
+#		0
+#		) . (" " x $healthWidth) . 
+#		getColor('RESET') . (' ' x $healthPad) )
+#	));
+#	
+#	############ power
+#	$scr->at($height + 6, $left);
+#	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
+#	$scr->at($height + 7, $left);
+#	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
+#	my $powerPad   = $barWidth - $powerWidth;
+#	$scr->puts(sprintf('%-10s│%s│',
+#		int($ship->{currentPower}) . ' / ' . int($ship->{power}) , 
+#	(getColor('ON_RGB' .
+#		5 . 
+#		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
+#		0) . (" " x $powerWidth) . 
+#		getColor('RESET') . (' ' x $powerPad) )
+#	));
+    #
+#	############# display shield
+#	$scr->at($height + 8, $left);
+#	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
+#	$scr->at($height + 9, $left);
+#	if ($ship->{shield} > 0){
+#        my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
+#        my $shieldPad   = $barWidth - $shieldWidth;
+#		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
+#		if ($shieldPercent > 1){ $shieldPercent = 1; }
+#		$scr->puts(sprintf('%-10s│%s│',
+#		int($ship->{shield}) . ' / ' . int($ship->{shieldHealth}),
+#		(getColor('ON_RGB' .
+#			0 . 
+#			(int(5 * $shieldPercent)) .
+#			5) . (" " x $shieldWidth) .
+#			getColor('RESET') . (" " x $shieldPad))
+#		));
+#	} else {
+#		$scr->puts( ' ' x 10 .'│' . ' ' x $barWidth . '│');
+#		$scr->at($height + 9, $left);
+#	}
+#	$scr->at($height + 10, $left);
+#	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
 
 	########## modules #############
     my $mHeight = $height + 3;
-	$scr->at($mHeight - 1, $width + 2);
-    $scr->puts('┌────────────────────┬───────────┐');
+    $self->putStr(
+        $mHeight - 1, $width + 2,
+        '┌────────────────────┬───────────┐'
+    );
+
 	foreach my $module ( sort $ship->getModules){
-	    $scr->at($mHeight, $width + 2);
         # TODO grey for you don't even have the module
 		my $color = getColor($module->getColor($ship));
-        $scr->puts(sprintf('│ ' . $color . '%-18s ' . getColor('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys())) );
+        $self->putStr(
+            $mHeight, $width + 2,
+            sprintf('│ ' . $color . '%-18s ' . getColor('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys()))
+        );
         $mHeight++;
 	}
-    $scr->at($mHeight, $width + 2);
-    $scr->puts('└────────────────────┴───────────┘');
+    $self->putStr(
+        $mHeight - 1, $width + 2,
+        '└────────────────────┴───────────┘'
+    );
 
 	######### chat or parts #########
 	if ($self->{mode} eq 'build'){ # parts
@@ -535,42 +583,53 @@ sub printInfo {
 			$self->{partOffset} = 0;
 		}
 
-		$scr->at(2, $width + 3);
-		$scr->puts(sprintf($sprintf,
-			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield'));
-		$scr->at(3, $width + 3);
-		$scr->puts('────┼───────┼────────┼────────┼────────┼───────┼───────┼───────');
+		$self->putStr(
+            2, $width + 3,
+            sprintf($sprintf,
+			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield')
+        );
+		$self->putStr(
+            3, $width + 3,
+            '────┼───────┼────────┼────────┼────────┼───────┼───────┼───────'
+        );
 		for my $line (4 .. $height){
-			$scr->at($line, $width + 3);
 			my $partLine = $self->{partsDisplay}->[$line - 3];
-			$scr->puts(sprintf('%-' . ($self->{chatWidth} - 4) . 's',
-				(defined($partLine) ? $partLine : "")
+			$self->putStr(
+                $line, $width + 3,
+                sprintf('%-' . ($self->{chatWidth} - 4) . 's',
+				    (defined($partLine) ? $partLine : "")
 				)
 			);
 		}
 	} else { # chat
 		for my $line (1 .. $height){
-			$scr->at($line, $width + 3);
-			$scr->puts(' ' x ($self->{chatWidth} - 4));
+			$self->putStr(
+                $line, $width + 3,
+                ' ' x ($self->{chatWidth} - 4)
+            );
 		}
 		my $lastMsg = $#{ $self->{msgs} } + 1 + $self->{chatOffset};
 		my $term = $lastMsg - $height - 4;
 		my $count = 2;
 		if ($term < 0){ $term = 0; }
 		while ($lastMsg > $term){
-			$scr->at($height - $count, $width + 4);
 			$count++;
 			$lastMsg--;
 			my $msgLine = $self->{msgs}->[$lastMsg];
 			if ($msgLine){
-				$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $msgLine));
+				$self->putStr(
+                    $height - $count, $width + 4,
+                    sprintf('%-' . $self->{chatWidth} . 's', $msgLine)
+                );
 			}
 		}
 		my $boxColor = getColor('ON_BLACK');
 		if ($self->{mode} eq 'type'){ $boxColor = getColor('ON_GREY4'); }
-		$scr->at($height, $width + 4);
-		$scr->puts(sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . getColor('reset')));
-		$scr->at($height, $width + 4 + length($self->{'msg'}) + 2);
+		$self->putStr(
+            $height, $width + 4,
+            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . getColor('reset'))
+        );
+        $self->putStr($height, $width + 4 + length($self->{'msg'}) + 2, getColor('ON_WHITE') . ' ');
 	}
 }
 
@@ -607,7 +666,8 @@ sub _drawBullets {
 		my $spotX = $bullet->{x} + $offy;
 		my $spotY = $bullet->{y} + $offx;
 		if ($spotX > 0 && $spotY > 0){
-			$self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
+            #$self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
+			$self->setMap($spotX, $spotY, $bullet->{chr});
 		}
 	}
 }
@@ -635,10 +695,10 @@ sub _drawItems {
 
 sub setHandlers {
 	my $self = shift;
-	$SIG{WINCH} = sub { $self->resize() };
+	$SIG{WINCH} = sub { $self->resizeScr() };
 }
 
-sub resize {
+sub resizeScr {
 	my $self = shift;
 	use Term::ReadKey;
 	my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
@@ -652,20 +712,30 @@ sub resize {
 
 sub printBorder {
 	my $self = shift;
-	my $scr = $self->{scr};
+
 	my $color = $self->borderColor();
 
-	$scr->at(0, 0);
-	$scr->puts($color . "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗");
-	$scr->at($self->{height} + 2, 0);
-	$scr->puts($color . "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝");
+	$self->putStr(
+        0, 0,
+        $color . "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗"
+    );
+	$self->putStr(
+        $self->{height} + 2, 0,
+        $color . "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝"
+    );
 	foreach my $i (1 .. $self->{height} + 1){
-		$scr->at($i, 0);
-		$scr->puts($color . "║");
-		$scr->at($i, $self->{width} + 2);
-		$scr->puts($color . "║");
-		$scr->at($i, $self->{width} + $self->{chatWidth});
-		$scr->puts($color . "║");
+		$self->putStr(
+            $i, 0,
+            $color . "║"
+        );
+		$self->putStr(
+            $i, $self->{width} + 2,
+            $color . "║"
+        );
+		$self->putStr(
+            $i, $self->{width} + $self->{chatWidth},
+		    $color . "║"
+        );
 	}
 }
 
@@ -714,9 +784,9 @@ sub _drawShips {
 				$bold = (($time - $part->{'lastShot'} < .3) ? getColor('bold') : '');
 			}
 			my $timeRainbow = int($time * 2);
-			my $rainbow = getColor("RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10)));
+			my $rainbow = "RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10));
 
-			my $partColor = ( $part->{'part'}->{'color'} ne 'ship' ?
+			my $partColor = getColor( $part->{'part'}->{'color'} ne 'ship' ?
 				( $part->{'part'}->{color} eq 'rainbow' ? $rainbow : $part->{'part'}->{color} )
 				: $ship->{color}
 			);
@@ -846,6 +916,7 @@ sub _sendKeystrokesToServer {
 				my $chr = $scr->getch();
 				if ($chr eq "\r"){
                     if ($self->{'msg'} eq '/exit'){
+                        endwin;
                         exit;
                     } else {
 					    print {$self->{socket}} "M:$self->{username}:$self->{'msg'}\n";
@@ -973,9 +1044,10 @@ sub _getMessagesFromServer {
 sub exitGame {
 	my $self = shift;
 	my $msg = shift;
-	$self->{scr}->clrscr();
-	$self->{scr}->at( $self->{height} / 2, $self->{width} / 2);
-	$self->{scr}->puts($msg);
+    $self->putStr(
+        $self->{height} / 2, $self->{width} / 2,
+        $msg
+    );
 	print "\r\n" . "\n" x ($self->{height} / 3);
 	exit;
 }
@@ -994,6 +1066,7 @@ sub getColor {
     #my $self = shift;
     #my $name = shift;
 	# Do not assign variables for performance
+    return '';
     if (!defined($colors{$_[0]})){
         $colors{$_[0]} = color($_[0]);
     }
