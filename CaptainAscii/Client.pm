@@ -1,6 +1,10 @@
 use strict; use warnings;
 package CaptainAscii::Client;
 
+BEGIN {
+	#$Curses::OldCurses = 1;
+	#$Curses::UI::utf8 = 1;
+}
 use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
 require Term::Screen;
 use List::MoreUtils qw(zip);
@@ -22,7 +26,10 @@ use constant {
 my %colors = ();
 my $starMapSize = 0;
 my @starMap;
+my @starMapStr;
 my @lighting;
+
+my $useCurses = 1;
 
 sub new {
 	my $class = shift;
@@ -106,9 +113,13 @@ sub _generateStarMap {
 
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
+		push @starMapStr, '';
 		foreach my $y (0 .. $size){
 			my $rand = rand();
-			if ($rand > 0.03){ next; }
+			if ($rand > 0.03){
+				$starMapStr[$x] .= ' ';
+				next;
+			}
 			my $starRand = rand();
 			my $chr = '.';
 			my $col = "";
@@ -127,6 +138,7 @@ sub _generateStarMap {
 				$col = getColor("GREY5");
 			}
 			$starMap[$x]->[$y] = $col . $chr;
+			$starMapStr[$x] .= $chr;
 		}
 	}
 }
@@ -283,13 +295,15 @@ sub loop {
 	my $fps = $self->{maxFps};
 
 	my $scr = new Term::Screen;
-#	$scr->clrscr();
-#	$scr->noecho();
+	$scr->clrscr();
+	$scr->noecho();
     #
-#	$self->{scr} = $scr;
+	$self->{scr} = $scr;
 
     $self->{win} = Curses->new();
-    initscr;
+    initscr();
+	start_color();
+	noecho();
 
 
 	my $lastPing = time();
@@ -361,6 +375,7 @@ sub printZoneScreen {
 }
 
 sub printScreen {
+	if($useCurses){ return 0; }
 	my $self = shift;
 	my $scr = shift;
 	my $map = $self->{map};
@@ -373,13 +388,22 @@ sub printScreen {
 			my $jZ = (int($_ * $self->{zoom}));
 			my $lighting = $lighting[$iZ]->[$jZ];
 			my $color = getColor('ON_GREY' . ($lighting <= 23 ? $lighting : 23 ));
-			$self->{debug} = "light: $lighting[3]->[2]";
-			$row .= (defined($map->[$iZ]->[$jZ]) ? $color . $map->[$iZ]->[$jZ] : $color . $self->getStar($i, $_));
+			if ($useCurses){
+				$self->putStr(
+					$i + 1, $_,
+					(defined($map->[$iZ]->[$jZ]) ? $map->[$iZ]->[$jZ] : $self->getStar($i, $_)),
+					$color
+				);
+			} else {
+				$row .= (defined($map->[$iZ]->[$jZ]) ? $color . $map->[$iZ]->[$jZ] : $color . $self->getStar($i, $_));
+			}
 		}
-		$self->putStr(
-            $i + 1, 1,
-            $row
-        );
+		if (!$useCurses){
+			$self->putStr(
+				$i + 1, 1,
+				$row
+			);
+		}
 	}
 }
 
@@ -387,9 +411,13 @@ sub getStar {
     #my $self = shift;
     #my ($x, $y) = @_;
 	# Do not assign variables for performance
-	return $starMap[
-		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize]->[
-		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize];
+#	return $starMap[
+#		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize]->[
+#		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize];
+	return substr($starMapStr[
+		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize],
+		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize,
+		1); 
 }
 
 sub printStatusBar {
@@ -421,12 +449,17 @@ sub printStatusBar {
 
 sub putStr {
     my $self = shift;
-    my ($col, $row, $str) = @_;
+    my ($col, $row, $str, $color, $colorBack) = @_;
 
-    #$self->{scr}->at($col, $row);
-    #$self->{scr}->puts($str);
+	if ($useCurses){
+		$self->{win}->addstr($col, $row, $str);
+	} else {
+		if (!defined($color)){ $color = 'WHITE'; }
+		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
+		$self->{scr}->at($col, $row);
+		$self->{scr}->puts(getColor($color) . getColor($colorBack) . $str);
+	}
 
-    $self->{win}->addstr($col, $row, $str);
 }
 
 sub printInfo {
@@ -447,12 +480,11 @@ sub printInfo {
 	#### ----- ship info ------ ####
     $self->putStr(
         $height + 2, $left, 
-	    getColor('reset') . sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
+	    sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
     );
 
 	$self->putStr(
         $height + 3, $left,
-        getColor('reset') . 
 		"fps: " . $self->{fps} . "  " . 
 		"id "   . $self->{ship}->{id} . "  " . 
 		"weight: " .  $ship->{weight} .
@@ -535,10 +567,11 @@ sub printInfo {
 
 	foreach my $module ( sort $ship->getModules){
         # TODO grey for you don't even have the module
-		my $color = getColor($module->getColor($ship));
+		my $color = $module->getColor($ship);
         $self->putStr(
             $mHeight, $width + 2,
-            sprintf('│ ' . $color . '%-18s ' . getColor('reset') . '│ %-9s │', $module->name(), join (',', $module->getKeys()))
+            sprintf('│ %-18s │ %-9s │', $module->name(), join (',', $module->getKeys())),
+			$color
         );
         $mHeight++;
 	}
@@ -623,13 +656,14 @@ sub printInfo {
                 );
 			}
 		}
-		my $boxColor = getColor('ON_BLACK');
-		if ($self->{mode} eq 'type'){ $boxColor = getColor('ON_GREY4'); }
+		my $boxColor = 'ON_BLACK';
+		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
 		$self->putStr(
             $height, $width + 4,
-            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3)) . getColor('reset'))
+            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
+			$boxColor
         );
-        $self->putStr($height, $width + 4 + length($self->{'msg'}) + 2, getColor('ON_WHITE') . ' ');
+        $self->putStr($height, $width + 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
 	}
 }
 
@@ -637,6 +671,28 @@ sub _resetMap {
 	my $self = shift;
 	my ($width, $height) = @_;
 	my @map = ();
+
+	if ($useCurses){
+		$self->{win}->erase();
+		my $offset = int($self->{ship}->{x}) % $starMapSize;
+		foreach my $x (0 .. $height){
+			my $length = $width;
+			if ($offset + $width > $starMapSize){
+				$length = $starMapSize - $offset;
+			}
+			$self->putStr($x, 1, substr($starMapStr[
+				int($x + $self->{ship}->{y}) % $starMapSize],
+				$offset,
+				$length)
+			); 
+			$self->putStr($x, 1, substr($starMapStr[
+				int($x + $self->{ship}->{y}) % $starMapSize],
+				$length,
+				$width - $length)
+			); 
+		}
+		return [];
+	}
 
 	foreach my $x (0 .. $height){
 		push @map, [(undef) x $width];
@@ -666,8 +722,7 @@ sub _drawBullets {
 		my $spotX = $bullet->{x} + $offy;
 		my $spotY = $bullet->{y} + $offx;
 		if ($spotX > 0 && $spotY > 0){
-            #$self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
-			$self->setMap($spotX, $spotY, $bullet->{chr});
+            $self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
 		}
 	}
 }
@@ -717,24 +772,29 @@ sub printBorder {
 
 	$self->putStr(
         0, 0,
-        $color . "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗"
+        "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗",
+		$color
     );
 	$self->putStr(
         $self->{height} + 2, 0,
-        $color . "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝"
+        "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝",
+		$color
     );
 	foreach my $i (1 .. $self->{height} + 1){
 		$self->putStr(
             $i, 0,
-            $color . "║"
+            "║",
+			$color
         );
 		$self->putStr(
             $i, $self->{width} + 2,
-            $color . "║"
+            "║",
+			$color
         );
 		$self->putStr(
             $i, $self->{width} + $self->{chatWidth},
-		    $color . "║"
+		    "║",
+			$color
         );
 	}
 }
@@ -742,11 +802,11 @@ sub printBorder {
 sub borderColor {
 	my $self = shift;
     if (time() - $self->{'ship'}->getStatus('lastHit') < 0.2){
-        return getColor('RED ON_BLACK');
+        return 'RED ON_BLACK';
     } elsif (time() - $self->{ship}->getStatus('lastShieldHit') < 0.2){
-        return getColor('BLUE ON_BLACK');
+        return 'BLUE ON_BLACK';
     } else {
-        return getColor('WHITE ON_BLACK');
+        return 'WHITE ON_BLACK';
     }
 }
 
@@ -778,18 +838,17 @@ sub _drawShips {
 			$self->setMapString($taunt, $tx, $ty);
 		}
 		foreach my $part ($ship->getParts()){
-			my $highlight = ((time() - $part->{'healing'} < .3 ) ? getColor('ON_RGB020') : ((time() - $part->{'hit'} < .3) ? getColor('ON_RGB222') : ''));
+			my $highlight = ((time() - $part->{'healing'} < .3 ) ? 'ON_RGB020' : ((time() - $part->{'hit'} < .3) ? 'ON_RGB222' : ''));
 			my $bold = '';
 			if (defined($part->{lastShot})){
-				$bold = (($time - $part->{'lastShot'} < .3) ? getColor('bold') : '');
+				$bold = (($time - $part->{'lastShot'} < .3) ? 'bold' : 'clear');
 			}
 			my $timeRainbow = int($time * 2);
 			my $rainbow = "RGB" . abs( 5 - ($timeRainbow % 10)) . abs( 5 - (($timeRainbow + 3) % 10)) . abs( 5 - (($timeRainbow + 6) % 10));
 
-			my $partColor = getColor( $part->{'part'}->{'color'} ne 'ship' ?
+			my $partColor = $part->{'part'}->{'color'} ne 'ship' ?
 				( $part->{'part'}->{color} eq 'rainbow' ? $rainbow : $part->{'part'}->{color} )
-				: $ship->{color}
-			);
+				: $ship->{color};
 
 			# TODO x and y switched
 			my $px = ($offy + int($ship->{y})) + $part->{'y'};
@@ -803,12 +862,12 @@ sub _drawShips {
 				# remove coloring TODO change to color + chr
 
 				if ($ship->{id} eq $self->{ship}->{id}){
-					$self->setMap($px, $py, $chr,  getColor('on_black GREY3'));
+					$self->setMap($px, $py, $chr, 'GREY3');
 				} else {
-					$self->setMap($px, $py, $chr, getColor('on_black GREY0'));
+					$self->setMap($px, $py, $chr, 'GREY0');
 				}
 			} else { 
-				$self->setMap($px, $py, $chr, $highlight . $bold . $partColor);
+				$self->setMap($px, $py, $chr, "$highlight $bold $partColor");
 			}
 			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
  #			if (($part->{part}->{type} eq 'laser')){
@@ -838,16 +897,16 @@ sub _drawShips {
 		my $px = ($offy + int($ship->{y})) + $aimx;
 		my $py = ($offx + int($ship->{x})) + $aimy;
 		if ($self->{ship}->{id} eq $ship->{id}){ # draw the aiming dot for yourself
-			$self->setMap($px, $py, getColor('GREEN') . "+");
+			$self->setMap($px, $py, '+','GREEN');
 		} elsif ($self->{ship}->{radar}){ # if your radar is active
 			($aimx, $aimy) = $self->{ship}->getRadar($ship);
 			$px = ($offy + int($self->{ship}->{y})) + $aimx;
 			$py = ($offx + int($self->{ship}->{x})) + $aimy;
 			if (!$ship->{cloaked}){
 				if ($ship->{isBot}){
-					$self->setMap($px, $py, getColor('red') . "+");
+					$self->setMap($px, $py, "+", 'RED');
 				} else {
-					$self->setMap($px, $py, getColor('BOLD BRIGHT_BLUE') . "+");
+					$self->setMap($px, $py, "+", 'BOLD BRIGHT_BLUE');
 				}
 			}
 		}
@@ -855,7 +914,7 @@ sub _drawShips {
 		#if (($self->{ship}->{id} eq $ship->{id})){
 			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
 			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
-			$self->setMap($cx, $cy, getColor("BLACK ON_WHITE") . '+');
+			$self->setMap($cx, $cy, '+', "BLACK", "ON_WHITE");
 		}
 	}
 }
@@ -867,7 +926,8 @@ sub _sendKeystrokesToServer {
 	# send keystrokes
 	if ($self->{mode} eq 'drive'){
 		while ($scr->key_pressed()){ 
-			my $chr = $scr->getch();
+			#my $chr = $scr->getch();
+			my $chr = getch();
 			if ($chr eq '`'){
 				$self->{'mode'} = 'build';
 				$self->{'cursorx'} = 0;
@@ -1066,7 +1126,6 @@ sub getColor {
     #my $self = shift;
     #my $name = shift;
 	# Do not assign variables for performance
-    return '';
     if (!defined($colors{$_[0]})){
         $colors{$_[0]} = color($_[0]);
     }
@@ -1074,14 +1133,17 @@ sub getColor {
 }
 
 sub setMap {
+	# $self->onMap($x, $y);
+	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
+	if ($useCurses){ putStr(@_); }
+
 	my $self = shift;
 	my ($x, $y, $chr, $color) = @_;
-	if (!defined($color)){ $color = getColor('reset') }
+	if (!defined($color)){ $color = 'reset' }
 	if (ref($chr) eq 'ARRAY'){
 		$chr = $self->sprite($chr);
 	}
-	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$self->{map}->[$x]->[$y] = $color . $chr . getColor('reset');
+	$self->{map}->[$x]->[$y] = getColor($color) . $chr . getColor('reset');
 }
 
 sub colorMap {

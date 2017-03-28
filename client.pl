@@ -3,6 +3,8 @@
 use strict; use warnings;
 use CaptainAscii::Client;
 
+#export LD_PRELOAD=/lib/x86_64-linux-gnu/libncursesw.so.5
+
 my $ship = shift;
 my $socket = '/tmp/captainAscii.sock';
 my $color = shift;
