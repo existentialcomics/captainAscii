@@ -1268,6 +1268,9 @@ sub addLighting {
     if ($lighting[$x]->[$y] < 22){
 	    $lighting[$x]->[$y] += $level;
     }
+	if ($useCurses){
+		$self->putStr($x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
+	}
 }
 
 sub onMap {
