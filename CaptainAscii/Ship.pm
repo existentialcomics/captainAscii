@@ -119,8 +119,6 @@ sub _init {
 	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white RGB113);
 	$self->{allowedColors} = \@allowedColors;
 
-	#$self->{color} = color((defined($options->{color}) ? $options->{color} : 'RGB113'));
-	#$self->{colorDef} = ((defined($options->{color}) ? $options->{color} : 'RGB113'));
 	$self->setStatus('color', (defined($options->{color}) ? $options->{color} : 'RGB113'));
 
 	$self->{cash} = 0;
@@ -475,18 +473,9 @@ sub becomeAi {
 	$self->setAiColor();
 }
 
-sub _setColor {
-	my $self = shift;
-	my $color = shift;
-	if (!$self->isValidColor($color)){ return 0; }
-	$self->{'colorDef'} = $color;
-	$self->{'color'} = $color;
-	return 1;
-}
-
 sub getColorName {
 	my $self = shift;
-	return $self->{colorDef};
+	return $self->{color};
 }
 
 sub isValidColor{
@@ -1136,11 +1125,6 @@ sub setStatus {
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
-	} elsif($status eq 'color' || $status eq 'colorDef'){
-		if ($self->_setColor($value)){
-			$self->{'statusChange'}->{$status} = $value;
-		}
-		return 1; # do not let default change {color}, which is color($color)
 	} elsif($status eq 'm_active'){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $value->{name}){

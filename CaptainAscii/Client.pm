@@ -30,8 +30,10 @@ my @starMapStr;
 my @lighting;
 
 my $useCurses = 1;
+my $cursesColorCount = 1;
 
 my %colorCodes = (
+    BOLD    => 1,
     BLACK   => 0,
     RED     => 1,
     GREEN   => 2,
@@ -187,16 +189,16 @@ sub _generateStarMap {
 			if ($starRand < 0.02){
 				$chr = '*';
 				if ($starRand < 0.1){
-					$col = getColor("YELLOW");
+					$col = getColor("YELLOW", 'ON_BLACK');
 				}
 			} elsif ($starRand < 0.5){
-				$col = getColor("GREY" . int(rand(22)));
+				$col = getColor("GREY" . int(rand(22)), 'ON_BLACK');
 			} elsif ($starRand < 0.10){
-				$col = getColor("YELLOW");
+				$col = getColor("YELLOW", 'ON_BLACK');
 			} elsif ($starRand < 0.30){
-				$col = getColor("GREY2");
+				$col = getColor("GREY2", 'ON_BLACK');
 			} else {
-				$col = getColor("GREY5");
+				$col = getColor("GREY5", 'ON_BLACK');
 			}
 			$starMap[$x]->[$y] = $col . $chr;
 			$starMapStr[$x] .= $chr;
@@ -246,7 +248,7 @@ sub designShip {
 			my $rowPrint = join "", @{$row};
 			$self->putStr(
                 $px, 0,
-                getColor('ON_GREY3') . $rowPrint
+                getColor('WHITE', 'ON_GREY3') . $rowPrint . getColor('WHITE', 'ON_BLACK')
             );
 		}
 		my $chr = undef;
@@ -361,9 +363,11 @@ sub loop {
     #
 	$self->{scr} = $scr;
 
-    $self->{win} = Curses->new();
     initscr();
+    curs_set(0);
 	start_color();
+    #init_pair(1, 100, 7);
+    #attrset(COLOR_PAIR(1));
 	noecho();
 
 
@@ -371,6 +375,8 @@ sub loop {
 
 	$self->setHandlers();
 	$self->printBorder();
+
+	$self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 
 	my $playing = 1;
 	while ($playing){
@@ -415,7 +421,8 @@ sub loop {
 			$self->printScreen($scr);
 		}
 		$self->printInfo();
-        $self->{win}->refresh;
+        refresh;
+	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
 }
 
@@ -448,7 +455,7 @@ sub printScreen {
 		foreach (0 .. $self->{width}){
 			my $jZ = (int($_ * $self->{zoom}));
 			my $lighting = $lighting[$iZ]->[$jZ];
-			my $color = getColor('ON_GREY' . ($lighting <= 23 ? $lighting : 23 ));
+			my $color = getColor('', 'ON_GREY' . ($lighting <= 23 ? $lighting : 23 ));
 			if ($useCurses){
 				$self->putStr(
 					$i + 1, $_,
@@ -509,18 +516,28 @@ sub printStatusBar {
 }
 
 sub putStr {
+	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     my $self = shift;
-    my ($col, $row, $str, $color, $colorBack) = @_;
+    my ($col, $row, $str, $color, $backColor) = @_;
 
 	if ($useCurses){
-		$self->{win}->addstr($col, $row, $str);
+        if (defined($color)){
+            setCursesColor($color, $backColor);
+        }
+		addstr($col, $row, $str);
+        attrset(A_NORMAL);
 	} else {
+        my $colorBack = undef;
 		if (!defined($color)){ $color = 'WHITE'; }
 		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
 		$self->{scr}->at($col, $row);
-		$self->{scr}->puts(getColor($color) . getColor($colorBack) . $str);
+		$self->{scr}->puts(getColor($color, $colorBack) . $str);
 	}
+}
 
+sub putMapStr {
+	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
+    putStr(@_);
 }
 
 sub printInfo {
@@ -661,7 +678,7 @@ sub printInfo {
 					next if ($part->{show} eq 'no');
 				}
 				push(@{ $self->{partsDisplay} },
-					($ship->hasSparePart($ref) > 0 ? getColor('white') : getColor('grey10')) .
+					($ship->hasSparePart($ref) > 0 ? getColor('WHITE', '') : getColor('GREY10', '')) .
 					sprintf($sprintf,
 						$ref,
 						'x' . $ship->hasSparePart($ref),
@@ -671,7 +688,7 @@ sub printInfo {
 						(defined($part->{damage}) ? $part->{damage} : ''),
 						(defined($part->{rate}) ? $part->{rate} : ''),
 						(defined($part->{shield}) ? $part->{shield} : ''),
-					) . getColor('reset')
+					) . getColor('WHITE', 'ON_BLACK')
 				);
 			}
 			$self->{partOffset} = 0;
@@ -734,11 +751,11 @@ sub _resetMap {
 	my @map = ();
 
 	if ($useCurses){
-		$self->{win}->erase();
+		erase();
 		my $offset = int($self->{ship}->{x}) % $starMapSize;
 		foreach my $x (0 .. $height){
 			my $length = $width;
-			if ($offset + $width > $starMapSize){
+			if ($offset + $length > $starMapSize){
 				$length = $starMapSize - $offset;
 			}
 			$self->putStr($x, 1, substr($starMapStr[
@@ -746,11 +763,13 @@ sub _resetMap {
 				$offset,
 				$length)
 			); 
-			$self->putStr($x, 1, substr($starMapStr[
-				int($x + $self->{ship}->{y}) % $starMapSize],
-				$length,
-				$width - $length)
-			); 
+            if ($length != $width){
+			    $self->putStr($x, $length, substr($starMapStr[
+				    int($x + $self->{ship}->{y}) % $starMapSize],
+				    0,
+				    $width - $length)
+			    ); 
+            }
 		}
 		return [];
 	}
@@ -765,6 +784,15 @@ sub _resetMap {
 	}
 
 	return \@map;
+}
+
+sub _resetLighting {
+	my $self = shift;
+	my ($width, $height) = @_;
+	@lighting = ();
+	foreach my $x (0 .. $height + 1){
+		push @lighting, [(0) x ($width + 1)];
+	}
 }
 
 sub _drawBullets {
@@ -872,6 +900,8 @@ sub borderColor {
 }
 
 sub setMapString {
+    # TODO enable
+    return 0;
 	my $self = shift;
 	my ($string, $x, $y, $color) = @_;
 	my @ar = split("", $string);
@@ -928,7 +958,8 @@ sub _drawShips {
 					$self->setMap($px, $py, $chr, 'GREY0');
 				}
 			} else { 
-				$self->setMap($px, $py, $chr, "$highlight $bold $partColor");
+                # TODO highlight adds to lighting
+                $self->setMap($px, $py, $chr, $partColor);
 			}
 			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
  #			if (($part->{part}->{type} eq 'laser')){
@@ -965,9 +996,9 @@ sub _drawShips {
 			$py = ($offx + int($self->{ship}->{x})) + $aimy;
 			if (!$ship->{cloaked}){
 				if ($ship->{isBot}){
-					$self->setMap($px, $py, "+", 'RED');
+					$self->setMap($px, $py, "+", 'RED ON_BLACK');
 				} else {
-					$self->setMap($px, $py, "+", 'BOLD BRIGHT_BLUE');
+					$self->setMap($px, $py, "+", 'BRIGHT_BLUE ON_BLACK');
 				}
 			}
 		}
@@ -975,7 +1006,7 @@ sub _drawShips {
 		#if (($self->{ship}->{id} eq $ship->{id})){
 			my $cx = ($offy + int($ship->{y})) + $self->{'cursorx'};
 			my $cy = ($offx + int($ship->{x})) + $self->{'cursory'};
-			$self->setMap($cx, $cy, '+', "BLACK", "ON_WHITE");
+			$self->setMap($cx, $cy, '+', "BLACK ON_WHITE");
 		}
 	}
 }
@@ -1146,9 +1177,9 @@ sub _getMessagesFromServer {
 			$self->{debug} = "wrapped: $#wrappedMsgs";
 			foreach my $msgString (@wrappedMsgs){
 			if (defined($data->{'color'})){
-				$msgString = getColor($data->{'color'}) . $msgString;
+				$msgString = getColor($data->{'color'}, '') . $msgString;
 			}
-			$msgString .= getColor('reset');
+			$msgString .= getColor('WHITE', 'ON_BLACK');
 			push @{ $self->{msgs} }, $msgString;
 			}
         } elsif ($msg->{c} eq 'sparepart'){
@@ -1183,15 +1214,25 @@ sub _bindSocket {
 	$self->{socket} = $socket;
 }
 
+sub setCursesColor {
+	# Do not assign variables for performance
+
+    my $colorId = $cursesColors{$_[0]}->{$_[1]};
+    if (!defined($colorId)){
+        $colorId = $cursesColorCount++;
+        init_pair($colorId, $colorCodes{$_[0]}, $colorCodes{$_[1]});
+        $cursesColors{$_[0]}->{$_[1]} = $colorId;
+    }
+    attrset(COLOR_PAIR($colorId));
+    return undef;
+
+}
+
 sub getColor {
-    #my $self = shift;
     #my ($foreground, $background) = @_;
 	# Do not assign variables for performance
     if (!defined($colors{$_[0]})){
         $colors{$_[0]} = color($_[0]);
-        my $colorId = $_[0]->{cursesColorCount}++;
-        init_pair($colorId, $colorCodes{$_[1]}, $colorCodes{$_[1]});
-        $cursesColors{$_[0].$_[1]} = $colorId;
     }
     return $colors{$_[0]};
 }
@@ -1199,7 +1240,8 @@ sub getColor {
 sub setMap {
 	# $self->onMap($x, $y);
 	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
-	if ($useCurses){ putStr(@_); }
+    my $lighting = 'ON_GREY' . $lighting[$_[1]]->[$_[2]];
+	if ($useCurses){ putStr(@_, $lighting); }
 
 	my $self = shift;
 	my ($x, $y, $chr, $color) = @_;
@@ -1207,7 +1249,7 @@ sub setMap {
 	if (ref($chr) eq 'ARRAY'){
 		$chr = $self->sprite($chr);
 	}
-	$self->{map}->[$x]->[$y] = getColor($color) . $chr . getColor('reset');
+	$self->{map}->[$x]->[$y] = getColor($color) . $chr;
 }
 
 sub colorMap {
@@ -1223,7 +1265,9 @@ sub addLighting {
 	my $self = shift;
 	my ($x, $y, $level) = @_;
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-	$lighting[$x]->[$y] += $level;
+    if ($lighting[$x]->[$y] < 22){
+	    $lighting[$x]->[$y] += $level;
+    }
 }
 
 sub onMap {
