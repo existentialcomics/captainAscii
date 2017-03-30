@@ -113,26 +113,34 @@ sub _init {
 	my $socket = shift;
 	my $color = shift;
 
-    ### curses init
-    initscr();
-    curs_set(0);
-	start_color();
-    #init_pair(1, 100, 7);
-    #attrset(COLOR_PAIR(1));
-	noecho();
-    $self->{win} = newwin($self->{height}, $self->{width}, 1, 1);
-    $self->{lightwin} = newwin($self->{height}, $self->{width}, 1, 1);
-
-	$self->_generateStarMap();
-
 	$self->{msg} = '';
 	$self->{msgs} = ();
 	$self->{chatWidth} = 80;
 	$self->{chatOffset} = 0;
 
 	$self->{zoom} = 1;
-
 	$self->resizeScr();
+
+    ### curses init
+    initscr();
+    curs_set(0);
+	start_color();
+    #init_pair(1, 100, 7);
+    attrset(COLOR_PAIR(0));
+	noecho();
+    $self->{win} = newwin($self->{height}, $self->{width}, 1, 1);
+	$self->{win}->bkgdset(' ');
+    $self->{lightwin} = newwin($self->{height}, $self->{width}, 1, 1);
+	$self->{lightwin}->bkgdset(' ');
+
+    $self->{erasewin} = newwin($self->{height}, $self->{width}, 1, 1);
+	foreach my $c (0 .. $self->{height}){
+		foreach my $r (0 .. $self->{width}){
+			$self->{erasewin}->addstr($c, $r, 'x');
+		}
+	}
+
+	$self->_generateStarMap();
 
 	$self->{lastFrame} = time();
 	$self->{lastInfoPrint} = time();
@@ -190,6 +198,7 @@ sub _generateStarMap {
 		foreach my $y (0 .. $size){
 			my $rand = rand();
 			if ($rand > 0.03){
+				putCursesChr($self->{starMapCursesPad}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
 				$starMapStr[$x] .= ' ';
                 next;
 			}
@@ -425,10 +434,37 @@ sub loop {
 		}
 		$self->printInfo();
         #$self->{starMapCursesPad}->prefresh(0, 0, 1, 1, 30, 30);
-        $self->{starMapCursesPad}->prefresh(0, 0, 1, 1, $self->{height}, $self->{width});
+        #$self->{starMapCursesPad}->touchwin();
+        $self->{starMapCursesPad}->pnoutrefresh($self->{ship}->{y} % 100, $self->{ship}->{x} % 100, 1, 1, $self->{height}, $self->{width} + 10);
+        #$self->{starMapCursesPad}->touchwin();
+        #$self->{starMapCursesPad}->pnoutrefresh(0, 0, 1, 1, $self->{height}, $self->{width});
         #$self->{starMapCursesPad}->refresh();
+        #$self->{lightwin}->touchwin();
+		
+        $self->{erasewin}->touchwin();
+        $self->{erasewin}->noutrefresh();
+        copywin(
+            $self->{erasewin},
+            $self->{win},
+            10,
+            10,
+            0,
+            0,
+            100,
+            100,
+            0
+        );
         #$self->{lightwin}->noutrefresh;
-        #$self->{win}->refresh;
+        #$self->{win}->touchwin();
+        $self->{win}->noutrefresh;
+		doupdate();
+		#$self->{win}->erase;
+		attrset(COLOR_PAIR(0));
+#		overwrite(
+#            $self->{erasewin},
+#            $self->{win}
+#		);
+       # $self->{win}->refresh;
 	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
 }
