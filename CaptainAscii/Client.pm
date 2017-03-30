@@ -2,7 +2,7 @@ use strict; use warnings;
 package CaptainAscii::Client;
 
 BEGIN {
-	#$Curses::OldCurses = 1;
+	$Curses::OldCurses = 1;
 	#$Curses::UI::utf8 = 1;
 }
 use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
@@ -113,6 +113,16 @@ sub _init {
 	my $socket = shift;
 	my $color = shift;
 
+    ### curses init
+    initscr();
+    curs_set(0);
+	start_color();
+    #init_pair(1, 100, 7);
+    #attrset(COLOR_PAIR(1));
+	noecho();
+    $self->{win} = newwin($self->{height}, $self->{width}, 1, 1);
+    $self->{lightwin} = newwin($self->{height}, $self->{width}, 1, 1);
+
 	$self->_generateStarMap();
 
 	$self->{msg} = '';
@@ -173,7 +183,7 @@ sub _generateStarMap {
 	if (!defined($size)){ $size = 1000; }
 
 	$starMapSize = $size;
-
+    $self->{starMapCursesPad} = newpad($size, $size);
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
 		push @starMapStr, '';
@@ -181,27 +191,29 @@ sub _generateStarMap {
 			my $rand = rand();
 			if ($rand > 0.03){
 				$starMapStr[$x] .= ' ';
-				next;
+                next;
 			}
 			my $starRand = rand();
 			my $chr = '.';
 			my $col = "";
+            my $fore = 'GREY4';
+            my $back = 'ON_BLACK';
 			if ($starRand < 0.02){
 				$chr = '*';
 				if ($starRand < 0.1){
-					$col = getColor("YELLOW", 'ON_BLACK');
+                    $fore = 'YELLOW';
 				}
 			} elsif ($starRand < 0.5){
-				$col = getColor("GREY" . int(rand(22)), 'ON_BLACK');
+				$fore = "GREY" . int(rand(22));
 			} elsif ($starRand < 0.10){
-				$col = getColor("YELLOW", 'ON_BLACK');
+                $fore = 'YELLOW';
 			} elsif ($starRand < 0.30){
-				$col = getColor("GREY2", 'ON_BLACK');
-			} else {
-				$col = getColor("GREY5", 'ON_BLACK');
+                $fore = 'GREY2';
 			}
+            $col = getColor($fore, $back);
 			$starMap[$x]->[$y] = $col . $chr;
 			$starMapStr[$x] .= $chr;
+            putCursesChr($self->{starMapCursesPad}, $x, $y, $chr, $fore, $back);
 		}
 	}
 }
@@ -362,15 +374,6 @@ sub loop {
 	$scr->noecho();
     #
 	$self->{scr} = $scr;
-
-    initscr();
-    curs_set(0);
-	start_color();
-    #init_pair(1, 100, 7);
-    #attrset(COLOR_PAIR(1));
-	noecho();
-
-
 	my $lastPing = time();
 
 	$self->setHandlers();
@@ -421,7 +424,11 @@ sub loop {
 			$self->printScreen($scr);
 		}
 		$self->printInfo();
-        refresh;
+        #$self->{starMapCursesPad}->prefresh(0, 0, 1, 1, 30, 30);
+        $self->{starMapCursesPad}->prefresh(0, 0, 1, 1, $self->{height}, $self->{width});
+        #$self->{starMapCursesPad}->refresh();
+        #$self->{lightwin}->noutrefresh;
+        #$self->{win}->refresh;
 	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
 }
@@ -518,21 +525,31 @@ sub printStatusBar {
 sub putStr {
 	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     my $self = shift;
-    my ($col, $row, $str, $color, $backColor) = @_;
 
 	if ($useCurses){
-        if (defined($color)){
-            setCursesColor($color, $backColor);
-        }
-		addstr($col, $row, $str);
-        attrset(A_NORMAL);
+        putCursesChr($self->{win}, @_);
 	} else {
+        my $self = shift;
+        my ($col, $row, $str, $color, $backColor) = @_;
         my $colorBack = undef;
 		if (!defined($color)){ $color = 'WHITE'; }
 		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
 		$self->{scr}->at($col, $row);
 		$self->{scr}->puts(getColor($color, $colorBack) . $str);
 	}
+}
+
+sub putInfoStr {
+
+}
+
+sub putCursesChr {
+    my ($window, $col, $row, $str, $color, $backColor) = @_;
+    if (defined($color)){
+        setCursesColor($window, $color, $backColor);
+    }
+    $window->addstr($col, $row, $str);
+    $window->attrset(A_NORMAL);
 }
 
 sub putMapStr {
@@ -560,6 +577,8 @@ sub printInfo {
         $height + 2, $left, 
 	    sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
     );
+
+    $self->putStr(1, 1, "fps: $self->{fps}", 'GREEN', "ON_BLACK");
 
 	$self->putStr(
         $height + 3, $left,
@@ -751,36 +770,55 @@ sub _resetMap {
 	my @map = ();
 
 	if ($useCurses){
-		erase();
-		my $offset = int($self->{ship}->{x}) % $starMapSize;
-		foreach my $x (0 .. $height){
-			my $length = $width;
-			if ($offset + $length > $starMapSize){
-				$length = $starMapSize - $offset;
-			}
-			$self->putStr($x, 1, substr($starMapStr[
-				int($x + $self->{ship}->{y}) % $starMapSize],
-				$offset,
-				$length)
-			); 
-            if ($length != $width){
-			    $self->putStr($x, $length, substr($starMapStr[
-				    int($x + $self->{ship}->{y}) % $starMapSize],
-				    0,
-				    $width - $length)
-			    ); 
-            }
-		}
+        # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
+        #copywin($self->{starMapCursesPad}, $self->{win}, $self->{ship}->{x} % 400, $self->{ship}->{y} % 400, 0, 0, $self->{width}, $self->{height}, 0);
+        #werase($self->{win});
+        #$self->{win}->erase();
+#        copywin(
+#            $self->{starMapCursesPad},
+#            $self->{win},
+#            10,
+#            10,
+#            0,
+#            0,
+#            100,
+#            100,
+#            0
+#        );
+#        $self->{starMapCursesPad}->prefresh(
+#            10,
+#            10,
+#            0,
+#            0,
+#            100,
+#            100,
+#        );
+
+
+#		my $offset = int($self->{ship}->{x}) % $starMapSize;
+#		foreach my $x (0 .. $height){
+#			my $length = $width;
+#			if ($offset + $length > $starMapSize){
+#				$length = $starMapSize - $offset;
+#			}
+#			$self->putStr($x, 1, substr($starMapStr[
+#				int($x + $self->{ship}->{y}) % $starMapSize],
+#				$offset,
+#				$length)
+#			); 
+#            if ($length != $width){
+#			    $self->putStr($x, $length, substr($starMapStr[
+#				    int($x + $self->{ship}->{y}) % $starMapSize],
+#				    0,
+#				    $width - $length)
+#			    ); 
+#            }
+#		}
 		return [];
 	}
 
 	foreach my $x (0 .. $height){
 		push @map, [(undef) x $width];
-	}
-
-	@lighting = ();
-	foreach my $x (0 .. $height + 1){
-		push @lighting, [(0) x ($width + 1)];
 	}
 
 	return \@map;
@@ -1216,16 +1254,15 @@ sub _bindSocket {
 
 sub setCursesColor {
 	# Do not assign variables for performance
-
-    my $colorId = $cursesColors{$_[0]}->{$_[1]};
+    #my ($window, $foregroundColor, $backgroundColor) = @_;
+    my $colorId = $cursesColors{$_[1]}->{$_[2]};
     if (!defined($colorId)){
         $colorId = $cursesColorCount++;
-        init_pair($colorId, $colorCodes{$_[0]}, $colorCodes{$_[1]});
-        $cursesColors{$_[0]}->{$_[1]} = $colorId;
+        init_pair($colorId, $colorCodes{$_[1]}, $colorCodes{$_[2]});
+        $cursesColors{$_[1]}->{$_[2]} = $colorId;
     }
-    attrset(COLOR_PAIR($colorId));
+    $_[0]->attrset(COLOR_PAIR($colorId));
     return undef;
-
 }
 
 sub getColor {
@@ -1269,7 +1306,7 @@ sub addLighting {
 	    $lighting[$x]->[$y] += $level;
     }
 	if ($useCurses){
-		$self->putStr($x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
+        putCursesChr($self->{lightwin}, $x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
 	}
 }
 
