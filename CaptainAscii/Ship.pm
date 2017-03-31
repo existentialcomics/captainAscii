@@ -408,7 +408,7 @@ sub calculateDrops {
     if (rand() < 0.3){
 		my $cash = int($self->{cash} * rand());
 		if ($cash == 0){ $cash = int(rand(20) + 3)};
-		print "cash : $cash, $self->{cash}\n";
+		#print "cash : $cash, $self->{cash}\n";
         push @drops, {
             cash => $cash,
             'chr'  => '$',
@@ -987,7 +987,6 @@ sub removePartLocation {
 	my ($x, $y, $preserve) = @_;
 	my $id = $self->getPartIdByLocation($x, $y);
 	if (!defined($id)){ return 0; }
-	print "Remove part id $id\n";
 	$self->_removePart($id, $preserve);
 }
 

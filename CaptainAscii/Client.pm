@@ -127,8 +127,10 @@ sub _init {
 	start_color();
     attrset(COLOR_PAIR(0));
 	noecho();
-    $self->{_curses_info}      = newwin($self->{height}, 0, 10, 40);
-    $self->{_curses_info}->border('.', '.', '.', '.', 'v', '^', '<', '>');
+    #my $res = $self->{_curses_info}      = newwin($self->{height}, 0, 10, 40);
+	# *newwin(int nlines, int ncols, int begin_y, int begin_x);
+    my $resI= $self->{_curses_info} = newwin($self->{termHeight} - $self->{height} - 1, $self->{termWidth} -1 , $self->{height}, 0);
+    my $resS = $self->{_curses_side} = newwin($self->{height}, $self->{termWidth} - $self->{width} , 0, $self->{width});
 
 	$self->_generateStarMap();
 
@@ -153,7 +155,6 @@ sub _init {
 
 	# TODO don't send the ship until it successfully loads locally
 	while(my $line = <$fh>){
-		print $line;
 		$shipStr .= $line;
 	}
 	close ($fh);
@@ -180,9 +181,9 @@ sub _generateStarMap {
 	my $size = shift;
 	if (!defined($size)){ $size = 500; }
 
-    $self->{starMapSize} = $size;
 	$starMapSize = $size;
-    $self->{_curses_map}      = newpad($size * 2, $size * 2);
+    #$self->{_curses_map}      = newpad($self->{height}, $self->{width});
+    $self->{_curses_map} = newpad($size * 2, $size * 2);
     $self->{_curses_mapBlank} = newpad($size * 2, $size * 2);
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
@@ -217,7 +218,10 @@ sub _generateStarMap {
             $col = getColor($fore, $back);
 			$starMap[$x]->[$y] = $col . $chr;
 			$starMapStr[$x] .= $chr;
-            putCursesChr($self->{_curses_mapBlank}, $x, $y, $chr, $fore, $back);
+			putCursesChr($self->{_curses_mapBlank}, $x, $y, $chr, $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlank}, $x + $size, $y + $size, $chr, $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlank}, $x, $y + $size, $chr, $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlank}, $x + $size, $y, $chr, $fore, 'ON_BLACK');
 		}
 	}
 }
@@ -328,7 +332,6 @@ sub _loadShip {
 	print {$self->{socket}} "OPTION:name=" . getpwuid( $< ) . "\n";
 	print {$self->{socket}} "DONE\n";
 	select STDOUT;
-	print "loaded\n";
 	$self->{ship} = CaptainAscii::Ship->new($shipStr, 5, 5, 'self', {color => $color});
 	$self->_addShip($self->{ship});
 	
@@ -432,21 +435,26 @@ sub loop {
 			$self->printScreen($scr);
 		}
 		$self->printInfo();
+		$self->printSide();
 	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
 }
 
 sub printCursesScreen {
     my $self = shift;
-    $self->{_curses_map}->prefresh($self->{ship}->{y}, $self->{ship}->{x}, 1, 1, $self->{height}, $self->{width});
+    #$self->{_curses_map}->prefresh($self->{ship}->{y}, $self->{ship}->{x}, 1, 1, $self->{height}, $self->{width});
+    $self->{_curses_map}->prefresh(0, 0, 0, 0, $self->{height}, $self->{width});
+    $self->{_curses_info}->refresh();
+    $self->{_curses_side}->refresh();
     #doupdate();
     # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
     my $r = copywin(
         $self->{_curses_mapBlank},
         $self->{_curses_map},
         #$self->{_curses_mapBlank},
-        $self->{ship}->{y} % $self->{starMapSize},
-        $self->{ship}->{x} % $self->{starMapSize},
+        $self->{ship}->{y} % $starMapSize,
+        $self->{ship}->{x} % $starMapSize,
+		#0,0,
         0,
         0,
         $self->{height},
@@ -508,9 +516,6 @@ sub getStar {
     #my $self = shift;
     #my ($x, $y) = @_;
 	# Do not assign variables for performance
-#	return $starMap[
-#		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize]->[
-#		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize];
 	return substr($starMapStr[
 		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize],
 		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize,
@@ -551,7 +556,6 @@ sub putStr {
 	if ($useCurses){
         putCursesChr($self->{_curses_map}, @_);
 	} else {
-        my $self = shift;
         my ($col, $row, $str, $color, $backColor) = @_;
         my $colorBack = undef;
 		if (!defined($color)){ $color = 'WHITE'; }
@@ -568,7 +572,6 @@ sub putInfoStr {
 	if ($useCurses){
         putCursesChr($self->{_curses_info}, $col, $row, $str, $color, $backColor);
 	} else {
-        my $self = shift;
         my $colorBack = undef;
 		if (!defined($color)){ $color = 'WHITE'; }
 		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
@@ -576,7 +579,22 @@ sub putInfoStr {
 		$self->{scr}->at($col, $row);
 		$self->{scr}->puts(getColor($color, $colorBack) . $str);
 	}
+}
 
+sub putSideStr {
+    my $self = shift;
+    my ($col, $row, $str, $color, $backColor) = @_;
+
+	if ($useCurses){
+        putCursesChr($self->{_curses_side}, $col, $row, $str, $color, $backColor);
+	} else {
+        my $colorBack = undef;
+		if (!defined($color)){ $color = 'WHITE'; }
+		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
+        $col += $self->{height};
+		$self->{scr}->at($col, $row);
+		$self->{scr}->puts(getColor($color, $colorBack) . $str);
+	}
 }
 
 sub putCursesChr {
@@ -591,6 +609,102 @@ sub putCursesChr {
 sub putMapStr {
 	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     putStr(@_);
+}
+
+######### chat or parts #########
+sub printSide {
+	my $self = shift;
+	my $options = shift;
+
+	my $ship = $self->{ship};
+	#my $height = (defined($options->{height}) ? $options->{height} : $self->{height} + 1);
+	my $height = $self->{height} + 1;
+
+	if ($self->{mode} eq 'build'){ # parts
+		my $sprintf = '%3s │ %5s │ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
+		if (!defined($self->{partsDisplay})){
+			my %parts = %{ $ship->getAllPartDefs() };
+			$self->{partsDisplay} = [];
+			foreach my $ref (
+            sort {
+                defined($parts{$a}->{damage}) <=> defined($parts{$b}->{damage}) ||
+                defined($parts{$a}->{thrust}) <=> defined($parts{$b}->{thrust}) ||
+                defined($parts{$a}->{power})  <=> defined($parts{$b}->{power}) ||
+                defined($parts{$a}->{shield}) <=> defined($parts{$b}->{shield}) ||
+                $parts{$a}->{cost} <=> $parts{$b}->{cost}
+            }
+            keys %parts){
+				my $part = $parts{$ref};
+				if (defined($part->{show})){
+					next if ($part->{show} eq 'no');
+				}
+				push(@{ $self->{partsDisplay} },
+					($ship->hasSparePart($ref) > 0 ? getColor('WHITE', '') : getColor('GREY10', '')) .
+					sprintf($sprintf,
+						$ref,
+						'x' . $ship->hasSparePart($ref),
+						'$' . $part->{cost},
+						(defined($part->{thrust}) ? $part->{thrust} : ''),
+						(defined($part->{power}) ? $part->{power} : ''),
+						(defined($part->{damage}) ? $part->{damage} : ''),
+						(defined($part->{rate}) ? $part->{rate} : ''),
+						(defined($part->{shield}) ? $part->{shield} : ''),
+					) . getColor('WHITE', 'ON_BLACK')
+				);
+			}
+			$self->{partOffset} = 0;
+		}
+
+		$self->putSideStr(
+            2, 3,
+            sprintf($sprintf,
+			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield')
+        );
+		$self->putSideStr(
+            3, 3,
+            '────┼───────┼────────┼────────┼────────┼───────┼───────┼───────'
+        );
+		for my $line (4 .. $height){
+			my $partLine = $self->{partsDisplay}->[$line - 3];
+			$self->putSideStr(
+                $line, 3,
+                sprintf('%-' . ($self->{chatWidth} - 4) . 's',
+				    (defined($partLine) ? $partLine : "")
+				)
+			);
+		}
+	} else { # chat
+		for my $line (1 .. $height){
+			$self->putSideStr(
+                $line, 3,
+                ' ' x ($self->{chatWidth} - 4)
+            );
+		}
+		my $lastMsg = $#{ $self->{msgs} } + 1 + $self->{chatOffset};
+		my $term = $lastMsg - $height - 4;
+		my $count = 2;
+		if ($term < 0){ $term = 0; }
+		while ($lastMsg > $term){
+			$count++;
+			$lastMsg--;
+			my $msgLine = $self->{msgs}->[$lastMsg];
+			if ($msgLine){
+				$self->putSideStr(
+                    $height - $count, 4,
+                    sprintf('%-' . $self->{chatWidth} . 's', $msgLine)
+                );
+			}
+		}
+		my $boxColor = 'ON_BLACK';
+		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
+		$self->putSideStr(
+            $height, 4,
+            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
+			$boxColor
+        );
+        $self->putSideStr($height, 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
+	}
+
 }
 
 sub printInfo {
@@ -610,7 +724,7 @@ sub printInfo {
 
 	#### ----- ship info ------ ####
     $self->putInfoStr(
-        $height + 2, $left, 
+        2, 1, 
 	    sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
     );
 
@@ -714,93 +828,6 @@ sub printInfo {
     );
 
     return 0; 
-    #### chat box seperate
-
-	######### chat or parts #########
-	if ($self->{mode} eq 'build'){ # parts
-		my $sprintf = '%3s │ %5s │ %6s │ %6s │ %6s │ %5s │ %5s │ %5s';
-		if (!defined($self->{partsDisplay})){
-			my %parts = %{ $ship->getAllPartDefs() };
-			$self->{partsDisplay} = [];
-			foreach my $ref (
-            sort {
-                defined($parts{$a}->{damage}) <=> defined($parts{$b}->{damage}) ||
-                defined($parts{$a}->{thrust}) <=> defined($parts{$b}->{thrust}) ||
-                defined($parts{$a}->{power})  <=> defined($parts{$b}->{power}) ||
-                defined($parts{$a}->{shield}) <=> defined($parts{$b}->{shield}) ||
-                $parts{$a}->{cost} <=> $parts{$b}->{cost}
-            }
-            keys %parts){
-				my $part = $parts{$ref};
-				if (defined($part->{show})){
-					next if ($part->{show} eq 'no');
-				}
-				push(@{ $self->{partsDisplay} },
-					($ship->hasSparePart($ref) > 0 ? getColor('WHITE', '') : getColor('GREY10', '')) .
-					sprintf($sprintf,
-						$ref,
-						'x' . $ship->hasSparePart($ref),
-						'$' . $part->{cost},
-						(defined($part->{thrust}) ? $part->{thrust} : ''),
-						(defined($part->{power}) ? $part->{power} : ''),
-						(defined($part->{damage}) ? $part->{damage} : ''),
-						(defined($part->{rate}) ? $part->{rate} : ''),
-						(defined($part->{shield}) ? $part->{shield} : ''),
-					) . getColor('WHITE', 'ON_BLACK')
-				);
-			}
-			$self->{partOffset} = 0;
-		}
-
-		$self->putInfoStr(
-            2, 3,
-            sprintf($sprintf,
-			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield')
-        );
-		$self->putInfoStr(
-            3, 3,
-            '────┼───────┼────────┼────────┼────────┼───────┼───────┼───────'
-        );
-		for my $line (4 .. $height){
-			my $partLine = $self->{partsDisplay}->[$line - 3];
-			$self->putInfoStr(
-                $line, $width + 3,
-                sprintf('%-' . ($self->{chatWidth} - 4) . 's',
-				    (defined($partLine) ? $partLine : "")
-				)
-			);
-		}
-	} else { # chat
-		for my $line (1 .. $height){
-			$self->putInfoStr(
-                $line, $width + 3,
-                ' ' x ($self->{chatWidth} - 4)
-            );
-		}
-		my $lastMsg = $#{ $self->{msgs} } + 1 + $self->{chatOffset};
-		my $term = $lastMsg - $height - 4;
-		my $count = 2;
-		if ($term < 0){ $term = 0; }
-		while ($lastMsg > $term){
-			$count++;
-			$lastMsg--;
-			my $msgLine = $self->{msgs}->[$lastMsg];
-			if ($msgLine){
-				$self->putInfoStr(
-                    $height - $count, $width + 4,
-                    sprintf('%-' . $self->{chatWidth} . 's', $msgLine)
-                );
-			}
-		}
-		my $boxColor = 'ON_BLACK';
-		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
-		$self->putInfoStr(
-            $height, $width + 4,
-            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
-			$boxColor
-        );
-        $self->putInfoStr($height, $width + 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
-	}
 }
 
 sub _resetMap {
@@ -901,6 +928,9 @@ sub resizeScr {
 	my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
 	$self->{width} = $wchar - $self->{chatWidth};
 	$self->{height} = $hchar - 20;
+	$self->{termWidth}  = $wchar;
+	$self->{termHeight} = $hchar;
+
 	if (defined($self->{scr})){
 		$self->{scr}->clrscr();
 		$self->printBorder();
