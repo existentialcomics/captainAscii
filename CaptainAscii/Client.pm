@@ -125,20 +125,10 @@ sub _init {
     initscr();
     curs_set(0);
 	start_color();
-    #init_pair(1, 100, 7);
     attrset(COLOR_PAIR(0));
 	noecho();
-    $self->{win} = newwin($self->{height}, $self->{width}, 1, 1);
-	$self->{win}->bkgdset(' ');
-    $self->{lightwin} = newwin($self->{height}, $self->{width}, 1, 1);
-	$self->{lightwin}->bkgdset(' ');
-
-    $self->{erasewin} = newwin($self->{height}, $self->{width}, 1, 1);
-	foreach my $c (0 .. $self->{height}){
-		foreach my $r (0 .. $self->{width}){
-			$self->{erasewin}->addstr($c, $r, 'x');
-		}
-	}
+    $self->{_curses_info}      = newwin($self->{height}, 0, 10, 40);
+    $self->{_curses_info}->border('.', '.', '.', '.', 'v', '^', '<', '>');
 
 	$self->_generateStarMap();
 
@@ -188,17 +178,22 @@ sub _init {
 sub _generateStarMap {
 	my $self = shift;
 	my $size = shift;
-	if (!defined($size)){ $size = 1000; }
+	if (!defined($size)){ $size = 500; }
 
+    $self->{starMapSize} = $size;
 	$starMapSize = $size;
-    $self->{starMapCursesPad} = newpad($size, $size);
+    $self->{_curses_map}      = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlank} = newpad($size * 2, $size * 2);
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
 		push @starMapStr, '';
 		foreach my $y (0 .. $size){
 			my $rand = rand();
 			if ($rand > 0.03){
-				putCursesChr($self->{starMapCursesPad}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlank}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlank}, $x + $size, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlank}, $x, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlank}, $x + $size, $y, ' ', 'WHITE', 'ON_BLACK');
 				$starMapStr[$x] .= ' ';
                 next;
 			}
@@ -222,7 +217,7 @@ sub _generateStarMap {
             $col = getColor($fore, $back);
 			$starMap[$x]->[$y] = $col . $chr;
 			$starMapStr[$x] .= $chr;
-            putCursesChr($self->{starMapCursesPad}, $x, $y, $chr, $fore, $back);
+            putCursesChr($self->{_curses_mapBlank}, $x, $y, $chr, $fore, $back);
 		}
 	}
 }
@@ -420,8 +415,12 @@ sub loop {
 		my $cenY = int(($self->{height} * $self->{zoom}) / 2);
 		my $offx = $cenX - int($self->{ship}->{x});
 		my $offy = $cenY - int($self->{ship}->{y});
+        $self->{offsetx} = $offx;
+        $self->{offsety} = $offy;
 
 		$self->{'map'} = $self->_resetMap($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
+
+        $self->_drawLighting($offx, $offy);
 
 		$self->_drawBullets($offx, $offy);
 		$self->_drawItems($offx, $offy);
@@ -433,40 +432,27 @@ sub loop {
 			$self->printScreen($scr);
 		}
 		$self->printInfo();
-        #$self->{starMapCursesPad}->prefresh(0, 0, 1, 1, 30, 30);
-        #$self->{starMapCursesPad}->touchwin();
-        $self->{starMapCursesPad}->pnoutrefresh($self->{ship}->{y} % 100, $self->{ship}->{x} % 100, 1, 1, $self->{height}, $self->{width} + 10);
-        #$self->{starMapCursesPad}->touchwin();
-        #$self->{starMapCursesPad}->pnoutrefresh(0, 0, 1, 1, $self->{height}, $self->{width});
-        #$self->{starMapCursesPad}->refresh();
-        #$self->{lightwin}->touchwin();
-		
-        $self->{erasewin}->touchwin();
-        $self->{erasewin}->noutrefresh();
-        copywin(
-            $self->{erasewin},
-            $self->{win},
-            10,
-            10,
-            0,
-            0,
-            100,
-            100,
-            0
-        );
-        #$self->{lightwin}->noutrefresh;
-        #$self->{win}->touchwin();
-        $self->{win}->noutrefresh;
-		doupdate();
-		#$self->{win}->erase;
-		attrset(COLOR_PAIR(0));
-#		overwrite(
-#            $self->{erasewin},
-#            $self->{win}
-#		);
-       # $self->{win}->refresh;
 	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
+}
+
+sub printCursesScreen {
+    my $self = shift;
+    $self->{_curses_map}->prefresh($self->{ship}->{y}, $self->{ship}->{x}, 1, 1, $self->{height}, $self->{width});
+    #doupdate();
+    # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
+    my $r = copywin(
+        $self->{_curses_mapBlank},
+        $self->{_curses_map},
+        #$self->{_curses_mapBlank},
+        $self->{ship}->{y} % $self->{starMapSize},
+        $self->{ship}->{x} % $self->{starMapSize},
+        0,
+        0,
+        $self->{height},
+        $self->{width},
+        0
+    );
 }
 
 sub printZoneScreen {
@@ -486,8 +472,8 @@ sub printZoneScreen {
 }
 
 sub printScreen {
-	if($useCurses){ return 0; }
 	my $self = shift;
+	if($useCurses){ return $self->printCursesScreen(); }
 	my $scr = shift;
 	my $map = $self->{map};
 
@@ -563,7 +549,7 @@ sub putStr {
     my $self = shift;
 
 	if ($useCurses){
-        putCursesChr($self->{win}, @_);
+        putCursesChr($self->{_curses_map}, @_);
 	} else {
         my $self = shift;
         my ($col, $row, $str, $color, $backColor) = @_;
@@ -576,12 +562,26 @@ sub putStr {
 }
 
 sub putInfoStr {
+    my $self = shift;
+    my ($col, $row, $str, $color, $backColor) = @_;
+
+	if ($useCurses){
+        putCursesChr($self->{_curses_info}, $col, $row, $str, $color, $backColor);
+	} else {
+        my $self = shift;
+        my $colorBack = undef;
+		if (!defined($color)){ $color = 'WHITE'; }
+		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
+        $col += $self->{height};
+		$self->{scr}->at($col, $row);
+		$self->{scr}->puts(getColor($color, $colorBack) . $str);
+	}
 
 }
 
 sub putCursesChr {
     my ($window, $col, $row, $str, $color, $backColor) = @_;
-    if (defined($color)){
+    if (defined($color) && defined($backColor)){
         setCursesColor($window, $color, $backColor);
     }
     $window->addstr($col, $row, $str);
@@ -609,15 +609,15 @@ sub printInfo {
 	my $left = 2;
 
 	#### ----- ship info ------ ####
-    $self->putStr(
+    $self->putInfoStr(
         $height + 2, $left, 
 	    sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
     );
 
-    $self->putStr(1, 1, "fps: $self->{fps}", 'GREEN', "ON_BLACK");
+    $self->putInfoStr(1, 1, "fps: $self->{fps}", 'GREEN', "ON_BLACK");
 
-	$self->putStr(
-        $height + 3, $left,
+	$self->putInfoStr(
+        3, 1,
 		"fps: " . $self->{fps} . "  " . 
 		"id "   . $self->{ship}->{id} . "  " . 
 		"weight: " .  $ship->{weight} .
@@ -692,8 +692,8 @@ sub printInfo {
 #	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
 
 	########## modules #############
-    my $mHeight = $height + 3;
-    $self->putStr(
+    my $mHeight = 1;
+    $self->putInfoStr(
         $mHeight - 1, $width + 2,
         '┌────────────────────┬───────────┐'
     );
@@ -701,17 +701,20 @@ sub printInfo {
 	foreach my $module ( sort $ship->getModules){
         # TODO grey for you don't even have the module
 		my $color = $module->getColor($ship);
-        $self->putStr(
+        $self->putInfoStr(
             $mHeight, $width + 2,
             sprintf('│ %-18s │ %-9s │', $module->name(), join (',', $module->getKeys())),
 			$color
         );
         $mHeight++;
 	}
-    $self->putStr(
+    $self->putInfoStr(
         $mHeight - 1, $width + 2,
         '└────────────────────┴───────────┘'
     );
+
+    return 0; 
+    #### chat box seperate
 
 	######### chat or parts #########
 	if ($self->{mode} eq 'build'){ # parts
@@ -749,18 +752,18 @@ sub printInfo {
 			$self->{partOffset} = 0;
 		}
 
-		$self->putStr(
-            2, $width + 3,
+		$self->putInfoStr(
+            2, 3,
             sprintf($sprintf,
 			'chr', 'owned', 'cost', 'thrust', 'power', 'dam', 'RoF', 'shield')
         );
-		$self->putStr(
-            3, $width + 3,
+		$self->putInfoStr(
+            3, 3,
             '────┼───────┼────────┼────────┼────────┼───────┼───────┼───────'
         );
 		for my $line (4 .. $height){
 			my $partLine = $self->{partsDisplay}->[$line - 3];
-			$self->putStr(
+			$self->putInfoStr(
                 $line, $width + 3,
                 sprintf('%-' . ($self->{chatWidth} - 4) . 's',
 				    (defined($partLine) ? $partLine : "")
@@ -769,7 +772,7 @@ sub printInfo {
 		}
 	} else { # chat
 		for my $line (1 .. $height){
-			$self->putStr(
+			$self->putInfoStr(
                 $line, $width + 3,
                 ' ' x ($self->{chatWidth} - 4)
             );
@@ -783,7 +786,7 @@ sub printInfo {
 			$lastMsg--;
 			my $msgLine = $self->{msgs}->[$lastMsg];
 			if ($msgLine){
-				$self->putStr(
+				$self->putInfoStr(
                     $height - $count, $width + 4,
                     sprintf('%-' . $self->{chatWidth} . 's', $msgLine)
                 );
@@ -791,12 +794,12 @@ sub printInfo {
 		}
 		my $boxColor = 'ON_BLACK';
 		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
-		$self->putStr(
+		$self->putInfoStr(
             $height, $width + 4,
             sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
 			$boxColor
         );
-        $self->putStr($height, $width + 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
+        $self->putInfoStr($height, $width + 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
 	}
 }
 
@@ -806,30 +809,6 @@ sub _resetMap {
 	my @map = ();
 
 	if ($useCurses){
-        # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
-        #copywin($self->{starMapCursesPad}, $self->{win}, $self->{ship}->{x} % 400, $self->{ship}->{y} % 400, 0, 0, $self->{width}, $self->{height}, 0);
-        #werase($self->{win});
-        #$self->{win}->erase();
-#        copywin(
-#            $self->{starMapCursesPad},
-#            $self->{win},
-#            10,
-#            10,
-#            0,
-#            0,
-#            100,
-#            100,
-#            0
-#        );
-#        $self->{starMapCursesPad}->prefresh(
-#            10,
-#            10,
-#            0,
-#            0,
-#            100,
-#            100,
-#        );
-
 
 #		my $offset = int($self->{ship}->{x}) % $starMapSize;
 #		foreach my $x (0 .. $height){
@@ -986,6 +965,40 @@ sub setMapString {
 	}
 }
 
+sub _drawLighting {
+	my $self = shift;	
+
+	my $offx = shift;
+	my $offy = shift;
+
+	my $time = time();
+
+	foreach my $ship ($self->_getShips()){
+		foreach my $part ($ship->getParts()){
+			# TODO x and y switched
+			my $px = ($offy + int($ship->{y})) + $part->{'y'};
+			my $py = ($offx + int($ship->{x})) + $part->{'x'};
+
+			if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
+				if ($part->{'part'}->{'type'} eq 'shield'){
+					if ($part->{'shieldHealth'} > 0){
+						my $shieldLevel = ((time() - $part->{'hit'} < .3) ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
+                        if ($ship->getStatus('deflector')){ $shieldLevel += 2; }
+						my $radius = $part->{'part'}->{'shieldsize'};
+						foreach my $sh_x (-$radius * ASPECTRATIO .. $radius * ASPECTRATIO){
+							foreach my $sh_y (-$radius .. $radius){
+								if (sqrt((($sh_x / ASPECTRATIO ) ** 2) + ($sh_y ** 2)) <= $radius){
+									$self->addLighting($px - $sh_x, $py + $sh_y, $shieldLevel);
+								}
+							}
+						}
+					}
+				}
+			} # end if shields are on
+		}
+	}
+}
+
 sub _drawShips {
 	my $self = shift;	
 
@@ -1035,29 +1048,6 @@ sub _drawShips {
                 # TODO highlight adds to lighting
                 $self->setMap($px, $py, $chr, $partColor);
 			}
-			#if (($part->{part}->{type} eq 'laser') && ($time - $part->{lastShot} < .3){
- #			if (($part->{part}->{type} eq 'laser')){
- #				#for (0 .. $part->{type}->{direction}){
- #				for (0 .. 6){
- #					$self->addLighting($px + $_, $py, 4); 
- #				}
- #			}
-			if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
-				if ($part->{'part'}->{'type'} eq 'shield'){
-					if ($part->{'shieldHealth'} > 0){
-						my $shieldLevel = ($highlight ne '' ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
-                        if ($ship->getStatus('deflector')){ $shieldLevel += 2; }
-						my $radius = $part->{'part'}->{'shieldsize'};
-						foreach my $sh_x (-$radius * ASPECTRATIO .. $radius * ASPECTRATIO){
-							foreach my $sh_y (-$radius .. $radius){
-								if (sqrt((($sh_x / ASPECTRATIO ) ** 2) + ($sh_y ** 2)) <= $radius){
-									$self->addLighting($px - $sh_x, $py + $sh_y, $shieldLevel);
-								}
-							}
-						}
-					}
-				}
-			} # end if shields are on
 		}
 		my ($aimx, $aimy) = $ship->getAimingCursor();
 		my $px = ($offy + int($ship->{y})) + $aimx;
@@ -1342,7 +1332,7 @@ sub addLighting {
 	    $lighting[$x]->[$y] += $level;
     }
 	if ($useCurses){
-        putCursesChr($self->{lightwin}, $x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
+        putCursesChr($self->{_curses_map}, $x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
 	}
 }
 
