@@ -535,66 +535,58 @@ sub printStatusBar {
     }
     
     my $widthStatus = $width - length($name);
-    $self->putStr(
+    $self->putInfoStr(
         $col, $row,
         '╭' . '─' x ($widthStatus / 2) . $name . '-' x ($widthStatus / 2) . '╮'
     );
-    $self->putStr(
+    $self->putInfoStr(
         $col + 1, $row,
         $statBar
     );
-    $self->putStr(
+    $self->putInfoStr(
         $col + 2, $row,
         '╰' . '─' x $width . '╯'
     );
 }
 
+sub putTermChr {
+    my $self = shift;
+    my ($window, $col, $row, $str, $color, $backColor) = @_;
+
+    my $colorBack = undef;
+    if (!defined($color)){ $color = 'WHITE'; }
+    if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
+    $col += $self->{height};
+    $self->{scr}->at($col, $row);
+    $self->{scr}->puts(getColor($color, $colorBack) . $str);
+}
+
 sub putStr {
 	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
-    my $self = shift;
-
-	if ($useCurses){
-        putCursesChr($self->{_curses_map}, @_);
-	} else {
-        my ($col, $row, $str, $color, $backColor) = @_;
-        my $colorBack = undef;
-		if (!defined($color)){ $color = 'WHITE'; }
-		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
-		$self->{scr}->at($col, $row);
-		$self->{scr}->puts(getColor($color, $colorBack) . $str);
-	}
+    if ($useCurses){
+        my $self = shift;
+        return putCursesChr($self->{_curses_map}, @_);
+    } else {
+        return putTermChr(@_);
+    }
 }
 
 sub putInfoStr {
     my $self = shift;
-    my ($col, $row, $str, $color, $backColor) = @_;
-
-	if ($useCurses){
-        putCursesChr($self->{_curses_info}, $col, $row, $str, $color, $backColor);
-	} else {
-        my $colorBack = undef;
-		if (!defined($color)){ $color = 'WHITE'; }
-		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
-        $col += $self->{height};
-		$self->{scr}->at($col, $row);
-		$self->{scr}->puts(getColor($color, $colorBack) . $str);
-	}
+    if ($useCurses){
+        return putCursesChr($self->{_curses_info}, @_);
+    } else {
+        return putTermChr(@_);
+    }
 }
 
 sub putSideStr {
     my $self = shift;
-    my ($col, $row, $str, $color, $backColor) = @_;
-
-	if ($useCurses){
-        putCursesChr($self->{_curses_side}, $col, $row, $str, $color, $backColor);
-	} else {
-        my $colorBack = undef;
-		if (!defined($color)){ $color = 'WHITE'; }
-		if (!defined($colorBack)){ $colorBack = 'ON_BLACK'; }
-        $col += $self->{height};
-		$self->{scr}->at($col, $row);
-		$self->{scr}->puts(getColor($color, $colorBack) . $str);
-	}
+    if ($useCurses){
+        return putCursesChr($self->{_curses_side}, @_);
+    } else {
+        return putTermChr(@_);
+    }
 }
 
 sub putCursesChr {
@@ -699,10 +691,11 @@ sub printSide {
 		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
 		$self->putSideStr(
             $height, 4,
-            sprintf('%-' . $self->{chatWidth} . 's', $boxColor . "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
+            sprintf('%-' . $self->{chatWidth} . 's', "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
+            "WHITE",
 			$boxColor
         );
-        $self->putSideStr($height, 4 + length($self->{'msg'}) + 2, 'ON_WHITE');
+        $self->putSideStr($height, 4 + length($self->{'msg'}) + 2, 'WHITE', $boxColor);
 	}
 
 }
@@ -836,26 +829,6 @@ sub _resetMap {
 	my @map = ();
 
 	if ($useCurses){
-
-#		my $offset = int($self->{ship}->{x}) % $starMapSize;
-#		foreach my $x (0 .. $height){
-#			my $length = $width;
-#			if ($offset + $length > $starMapSize){
-#				$length = $starMapSize - $offset;
-#			}
-#			$self->putStr($x, 1, substr($starMapStr[
-#				int($x + $self->{ship}->{y}) % $starMapSize],
-#				$offset,
-#				$length)
-#			); 
-#            if ($length != $width){
-#			    $self->putStr($x, $length, substr($starMapStr[
-#				    int($x + $self->{ship}->{y}) % $starMapSize],
-#				    0,
-#				    $width - $length)
-#			    ); 
-#            }
-#		}
 		return [];
 	}
 
@@ -1343,15 +1316,6 @@ sub setMap {
 		$chr = $self->sprite($chr);
 	}
 	$self->{map}->[$x]->[$y] = getColor($color) . $chr;
-}
-
-sub colorMap {
-	my $self = shift;
-	my ($x, $y, $color) = @_;
-	if ( ! $self->onMap($x, $y) ){ return 0; }
-	my $chr = getColor($color) . colorstrip($self->{map}->[$x]->[$y]);
-	$self->{map}->[$x]->[$y] = $chr;
-
 }
 
 sub addLighting {

@@ -744,9 +744,9 @@ sub sendSystemMsg {
 	my $msg = shift;
 	my $ship = shift;
 	if (defined($ship)){
-		$self->sendMsg($ship, 'msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'green'});
+		$self->sendMsg($ship, 'msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'GREEN'});
 	} else {
-		$self->broadcastMsg('msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'green'});
+		$self->broadcastMsg('msg', { 'user' => '<SYSTEM>', 'msg' => $msg, 'color' => 'GREEN'});
 	}
 
 }
