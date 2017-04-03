@@ -174,12 +174,12 @@ sub _statusTick {
 sub getColor {
     my $self = shift;
     my $ship = shift;
-    if (!defined($self->{status})){ return "white"; }
-    if (!$self->isActive()       ){ return "grey10" }
+    if (!defined($self->{status})){ return "WHITE"; }
+    if (!$self->isActive()       ){ return "GREY10" }
     if ($self->_hasPower($ship)){
-        return 'green';
+        return 'GREEN';
     } else {
-        return 'red';
+        return 'RED';
     }
 }
 

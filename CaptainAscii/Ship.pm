@@ -4,7 +4,6 @@
 #
 use strict; use warnings;
 package CaptainAscii::Ship;
-use Term::ANSIColor 4.00 qw(RESET color :constants256);
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
 use Data::Dumper;
 use Config::IniFiles;
@@ -1121,6 +1120,10 @@ sub setStatus {
 	if ($status eq 'taunt'){
 		$self->{'lastTauntTime'} = time();
 	}
+	
+	if ($status eq 'color'){ $value = uc($value); }
+	#if ($status eq 'x'){ $value = int($value); }
+	#if ($status eq 'y'){ $value = int($value); }
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
@@ -1234,7 +1237,7 @@ sub addServerInfoMsg {
     my $self = shift;
     my $msgInfo = shift;
     $self->addServerMsg('msg', 
-		{ 'user' => '<SYSTEM>', 'msg' => $msgInfo, 'color' => 'green' },
+		{ 'user' => '<SYSTEM>', 'msg' => $msgInfo, 'color' => 'GREEN' },
 		1  # send to this player only
 	);
 }

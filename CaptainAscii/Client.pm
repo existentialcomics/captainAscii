@@ -14,6 +14,7 @@ use IO::Socket::UNIX;
 use Math::Trig ':radial';
 use Text::Wrap;
 use Curses;
+use POSIX qw(floor ceil);
 
 use CaptainAscii::Ship;
 
@@ -140,10 +141,10 @@ sub _init {
 	$self->{username} = getpwuid($<);
 
 	$self->{debug} = "";
-	$self->{maxFps} = 400;
+	$self->{maxFps} = 40;
 	$self->{maxBackgroundFps} = 6;
 	$self->{maxInfoFps} = 6;
-	$self->{fps} = 400;
+	$self->{fps} = 40;
 	$self->{mode} = 'drive';
 
 	$self->{cursorx} = 0;
@@ -167,7 +168,6 @@ sub _init {
 
 	$self->{socket}->blocking(0);
 
-	$self->{ships}->{ $self->{ship}->{id} } = $self->{ship};
 	$self->{bullets} = {};
 	$self->{items}   = {};
 
@@ -414,17 +414,22 @@ sub loop {
 		$self->_sendKeystrokesToServer($scr);
 		$self->_getMessagesFromServer();
 
+		$self->{'map'} = $self->_resetMap($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
+
+		$self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
+
 		my $cenX = int(($self->{width} * $self->{zoom})  / 2);
 		my $cenY = int(($self->{height} * $self->{zoom}) / 2);
 		my $offx = $cenX - int($self->{ship}->{x});
 		my $offy = $cenY - int($self->{ship}->{y});
-        $self->{offsetx} = $offx;
-        $self->{offsety} = $offy;
 
-		$self->{'map'} = $self->_resetMap($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
+		$self->{cenX} = $cenX;
+		$self->{cenY} = $cenX;
+
+		$self->{offx} = $offx;
+		$self->{offy} = $offy;
 
         $self->_drawLighting($offx, $offy);
-
 		$self->_drawBullets($offx, $offy);
 		$self->_drawItems($offx, $offy);
 		$self->_drawShips($offx, $offy);
@@ -442,11 +447,9 @@ sub loop {
 
 sub printCursesScreen {
     my $self = shift;
-    #$self->{_curses_map}->prefresh($self->{ship}->{y}, $self->{ship}->{x}, 1, 1, $self->{height}, $self->{width});
     $self->{_curses_map}->prefresh(0, 0, 0, 0, $self->{height}, $self->{width});
     $self->{_curses_info}->refresh();
     $self->{_curses_side}->refresh();
-    #doupdate();
     # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
     my $r = copywin(
         $self->{_curses_mapBlank},
@@ -520,33 +523,6 @@ sub getStar {
 		int($_[1] + $_[0]->{ship}->{y}) % $starMapSize],
 		int($_[2] + $_[0]->{ship}->{x}) % $starMapSize,
 		1); 
-}
-
-sub printStatusBar {
-    my $self = shift;
-    my $scr = shift;
-    my ($name, $value, $max, $width, $col, $row, $r, $g, $b) = @_;
-
-    my $statBar = '';
-    if ($max < 1000){
-        $statBar = sprintf(' ' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
-    } else {
-        $statBar = sprintf(' ' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
-    }
-    
-    my $widthStatus = $width - length($name);
-    $self->putInfoStr(
-        $col, $row,
-        '╭' . '─' x ($widthStatus / 2) . $name . '-' x ($widthStatus / 2) . '╮'
-    );
-    $self->putInfoStr(
-        $col + 1, $row,
-        $statBar
-    );
-    $self->putInfoStr(
-        $col + 2, $row,
-        '╰' . '─' x $width . '╯'
-    );
 }
 
 sub putTermChr {
@@ -631,7 +607,6 @@ sub printSide {
 					next if ($part->{show} eq 'no');
 				}
 				push(@{ $self->{partsDisplay} },
-					($ship->hasSparePart($ref) > 0 ? getColor('WHITE', '') : getColor('GREY10', '')) .
 					sprintf($sprintf,
 						$ref,
 						'x' . $ship->hasSparePart($ref),
@@ -641,7 +616,7 @@ sub printSide {
 						(defined($part->{damage}) ? $part->{damage} : ''),
 						(defined($part->{rate}) ? $part->{rate} : ''),
 						(defined($part->{shield}) ? $part->{shield} : ''),
-					) . getColor('WHITE', 'ON_BLACK')
+					)
 				);
 			}
 			$self->{partOffset} = 0;
@@ -682,22 +657,81 @@ sub printSide {
 			my $msgLine = $self->{msgs}->[$lastMsg];
 			if ($msgLine){
 				$self->putSideStr(
-                    $height - $count, 4,
-                    sprintf('%-' . $self->{chatWidth} . 's', $msgLine)
+                    $height - $count,
+					4,
+                    sprintf('%-' . $self->{chatWidth} . 's', $msgLine->{msg}),
+					'GREEN',
+					#$msgLine->{color},
+					'ON_BLACK'
                 );
 			}
 		}
 		my $boxColor = 'ON_BLACK';
 		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
 		$self->putSideStr(
-            $height, 4,
+            $height - 2,
+			0,
             sprintf('%-' . $self->{chatWidth} . 's', "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
             "WHITE",
 			$boxColor
         );
-        $self->putSideStr($height, 4 + length($self->{'msg'}) + 2, 'WHITE', $boxColor);
 	}
 
+}
+
+sub printStatusBar {
+    my $self = shift;
+    my ($name, $value, $max, $width, $col, $row, $r, $g, $b) = @_;
+
+
+    my $statBar = '';
+	my $ratio = $value / $max;
+	if ($ratio > 1){ $ratio = 1; }
+	if ($ratio < 0){ $ratio = 0; }
+	my $fullWidth = $width * $ratio;
+	my $emptyWidth = ($width - $fullWidth + 1);
+	
+	if ($r eq 'x'){ $r = int($ratio * 5); }
+	if ($g eq 'x'){ $g = int($ratio * 5); }
+	if ($b eq 'x'){ $b = int($ratio * 5); }
+	if ($r eq '-x'){ $r = int((1 - $ratio) * 5); }
+	if ($g eq '-x'){ $g = int((1 - $ratio) * 5); }
+	if ($b eq '-x'){ $b = int((1 - $ratio) * 5); }
+
+    if ($max < 1000){
+        $statBar = sprintf('|' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
+    } else {
+        $statBar = sprintf('=' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
+    }
+    
+    my $widthStatus = $width - length($name);
+    $self->putInfoStr(
+        $col, $row,
+        '╭' . '─' x floor($widthStatus / 2) . uc($name) . '─' x ceil($widthStatus / 2) . '╮'
+    );
+
+    $self->putInfoStr(
+        $col + 1, 0,
+        "│"
+    );
+    $self->putInfoStr(
+        $col + 1, $row + 1,
+        ' ' x $fullWidth,
+		'WHITE',
+		'ON_RGB' . $r . $g . $b
+    );
+    $self->putInfoStr(
+        $col + 1, $row + $fullWidth + 1,
+        ' ' x $emptyWidth
+    );
+    $self->putInfoStr(
+        $col + 1, $width + 1,
+        "│"
+    );
+    $self->putInfoStr(
+        $col + 2, $row,
+        '╰' . '─' x $width . '╯'
+    );
 }
 
 sub printInfo {
@@ -718,10 +752,10 @@ sub printInfo {
 	#### ----- ship info ------ ####
     $self->putInfoStr(
         2, 1, 
-	    sprintf('coordinates: %3s,%3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->_getShipCount(), $height, $width)
+	    sprintf('coordinates: %3s,%3s, %3s, %3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->{offx}, $self->{offy}, $self->_getShipCount(), $height, $width)
     );
 
-    $self->putInfoStr(1, 1, "fps: $self->{fps}", 'GREEN', "ON_BLACK");
+    $self->putInfoStr(1, 1, "fps: $self->{fps}  ", 'GREEN', "ON_BLACK");
 
 	$self->putInfoStr(
         3, 1,
@@ -735,88 +769,66 @@ sub printInfo {
 		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
 		);
 
+	my @ships = keys %{$self->{ships}};
+	#$self->{debug} = join ',', @ships;
+    $self->putInfoStr(4, 1, "debug: $self->{debug}  ", 'GREEN', "ON_BLACK");
+
 	my $barWidth = 50;
-	############ health
-#	$scr->at($height + 4, $left);
-#    $scr->puts(
-#        ' ' x 10 .'┌' . '─' x $barWidth . '┐'
-#    );
-#	$scr->at($height + 5, $left);
-    #
-	#TODO investigate why this goes above one
-#	my $healthRatio = ($ship->{currentHealth} / $ship->{health});
-#	if ($healthRatio > 1){ $healthRatio = 1 };
-#	my $healthWidth = int( $barWidth * $healthRatio);
-#	my $healthPad   = $barWidth - $healthWidth;
-#	$scr->puts(sprintf('%-10s│%s│',
-#		int($ship->{currentHealth}) . ' / ' . int($ship->{health}) , 
-#	(getColor('ON_RGB' .
-#		0 .
-#		#(5 - int(5 * ($ship->{currentHealth} / $ship->{health}))) .
-#		(int(5 * $healthRatio)) .
-#		0
-#		) . (" " x $healthWidth) . 
-#		getColor('RESET') . (' ' x $healthPad) )
-#	));
-#	
-#	############ power
-#	$scr->at($height + 6, $left);
-#	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
-#	$scr->at($height + 7, $left);
-#	my $powerWidth = int( $barWidth * ($ship->{currentPower} / $ship->{power}));
-#	my $powerPad   = $barWidth - $powerWidth;
-#	$scr->puts(sprintf('%-10s│%s│',
-#		int($ship->{currentPower}) . ' / ' . int($ship->{power}) , 
-#	(getColor('ON_RGB' .
-#		5 . 
-#		(int(5 * ($ship->{currentPower} / $ship->{power}))) .
-#		0) . (" " x $powerWidth) . 
-#		getColor('RESET') . (' ' x $powerPad) )
-#	));
-    #
-#	############# display shield
-#	$scr->at($height + 8, $left);
-#	$scr->puts( ' ' x 10 .'├' . '─' x $barWidth . '┤');
-#	$scr->at($height + 9, $left);
-#	if ($ship->{shield} > 0){
-#        my $shieldWidth = int( $barWidth * ($ship->{shieldHealth} / $ship->{shield}));
-#        my $shieldPad   = $barWidth - $shieldWidth;
-#		my $shieldPercent = int($ship->{shieldHealth}) / ($ship->{shield});
-#		if ($shieldPercent > 1){ $shieldPercent = 1; }
-#		$scr->puts(sprintf('%-10s│%s│',
-#		int($ship->{shield}) . ' / ' . int($ship->{shieldHealth}),
-#		(getColor('ON_RGB' .
-#			0 . 
-#			(int(5 * $shieldPercent)) .
-#			5) . (" " x $shieldWidth) .
-#			getColor('RESET') . (" " x $shieldPad))
-#		));
-#	} else {
-#		$scr->puts( ' ' x 10 .'│' . ' ' x $barWidth . '│');
-#		$scr->at($height + 9, $left);
-#	}
-#	$scr->at($height + 10, $left);
-#	$scr->puts( ' ' x 10 .'└' . '─' x $barWidth . '┘');
+
+    #my ($name, $value, $max, $width, $col, $row, $r, $g, $b) = @_;
+	$self->printStatusBar(
+		'power',
+		$self->{ship}->getStatus('currentPower'),
+		$self->{ship}->getStatus('power'),
+		50,
+		5,
+		0,
+		'5',
+		'x',
+		0
+	);
+	$self->printStatusBar(
+		'shields',
+		$self->{ship}->getStatus('shieldHealth'),
+		$self->{ship}->getStatus('shield'),
+		50,
+		8,
+		0,
+		'-x',
+		'x',
+		'5'
+	);
+	$self->printStatusBar(
+		'health',
+		$self->{ship}->getStatus('currentHealth'),
+		$self->{ship}->getStatus('health'),
+		50,
+		11,
+		0,
+		'-x',
+		'x',
+		'0'
+	);
 
 	########## modules #############
     my $mHeight = 1;
     $self->putInfoStr(
-        $mHeight - 1, $width + 2,
+        $mHeight, $width + 2,
         '┌────────────────────┬───────────┐'
     );
 
 	foreach my $module ( sort $ship->getModules){
         # TODO grey for you don't even have the module
 		my $color = $module->getColor($ship);
+        $mHeight++;
         $self->putInfoStr(
             $mHeight, $width + 2,
             sprintf('│ %-18s │ %-9s │', $module->name(), join (',', $module->getKeys())),
-			$color
+			$color, 'ON_BLACK'
         );
-        $mHeight++;
 	}
     $self->putInfoStr(
-        $mHeight - 1, $width + 2,
+        $mHeight, $width + 2,
         '└────────────────────┴───────────┘'
     );
 
@@ -846,6 +858,7 @@ sub _resetLighting {
 	foreach my $x (0 .. $height + 1){
 		push @lighting, [(0) x ($width + 1)];
 	}
+	@lighting = undef;
 }
 
 sub _drawBullets {
@@ -871,7 +884,6 @@ sub _drawBullets {
 
 sub _drawItems {
 	my $self = shift;
-
 	my $offx = shift;
 	my $offy = shift;
 
@@ -977,12 +989,12 @@ sub _drawLighting {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
-		foreach my $part ($ship->getParts()){
-			# TODO x and y switched
-			my $px = ($offy + int($ship->{y})) + $part->{'y'};
-			my $py = ($offx + int($ship->{x})) + $part->{'x'};
+		if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
+			foreach my $part ($ship->getParts()){
+				# TODO x and y switched
+				my $px = ($offy + int($ship->{y})) + $part->{'y'};
+				my $py = ($offx + int($ship->{x})) + $part->{'x'};
 
-			if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
 				if ($part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
 						my $shieldLevel = ((time() - $part->{'hit'} < .3) ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
@@ -991,22 +1003,20 @@ sub _drawLighting {
 						foreach my $sh_x (-$radius * ASPECTRATIO .. $radius * ASPECTRATIO){
 							foreach my $sh_y (-$radius .. $radius){
 								if (sqrt((($sh_x / ASPECTRATIO ) ** 2) + ($sh_y ** 2)) <= $radius){
-									$self->addLighting($px - $sh_x, $py + $sh_y, $shieldLevel);
+									$self->addLighting($px + $sh_x, $py + $sh_y, $shieldLevel);
 								}
 							}
 						}
 					}
 				}
-			} # end if shields are on
-		}
+			}
+		} # end if shields are on
 	}
 }
 
 sub _drawShips {
 	my $self = shift;	
-
-	my $offx = shift;
-	my $offy = shift;
+	my ($offx, $offy) = @_;
 
 	my $time = time();
 
@@ -1224,6 +1234,7 @@ sub _getMessagesFromServer {
 				if ($s->{id} eq $data->{'old_id'}){
 					$self->{ships}->{$data->{'new_id'}} = $self->{ships}->{$data->{'old_id'}};
 					$s->{id} = $data->{'new_id'};
+					delete($self->{ships}->{$data->{'old_id'}});
 					#$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
 				}
 			}
@@ -1241,13 +1252,11 @@ sub _getMessagesFromServer {
             }
 			$Text::Wrap::columns = $self->{chatWidth} - 10;
 			my @wrappedMsgs = split("\n", wrap("", "  ", $msgStringFull));
-			$self->{debug} = "wrapped: $#wrappedMsgs";
 			foreach my $msgString (@wrappedMsgs){
-			if (defined($data->{'color'})){
-				$msgString = getColor($data->{'color'}, '') . $msgString;
+			if (!defined($data->{'color'})){
+				$data->{'color'} = 'GREEN';
 			}
-			$msgString .= getColor('WHITE', 'ON_BLACK');
-			push @{ $self->{msgs} }, $msgString;
+			push @{ $self->{msgs} }, { msg => $msgString, color => $data => {'color'} };
 			}
         } elsif ($msg->{c} eq 'sparepart'){
 			if (defined($data->{add})){
@@ -1322,12 +1331,13 @@ sub addLighting {
 	my $self = shift;
 	my ($x, $y, $level) = @_;
 	if ( ! $self->onMap($x, $y) ){ return 0; }
-    if ($lighting[$x]->[$y] < 22){
-	    $lighting[$x]->[$y] += $level;
+	my $newLevel = $lighting[$x]->[$y] + $level;
+    if ($newLevel < 23){
+	    $lighting[$x]->[$y] = $newLevel;
+		if ($useCurses){
+			putCursesChr($self->{_curses_map}, $x, $y, ' ', 'WHITE', 'ON_GREY' . $newLevel);
+		}
     }
-	if ($useCurses){
-        putCursesChr($self->{_curses_map}, $x, $y, ' ', 'WHITE', 'ON_GREY' . $lighting[$x]->[$y]);
-	}
 }
 
 sub onMap {

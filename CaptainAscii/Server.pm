@@ -15,8 +15,8 @@ use Math::Trig ':radial';
 use CaptainAscii::Ship;
 use CaptainAscii::Zones;
 use CaptainAscii::Factions;
-
 use IO::Socket::UNIX;
+
 use constant {
 	ASPECTRATIO => 0.66666666,
 	PI          => 3.1415,
