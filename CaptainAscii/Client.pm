@@ -858,7 +858,6 @@ sub _resetLighting {
 	foreach my $x (0 .. $height + 1){
 		push @lighting, [(0) x ($width + 1)];
 	}
-	@lighting = undef;
 }
 
 sub _drawBullets {
@@ -1256,7 +1255,7 @@ sub _getMessagesFromServer {
 			if (!defined($data->{'color'})){
 				$data->{'color'} = 'GREEN';
 			}
-			push @{ $self->{msgs} }, { msg => $msgString, color => $data => {'color'} };
+			push @{ $self->{msgs} }, { msg => $msgString, color => $data->{'color'} };
 			}
         } elsif ($msg->{c} eq 'sparepart'){
 			if (defined($data->{add})){
