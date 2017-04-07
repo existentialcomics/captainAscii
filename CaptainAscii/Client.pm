@@ -1011,6 +1011,15 @@ sub _drawLighting {
 			}
 		} # end if shields are on
 	}
+
+    foreach my $light ($self->_getLights()){
+        $self->addLighting($light->{x} + $offx, $light->{y} + $offy, $light->{level});
+    }
+}
+
+sub _getLights {
+    my $self = shift;
+    return ();
 }
 
 sub _drawShips {
