@@ -29,6 +29,9 @@ my $starMapSize = 0;
 my @starMap;
 my @starMapStr;
 my @lighting;
+my $lastFrame = time();
+my %lights = ();
+my $lightsKey = 1;
 
 my $useCurses = 1;
 my $cursesColorCount = 1;
@@ -227,9 +230,9 @@ sub _generateStarMap {
 }
 
 sub sprite {
-	my $self = shift;
 	my $array = shift;
-	my $length = time() - $self->{lastFrame};
+	if (ref($array) ne 'ARRAY'){ return $array; }
+	my $length = time() - $lastFrame;
 	if ($length > 1){ $length = 1 }
 	if ($length < 0){ $length = 0 }
 	my $chr = $array->[$length * @{$array}];
@@ -371,7 +374,6 @@ sub loop {
 	my $self = shift;
 
 	my $lastTime  = time();
-	my $lastFrame = time();
 	my $frames = 0;
 	my $time = time();
 	my $fps = $self->{maxFps};
@@ -570,6 +572,7 @@ sub putCursesChr {
     if (defined($color) && defined($backColor)){
         setCursesColor($window, $color, $backColor);
     }
+	$str = sprite($str);
     $window->addstr($col, $row, $str);
     $window->attrset(A_NORMAL);
 }
@@ -1013,13 +1016,18 @@ sub _drawLighting {
 	}
 
     foreach my $light ($self->_getLights()){
-        $self->addLighting($light->{x} + $offx, $light->{y} + $offy, $light->{level});
+		my $level = int($light->{level} - ((time() - $light->{start}) * $light->{decay}));
+		if ($level < 1){
+			delete $lights{$light->{'key'}};
+		} else {
+			$self->addLighting($light->{x} + $offy, $light->{y} + $offx, $light->{level});
+		}
     }
 }
 
 sub _getLights {
     my $self = shift;
-    return ();
+	return values %lights;
 }
 
 sub _drawShips {
@@ -1192,9 +1200,12 @@ sub _getMessagesFromServer {
 				} else {
 					#$self->{debug} = "ship not found $data->{sid}";
 				}
+				$self->{bullets}->{$key} = $data;
+				$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
+			} else {
+				$self->{bullets}->{$key}->{x} = $data->{x};
+				$self->{bullets}->{$key}->{y} = $data->{y};
 			}
-			$self->{bullets}->{$key} = $data;
-			$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
 		} elsif ($msg->{c} eq 'item'){
 			my $key = $data->{k};
 			$self->{items}->{$key} = $data;
@@ -1225,10 +1236,16 @@ sub _getMessagesFromServer {
 						$s->damageShield($data->{id}, $data->{shield});
 					}
 					if (defined($data->{health})){
-						$s->setPartHealth($data->{id}, $data->{health});
+						my $light = $s->setPartHealth($data->{id}, $data->{health});
+						if (defined($light)){
+							addLight($light);
+						}
 					}
 				}
 			}
+		} elsif ($msg->{c} eq 'light'){
+			addLight($data);
+			$self->{debug} = 'light ' . time();
 		} elsif ($msg->{c} eq 'shipdelete'){
 			$self->_removeShip($data->{id});
 		} elsif ($msg->{c} eq 'shipchange'){
@@ -1324,15 +1341,20 @@ sub setMap {
 	# $self->onMap($x, $y);
 	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     my $lighting = 'ON_GREY' . $lighting[$_[1]]->[$_[2]];
-	if ($useCurses){ putStr(@_, $lighting); }
+	if ($useCurses){ return putStr(@_, $lighting); }
 
-	my $self = shift;
-	my ($x, $y, $chr, $color) = @_;
-	if (!defined($color)){ $color = 'reset' }
-	if (ref($chr) eq 'ARRAY'){
-		$chr = $self->sprite($chr);
-	}
+	my ($self, $x, $y, $chr, $color) = @_;
+	if (!defined($color)){ $color = 'RESET' }
+	$chr = sprite($chr);
 	$self->{map}->[$x]->[$y] = getColor($color) . $chr;
+}
+
+sub addLight {
+	my $light = shift;
+	my $key = $lightsKey++;
+	$light->{'key'} = $lightsKey;
+	$light->{'start'} = time();
+	$lights{$lightsKey} = $light;
 }
 
 sub addLighting {

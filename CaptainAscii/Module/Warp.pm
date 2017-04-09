@@ -4,7 +4,7 @@ package CaptainAscii::Module::Warp;
 use parent 'CaptainAscii::Module';
 
 my $warpTimeDelay = 1.7;      # seconds
-my $lightLength   = 2.5;      # seconds
+my $lightLength   = 3;      # seconds
 my $warpDistanceFactor = 1.5; # multiplied by ship speed
 my $warpDistance = 15;        # minimum distance
 
@@ -72,8 +72,9 @@ sub tick {
 	my $ship = shift;
 	if (!defined($ship->{'warp'})){ return 0; }
 	if ($ship->{'warp'}->{'time'} < time()){
-		$ship->{'x'} = $ship->{'warp'}->{'x'};	
-		$ship->{'y'} = $ship->{'warp'}->{'y'};	
+		$ship->setStatus('x', $ship->{'warp'}->{'x'});
+		$ship->setStatus('y', $ship->{'warp'}->{'y'});
+		$ship->addServerInfoMsg("Warped to $ship->{'warp'}->{x}, $ship->{warp}->{y}");
 		delete $ship->{'warp'};
 	}
 }

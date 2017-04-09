@@ -817,8 +817,17 @@ sub lightShip {
 	my $self = shift;
 	my $duration = shift;
 	if (!defined($duration)){ $duration = 0; } # really add 0.5 seconds
+	my @lights = ();
 	foreach my $part ($self->getParts()){
 		$part->{'hit'} = time() + $duration;
+		$self->addServerMsg('light', 
+			{
+				'x' => int($part->{y} + $self->{y}),
+				'y' => int($part->{x} + $self->{x}),
+				'level' => int($duration * 3),
+				'decay' => int($duration * 1),
+			}
+		);
 	}
 }
 
@@ -912,22 +921,31 @@ sub clearAiVar {
 	delete $self->{_aiVars}->{$key};
 }
 
+### only called by client
 sub setPartHealth {
 	my $self = shift;
 	my ($partId, $health) = @_;
 	my $part = $self->getPartById($partId);
 	if ($health < 0){
 		$self->_removePart($partId);
-		return 1;
+		return undef;
 	}
     if ($part->{health} > $health){
 	    $part->{'hit'} = time();
 		$self->setStatus('lastHit', time());
+		$part->{health} = $health;
+		return 
+			{
+				'x' => int($part->{y} + $self->{y}),
+				'y' => int($part->{x} + $self->{x}),
+				'level' => 5,
+				'decay' => 17,
+			};
     } elsif ($part->{health} < $health) {
 	    $part->{'healing'} = time();
+		$part->{health} = $health;
     }  
-	$part->{health} = $health;
-	return 0;
+	return undef;
 }
 
 # TODO have server periodically send out shield health for regen
@@ -1365,6 +1383,9 @@ sub move {
 	#if (time() - $self->{lastPower}) < 0.1)){ return 0; }
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
+
+	### paralyzed during warp
+	if (defined($self->{warp})){ return 0; }
 
     my $xThrottle = 0;
     my $yThrottle = 0;
