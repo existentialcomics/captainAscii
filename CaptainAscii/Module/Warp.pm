@@ -49,11 +49,11 @@ sub active {
 
 	my $warpToX = ($warpXArg ? $warpXArg : $ship->{x} + ( ( $ship->{speed} * $x * $warpDistanceFactor ) + ($x * $warpDistance) ));
 	my $warpToY = ($warpYArg ? $warpYArg : $ship->{y} + ( ( $ship->{speed} * $y * $warpDistanceFactor ) + ($y * $warpDistance) ));
-	$ship->{'warp'} = {
-		'time' => time() + $warpTimeDelay,
+	$ship->setStatus('warp', {
+		'time' => $warpTimeDelay,
 		'x'    => $warpToX,
 		'y'    => $warpToY
-	};
+	});
 	$ship->addStatus('currentPower', -$self->_powerNeccesary($ship));
 	$ship->{lastHyperdrive} = time();
 
@@ -70,12 +70,13 @@ sub _powerNeccesary{
 sub tick {
 	my $self = shift;
 	my $ship = shift;
-	if (!defined($ship->{'warp'})){ return 0; }
-	if ($ship->{'warp'}->{'time'} < time()){
-		$ship->setStatus('x', $ship->{'warp'}->{'x'});
-		$ship->setStatus('y', $ship->{'warp'}->{'y'});
-		$ship->addServerInfoMsg("Warped to $ship->{'warp'}->{x}, $ship->{warp}->{y}");
-		delete $ship->{'warp'};
+	my $warp = $ship->getStatus('warp');
+	if (! $warp ){ return 0; }
+	if ($warp->{'end'} < time()){
+		$ship->setStatus('x', $warp->{'x'});
+		$ship->setStatus('y', $warp->{'y'});
+		$ship->addServerInfoMsg("Warped to $warp->{x}, $warp->{y}");
+		$ship->setStatus('warp', 0);
 	}
 }
 

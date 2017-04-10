@@ -1142,6 +1142,11 @@ sub setStatus {
 	if ($status eq 'color'){ $value = uc($value); }
 	#if ($status eq 'x'){ $value = int($value); }
 	#if ($status eq 'y'){ $value = int($value); }
+	if ($status eq 'warp'){
+		if (ref($value) eq 'HASH'){
+			$value->{end} = time() + $value->{'time'};
+		}
+	}
 
 	if ($status eq 'light'){
 		$self->lightShip($value);
@@ -1385,7 +1390,7 @@ sub move {
 	my $timeMod = $time - $self->{lastMove};
 
 	### paralyzed during warp
-	if (defined($self->{warp})){ return 0; }
+	if ($self->{warp}){ return 0; }
 
     my $xThrottle = 0;
     my $yThrottle = 0;

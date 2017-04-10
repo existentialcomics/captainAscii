@@ -182,12 +182,20 @@ sub _init {
 sub _generateStarMap {
 	my $self = shift;
 	my $size = shift;
-	if (!defined($size)){ $size = 500; }
+	if (!defined($size)){ $size = 300; }
+
+	print "loading maps...\n";
 
 	$starMapSize = $size;
     #$self->{_curses_map}      = newpad($self->{height}, $self->{width});
     $self->{_curses_map} = newpad($size * 2, $size * 2);
     $self->{_curses_mapBlank} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankNS} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankNS2} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankNS3} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankEW} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankNeSw} = newpad($size * 2, $size * 2);
+    $self->{_curses_mapBlankNwSe} = newpad($size * 2, $size * 2);
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
 		push @starMapStr, '';
@@ -198,6 +206,22 @@ sub _generateStarMap {
 				putCursesChr($self->{_curses_mapBlank}, $x + $size, $y + $size, ' ', 'WHITE', 'ON_BLACK');
 				putCursesChr($self->{_curses_mapBlank}, $x, $y + $size, ' ', 'WHITE', 'ON_BLACK');
 				putCursesChr($self->{_curses_mapBlank}, $x + $size, $y, ' ', 'WHITE', 'ON_BLACK');
+
+				putCursesChr($self->{_curses_mapBlankNS}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS}, $x + $size, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS}, $x, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS}, $x + $size, $y, ' ', 'WHITE', 'ON_BLACK');
+
+				putCursesChr($self->{_curses_mapBlankNS2}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS2}, $x + $size, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS2}, $x, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankNS2}, $x + $size, $y, ' ', 'WHITE', 'ON_BLACK');
+
+				putCursesChr($self->{_curses_mapBlankEW}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankEW}, $x + $size, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankEW}, $x, $y + $size, ' ', 'WHITE', 'ON_BLACK');
+				putCursesChr($self->{_curses_mapBlankEW}, $x + $size, $y, ' ', 'WHITE', 'ON_BLACK');
+				
 				$starMapStr[$x] .= ' ';
                 next;
 			}
@@ -208,7 +232,7 @@ sub _generateStarMap {
             my $back = 'ON_BLACK';
 			if ($starRand < 0.02){
 				$chr = '*';
-				if ($starRand < 0.1){
+				if ($starRand < 0.08){
                     $fore = 'YELLOW';
 				}
 			} elsif ($starRand < 0.5){
@@ -225,6 +249,37 @@ sub _generateStarMap {
 			putCursesChr($self->{_curses_mapBlank}, $x + $size, $y + $size, $chr, $fore, 'ON_BLACK');
 			putCursesChr($self->{_curses_mapBlank}, $x, $y + $size, $chr, $fore, 'ON_BLACK');
 			putCursesChr($self->{_curses_mapBlank}, $x + $size, $y, $chr, $fore, 'ON_BLACK');
+
+			putCursesChr($self->{_curses_mapBlankNS}, $x, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS}, $x + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS}, $x, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS}, $x + $size, $y, '│', $fore, 'ON_BLACK');
+
+			putCursesChr($self->{_curses_mapBlankNS2}, $x, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + $size, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 1, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 1 + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 1, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 1 + $size, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 1, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 1 + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 1, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 1 + $size, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 2, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 2 + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 2, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x + 2 + $size, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 2, $y, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 2 + $size, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 2, $y + $size, '│', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankNS2}, $x - 2 + $size, $y, '│', $fore, 'ON_BLACK');
+
+			putCursesChr($self->{_curses_mapBlankEW}, $x, $y, '─', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankEW}, $x + $size, $y + $size, '─', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankEW}, $x, $y + $size, '─', $fore, 'ON_BLACK');
+			putCursesChr($self->{_curses_mapBlankEW}, $x + $size, $y, '─', $fore, 'ON_BLACK');
 		}
 	}
 }
@@ -453,13 +508,20 @@ sub printCursesScreen {
     $self->{_curses_info}->refresh();
     $self->{_curses_side}->refresh();
     # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
+	my $copyWin = $self->{_curses_mapBlank};
+	my $warp = $self->{ship}->getStatus('warp');
+	if ($warp){
+		if ($warp->{end} - time() < 1){
+			$copyWin = $self->{_curses_mapBlankNS2};
+		} else {
+			$copyWin = $self->{_curses_mapBlankNS};
+		}
+	}
     my $r = copywin(
-        $self->{_curses_mapBlank},
+        $copyWin,
         $self->{_curses_map},
-        #$self->{_curses_mapBlank},
         $self->{ship}->{y} % $starMapSize,
         $self->{ship}->{x} % $starMapSize,
-		#0,0,
         0,
         0,
         $self->{height},
