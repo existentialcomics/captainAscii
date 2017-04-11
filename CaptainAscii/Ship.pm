@@ -124,6 +124,10 @@ sub _init {
 	$self->{debug} = 'ship debug msgs';
     $self->{zones} = {};
 
+    $self->{currentThrust} = 0;
+    $self->{currentSpeed}  = 0;
+    $self->{acceleration}  = 0;
+
 	$self->{'aspectRatio'} = $aspectRatio;
 
 	$self->{'design'} = $shipDesign;
@@ -144,8 +148,9 @@ sub _init {
 
 	$self->{'movingHoz'}   = 0;
 	$self->{'movingVert'}   = 0;
-	$self->{'movingHozPress'}   = 0;
-	$self->{'movingVertPress'}   = 0;
+	$self->{'movingHozPress'}  = 0;
+	$self->{'movingVertPress'} = 0;
+	$self->{'brakePressed'}    = 0;
 	$self->{'shooting'} = 0;
 	$self->{'aimingPress'} = 0;
 	$self->{'aimingDir'} = 1;
@@ -1389,9 +1394,6 @@ sub move {
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
 
-	### paralyzed during warp
-	if ($self->{warp}){ return 0; }
-
     my $xThrottle = 0;
     my $yThrottle = 0;
 
@@ -1401,6 +1403,9 @@ sub move {
 		if ($direction < 0){ $direction += (PI * 2); }
 		$self->setStatus('direction', $direction);
 	}
+
+	### paralyzed during warp
+	if ($self->{warp}){ return 0; }
     
     if ($time - $self->{movingHozPress} < 0.2){
         $xThrottle = $self->{movingHoz};
@@ -1412,6 +1417,10 @@ sub move {
         $yThrottle = $self->{movingVert};
     } elsif ($self->getStatus('cruise')){
         $yThrottle = (cos($self->{direction}) * 0.7);
+    }
+    
+    if ($time - $self->{brakePressed} < 0.2){
+
     }
 
 	$self->addStatus('x', $xThrottle * $self->{speed} * $timeMod);
