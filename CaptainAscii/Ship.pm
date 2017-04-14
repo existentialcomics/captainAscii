@@ -115,6 +115,10 @@ sub _init {
 	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
 	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
 
+    $self->{'_statusLimits'} = {
+        'currentThrust' => 'thrust',
+    };
+
 	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white RGB113);
 	$self->{allowedColors} = \@allowedColors;
 
@@ -150,6 +154,7 @@ sub _init {
 	$self->{'movingVert'}   = 0;
 	$self->{'movingHozPress'}  = 0;
 	$self->{'movingVertPress'} = 0;
+	$self->{'thrustPressed'}    = 0;
 	$self->{'brakePressed'}    = 0;
 	$self->{'shooting'} = 0;
 	$self->{'aimingPress'} = 0;
@@ -1086,23 +1091,18 @@ sub _getConnectedPartIds {
 
 #######################
 # Resolve keypress
-# returns:
-# {
-#    'msgType' => 'shipstatus',
-#    'msg' => {
-#		ship_id => $self->{id},
-#		cloaked => $self->{cloaked}
-#	 }
-# }
-# OR undef
+#
 sub keypress {
 	my $self = shift;
 	my $chr = shift;
-	if ($chr eq 'a'){ $self->{movingHozPress} = time(); $self->{movingHoz} = -1; }
-	if ($chr eq 'd'){ $self->{movingHozPress} = time(); $self->{movingHoz} = 1;  }
-	if ($chr eq 'w'){ $self->{movingVertPress} = time(); $self->{movingVert} = -1; }
-	if ($chr eq 's'){ $self->{movingVertPress} = time(); $self->{movingVert} = 1;  }
-	if ($chr eq ' '){ $self->{shooting} = time();}
+	if ($chr eq 'a'){ $self->{movingDir} = time(); $self->{movingDir} = -1; }
+	if ($chr eq 'd'){ $self->{movingDir} = time(); $self->{movingDir} = 1;  }
+	if ($chr eq 'w'){ $self->{thrustPressed} = time(); }
+	if ($chr eq 's'){ $self->{brakePressed}  = time(); }
+	if ($chr eq '5'){ $self->{brakePressed}  = time(); }
+	if ($chr eq '8'){ $self->{upPressed}     = time(); }
+	if ($chr eq '2'){ $self->{downPressed}   = time(); }
+	if ($chr eq ' '){ $self->{shooting}      = time();}
 	if ($chr eq 'p'){ $self->_recalculate(); }
 	if ($chr eq 'q' || $chr eq 'j'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
 	if ($chr eq 'e' || $chr eq 'k'){ $self->{aimingPress} = time(); $self->{aimingDir} = -1}
@@ -1139,6 +1139,12 @@ sub setStatus {
 	my $self = shift;
 	my $status = shift;
 	my $value = shift;
+
+    if (defined($self->{_statusLimits}->{$status})){
+        if ($value > $self->getStatus($self->{_statusLimits}->{$status})){
+            $value = $self->getStatus($self->{_statusLimits}->{$status});
+        }
+    }
 
 	if ($status eq 'taunt'){
 		$self->{'lastTauntTime'} = time();
@@ -1407,26 +1413,38 @@ sub move {
 	### paralyzed during warp
 	if ($self->{warp}){ return 0; }
     
-    if ($time - $self->{movingHozPress} < 0.2){
-        $xThrottle = $self->{movingHoz};
-    } elsif ($self->getStatus('cruise')){
-        $xThrottle = (sin($self->{direction}) * 0.7);
-    }
+    my $directionThrust = $self->getStatus('direction');
 
-    if ($time - $self->{movingVertPress} < 0.2){
-        $yThrottle = $self->{movingVert};
-    } elsif ($self->getStatus('cruise')){
-        $yThrottle = (cos($self->{direction}) * 0.7);
-    }
+    $xThrottle = sin($directionThrust) * $self->getStatus('currentThrust') * 5;
+    $yThrottle = cos($directionThrust) * $self->getStatus('currentThrust') * 5;
     
     if ($time - $self->{brakePressed} < 0.2){
+        $self->setStatus('xSpeed', $self->getStatus('xSpeed') * (1 - (1.5 * $timeMod)));
+        $self->setStatus('ySpeed', $self->getStatus('ySpeed') * (1 - (1.5 * $timeMod)));
+    }
+    ### friction
+    $self->setStatus('xSpeed', $self->getStatus('xSpeed') * (1 - (0.1 * $timeMod)));
+    $self->setStatus('ySpeed', $self->getStatus('ySpeed') * (1 - (0.1 * $timeMod)));
 
+    if ($time - $self->{thrustPressed} < 0.2){
+        $self->addStatus('currentThrust', $self->getStatus('thrust') * $timeMod);
+    } else {
+        $self->setStatus('currentThrust', 0);
     }
 
-	$self->addStatus('x', $xThrottle * $self->{speed} * $timeMod);
-	$self->addStatus('y', $yThrottle * $self->{speed} * $timeMod * $aspectRatio);
-	$self->setStatus('movingHoz' , $xThrottle);
-	$self->setStatus('movingVert', $yThrottle);
+    my $inertia = (($self->getStatus('currentSpeed') ** 2) * $self->getStatus('weight')) + $self->getStatus('weight');
+    if ($inertia < 1){
+        $inertia = 1;
+    }
+    $self->setStatus('inertia', int($inertia));
+    $self->setStatus('acceleration', $self->getStatus('thrust') / $inertia);
+
+    $self->addStatus('xSpeed', ($xThrottle / $inertia) * $timeMod);
+    $self->addStatus('ySpeed', ($yThrottle / $inertia) * $timeMod);
+    $self->setStatus('currentSpeed', sqrt(($self->getStatus('xSpeed') ** 2) + ($self->getStatus('ySpeed') ** 2)));
+
+	$self->addStatus('x', $self->getStatus('xSpeed') * $timeMod);
+	$self->addStatus('y', $self->getStatus('ySpeed') * $timeMod);
 
 	$self->{lastMove} = $time;
 }

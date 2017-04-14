@@ -819,24 +819,43 @@ sub printInfo {
 	my $left = 2;
 
 	#### ----- ship info ------ ####
-    $self->putInfoStr(
-        2, 1, 
-	    sprintf('coordinates: %3s,%3s, %3s, %3s      ships detected: %-3s  h:%s,w:%s ', int($ship->{x}), int($ship->{y}), $self->{offx}, $self->{offy}, $self->_getShipCount(), $height, $width)
+    $self->putInfoStr(0, 0, "fps: $self->{fps}  ", 'GREEN', "ON_BLACK");
+    #### Status display
+    my %status = (
+        'Weight'       => int $ship->getStatus('weight'),
+        'Coordinates'  => sprintf('%3s,%3s', int($ship->{x}), int($ship->{y})),
+        'Max Thrust'   => int $ship->getStatus('thrust'),
+        'Speed'        => sprintf('%.1f', $ship->getStatus('currentSpeed')),
+        'Inertia'      => sprintf('%.1f', $ship->getStatus('inertia')),
+        'Acceleration' => sprintf('%.3f', $ship->getStatus('acceleration')),
+        'Ship Value'   => '$' . int $ship->getStatus('cost'),
+        'Cash'         => '$' . int $ship->getStatus('cash'),
+        'Power Rate'   => sprintf('%.1f', $ship->getStatus('currentPowerGen')),
+    );
+    my $keyLen = 5;
+    my $valLen = 5;
+    foreach my $key (keys %status){
+        if (length($key) > $keyLen){ $keyLen = length($key); }
+        if (length($status{$key}) > $valLen){ $valLen = length($status{$key}); }
+    }
+	$self->putInfoStr(
+        1, 52,
+        '┌──' . '─' x $keyLen . '┬' . '─' x $valLen . '──┐'
+    );
+    my $i = 0;
+    for my $key (sort keys %status){
+        $i++;
+	    $self->putInfoStr(
+            1 + $i, 52,
+            sprintf('│ %' . $keyLen . 's │ %' . $valLen . 's │', $key, $status{$key})
+        );
+    }
+	$self->putInfoStr(
+        2 + $i, 52,
+        '└──' . '─' x $keyLen . '┴' . '─' x $valLen . '──┘'
     );
 
-    $self->putInfoStr(1, 1, "fps: $self->{fps}  ", 'GREEN', "ON_BLACK");
-
-	$self->putInfoStr(
-        3, 1,
-		"fps: " . $self->{fps} . "  " . 
-		"id "   . $self->{ship}->{id} . "  " . 
-		"weight: " .  $ship->{weight} .
-		"  thrust: " . $ship->{thrust} .
-		"  speed: " . sprintf('%.1f', $ship->{speed}) . 
-		"  cost: \$" . $ship->{cost} . 
-		"  cash: \$" . $ship->{cash} . 
-		"  powergen: " . sprintf('%.2f', $ship->{currentPowerGen}) . "  "
-		);
+    
 
 	my @ships = keys %{$self->{ships}};
 	#$self->{debug} = join ',', @ships;
@@ -850,7 +869,7 @@ sub printInfo {
 		$self->{ship}->getStatus('currentPower'),
 		$self->{ship}->getStatus('power'),
 		50,
-		5,
+		1,
 		0,
 		'5',
 		'x',
@@ -861,7 +880,7 @@ sub printInfo {
 		$self->{ship}->getStatus('shieldHealth'),
 		$self->{ship}->getStatus('shield'),
 		50,
-		8,
+		4,
 		0,
 		'-x',
 		'x',
@@ -872,7 +891,18 @@ sub printInfo {
 		$self->{ship}->getStatus('currentHealth'),
 		$self->{ship}->getStatus('health'),
 		50,
-		11,
+		7,
+		0,
+		'-x',
+		'x',
+		'0'
+	);
+	$self->printStatusBar(
+		'thrust',
+		$self->{ship}->getStatus('currentThrust'),
+		$self->{ship}->getStatus('thrust'),
+		50,
+		10,
 		0,
 		'-x',
 		'x',
