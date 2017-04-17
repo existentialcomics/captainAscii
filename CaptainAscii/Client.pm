@@ -133,7 +133,7 @@ sub _init {
 	noecho();
     #my $res = $self->{_curses_info}      = newwin($self->{height}, 0, 10, 40);
 	# *newwin(int nlines, int ncols, int begin_y, int begin_x);
-    my $resI= $self->{_curses_info} = newwin($self->{termHeight} - $self->{height} - 1, $self->{termWidth} -1 , $self->{height}, 0);
+    my $resI= $self->{_curses_info} = newwin($self->{termHeight} - $self->{height}, $self->{termWidth}, $self->{height}, 0);
     my $resS = $self->{_curses_side} = newwin($self->{height}, $self->{termWidth} - $self->{width} , 0, $self->{width});
 
 	$self->_generateStarMap();
@@ -427,7 +427,6 @@ sub _addShip {
 sub _getShip {
 	my $self = shift;
 	my $id = shift;
-	#$self->{debug} = $id;
 	return $self->{ships}->{$id};
 }
 
@@ -497,12 +496,12 @@ sub loop {
 		$self->_drawItems($offx, $offy);
 		$self->_drawShips($offx, $offy);
 
+		$self->printInfo();
 		if ($self->{mode} eq 'zonemap'){
 			$self->printZoneScreen($scr);
 		} else {
 			$self->printScreen($scr);
 		}
-		$self->printInfo();
 		$self->printSide();
 	    $self->_resetLighting($self->{width} * $self->{zoom}, $self->{height} * $self->{zoom});
 	}
@@ -532,10 +531,10 @@ sub printCursesScreen {
         $self->{_curses_map},
         $self->{ship}->{y} % $starMapSize,
         $self->{ship}->{x} % $starMapSize,
-        0,
-        0,
-        $self->{height},
-        $self->{width},
+        1,
+        1,
+        $self->{height} - 2,
+        $self->{width} - 2,
         0
     );
 }
@@ -602,13 +601,13 @@ sub putTermChr {
 }
 
 sub putStr {
-	if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
+	#if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     if ($useCurses){
         my $self = shift;
         if ($self->{zoom} == 1){
             return putCursesChr($self->{_curses_map}, @_);
         } else {
-            return putCursesChr($self->{_curses_map}, $_[0] / $self->{zoom}, $_[1] / $self->{zoom}, $_[2], $_[3]);
+            return putCursesChr($self->{_curses_map}, $_[0] / $self->{zoom}, $_[1] / $self->{zoom}, $_[2], $_[3], $_[4]);
         }
     } else {
         return putTermChr(@_);
@@ -738,7 +737,7 @@ sub printSide {
 		my $boxColor = 'ON_BLACK';
 		if ($self->{mode} eq 'type'){ $boxColor = 'ON_GREY4'; }
 		$self->putSideStr(
-            $height - 2,
+            $height - 3,
 			0,
             sprintf('%-' . $self->{chatWidth} . 's', "> " . substr($self->{'msg'}, -($self->{chatWidth} -3))),
             "WHITE",
@@ -754,7 +753,10 @@ sub printStatusBar {
 
 
     my $statBar = '';
-	my $ratio = $value / $max;
+	my $ratio = 0;
+	if ($max != 0){
+		$ratio = $value / $max;
+	}
 	if ($ratio > 1){ $ratio = 1; }
 	if ($ratio < 0){ $ratio = 0; }
 	my $fullWidth = $width * $ratio;
@@ -772,11 +774,17 @@ sub printStatusBar {
     } else {
         $statBar = sprintf('=' x int($width / 3) . '%3d' . ' ' x int($width / 3) . '%3d' . ' ' x int($width / 3), $max * 0.33, $max * 0.66);
     }
+
+	my $nameDisplay = sprintf('%s %' . length(int $max) . 's / %'. length(int $max) . 's',
+		uc($name),
+		int($value),
+		int($max)
+	);
     
-    my $widthStatus = $width - length($name);
+    my $widthStatus = $width - length($nameDisplay);
     $self->putInfoStr(
         $col, $row,
-        '╭' . '─' x floor($widthStatus / 2) . uc($name) . '─' x ceil($widthStatus / 2) . '╮'
+        '╭' . '─' x floor($widthStatus / 2) . $nameDisplay . '─' x ceil($widthStatus / 2) . '╮'
     );
 
     $self->putInfoStr(
@@ -826,8 +834,10 @@ sub printInfo {
         'Coordinates'  => sprintf('%3s,%3s', int($ship->{x}), int($ship->{y})),
         'Max Thrust'   => int $ship->getStatus('thrust'),
         'Speed'        => sprintf('%.1f', $ship->getStatus('currentSpeed')),
-        'Inertia'      => sprintf('%.1f', $ship->getStatus('inertia')),
-        'Acceleration' => sprintf('%.3f', $ship->getStatus('acceleration')),
+        'Inertia X'      => sprintf('%.1f', $ship->getStatus('inertiaX')),
+        'Inertia Y'      => sprintf('%.1f', $ship->getStatus('inertiaY')),
+        'Acceleration X' => sprintf('%.3f', $ship->getStatus('accelerationX')),
+        'Acceleration Y' => sprintf('%.3f', $ship->getStatus('accelerationY')),
         'Ship Value'   => '$' . int $ship->getStatus('cost'),
         'Cash'         => '$' . int $ship->getStatus('cash'),
         'Power Rate'   => sprintf('%.1f', $ship->getStatus('currentPowerGen')),
@@ -858,8 +868,8 @@ sub printInfo {
     
 
 	my @ships = keys %{$self->{ships}};
-	#$self->{debug} = join ',', @ships;
-    $self->putInfoStr(4, 1, "debug: $self->{debug}  ", 'GREEN', "ON_BLACK");
+    $self->putInfoStr(0, 100, "debug: $self->{debug}  ", 'GREEN', "ON_BLACK");
+    $self->putInfoStr(10, 100, "debug: $self->{ship}->{debug}  ", 'GREEN', "ON_BLACK");
 
 	my $barWidth = 50;
 
@@ -892,17 +902,6 @@ sub printInfo {
 		$self->{ship}->getStatus('health'),
 		50,
 		7,
-		0,
-		'-x',
-		'x',
-		'0'
-	);
-	$self->printStatusBar(
-		'thrust',
-		$self->{ship}->getStatus('currentThrust'),
-		$self->{ship}->getStatus('thrust'),
-		50,
-		10,
 		0,
 		'-x',
 		'x',
@@ -972,11 +971,7 @@ sub _drawBullets {
 			delete $bullets{$bulletK};
 			next;
 		}
-		my $spotX = $bullet->{x} + $offy;
-		my $spotY = $bullet->{y} + $offx;
-		if ($spotX > 0 && $spotY > 0){
-            $self->setMap($spotX, $spotY, $bullet->{chr}, $bullet->{col});
-		}
+		$self->setMap(int($bullet->{x} + $offy), int($bullet->{y} + $offx), $bullet->{chr}, $bullet->{col});
 	}
 }
 
@@ -994,9 +989,7 @@ sub _drawItems {
 		}
 		my $spotX = $item->{x} + $offy;
 		my $spotY = $item->{y} + $offx;
-		if ($spotX > 0 && $spotY > 0){
-			$self->setMap($spotX, $spotY, $item->{chr});
-		}
+		$self->setMap($spotX, $spotY, $item->{chr});
 	}
 }
 
@@ -1023,55 +1016,99 @@ sub resizeScr {
 sub printBorder {
 	my $self = shift;
 
-	my $color = $self->borderColor();
+	my ($fore, $back) = $self->borderColor();
+	if ($useCurses){
+		putCursesChr(
+			$self->{_curses_map},
+			0, 0,
+			"╔" . "═" x ($self->{width} - 2) . "╦",
+			$fore, $back
+		);
+		putCursesChr(
+			$self->{_curses_map},
+			$self->{height} - 1, 0,
+			"╚" . "═" x ($self->{width} - 2) . "╩",
+			$fore, $back
+		);
+		putCursesChr($self->{_curses_side}, 0, 0,
+			"═" x ($self->{chatWidth} - 1). "╗",
+			$fore, $back
+		);
+		putCursesChr($self->{_curses_side},
+			$self->{height} - 1, 0,
+			"═" x ($self->{chatWidth} - 1). "╝",
+			$fore, $back
+		);
 
-    if ($useCurses){
+	} else {
+		$self->putStr(
+			0, 0,
+			#"╔" . "═" x ($self->{width} - 2) . "╦",
+			"╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗",
+			$fore, $back
+		);
+		$self->putStr(
+			$self->{height} - 1, 0,
+			#"╚" . "═" x ($self->{width} - 2) . "╩",
+			"╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝",
+			$fore, $back
+		);
 
-    } else {
-        $self->putStr(
-            0, 0,
-            "╔" . "═" x ($self->{width} + 1) . "╦" . "═" x ($self->{chatWidth} - 4). "╗",
-            $color
-        );
-        $self->putStr(
-            $self->{height} + 2, 0,
-            "╚" . "═" x ($self->{width} + 1) . "╩" . "═" x ($self->{chatWidth} - 4). "╝",
-            $color
-        );
-        foreach my $i (1 .. $self->{height} + 1){
-            $self->putStr(
-                $i, 0,
-                "║",
-                $color
-            );
-            $self->putStr(
-                $i, $self->{width} + 2,
-                "║",
-                $color
-            );
-            $self->putStr(
-                $i, $self->{width} + $self->{chatWidth},
-                "║",
-                $color
-            );
-        }
-    }
+	}
+	foreach my $i (1 .. $self->{height} - 2){
+		if ($useCurses){
+			putCursesChr(
+				$self->{_curses_side},
+				$i, $self->{chatWidth} - 1,
+				"║",
+				$fore, $back
+			);
+			putCursesChr(
+				$self->{_curses_map},
+				$i, 0,
+				"║",
+				$fore, $back
+			);
+			putCursesChr(
+				$self->{_curses_map},
+				$i, $self->{width} - 1,
+				"║",
+				$fore, $back
+			);
+		} else {
+			$self->putStr(
+				$i, 0,
+				"║",
+				$fore, $back
+			);
+			$self->putStr(
+				$i, $self->{width} - 1,
+				"║",
+				$fore, $back
+			);
+			$self->putStr(
+				$i, $self->{width} + $self->{chatWidth},
+				"║",
+				$fore, $back
+			);
+		}
+	}
 }
 
 sub borderColor {
 	my $self = shift;
     if (time() - $self->{'ship'}->getStatus('lastHit') < 0.2){
-        return 'RED ON_BLACK';
+        return ('RED', 'ON_BLACK');
     } elsif (time() - $self->{ship}->getStatus('lastShieldHit') < 0.2){
-        return 'BLUE ON_BLACK';
+        return ('BLUE', 'ON_BLACK');
     } else {
-        return 'WHITE ON_BLACK';
+        return ('WHITE', 'ON_BLACK');
     }
 }
 
 sub setMapString {
     # TODO enable
-    return 0;
+	if ($useCurses){ return putStr(@_); }
 	my $self = shift;
 	my ($string, $x, $y, $color) = @_;
 	my @ar = split("", $string);
@@ -1091,13 +1128,13 @@ sub _drawLighting {
 	my $time = time();
 
 	foreach my $ship ($self->_getShips()){
-		if ($ship->{shieldsOn} && !($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
+		if (!($self->{mode} eq 'build' && $ship->{id} eq $self->{ship}->{id})){
 			foreach my $part ($ship->getParts()){
 				# TODO x and y switched
 				my $px = ($offy + int($ship->{y})) + $part->{'y'};
 				my $py = ($offx + int($ship->{x})) + $part->{'x'};
 
-				if ($part->{'part'}->{'type'} eq 'shield'){
+				if ($ship->{shieldsOn} && $part->{'part'}->{'type'} eq 'shield'){
 					if ($part->{'shieldHealth'} > 0){
 						my $shieldLevel = ((time() - $part->{'hit'} < .3) ? $part->{part}->{shieldlight} + 3 : $part->{part}->{shieldlight});
                         if ($ship->getStatus('deflector')){ $shieldLevel += 2; }
@@ -1109,6 +1146,9 @@ sub _drawLighting {
 								}
 							}
 						}
+					}
+				} elsif ($part->{'part'}->{'type'} eq 'thruster'){
+					if (time() - $part->{lastThrust} > 0.33){
 					}
 				}
 			}
@@ -1189,9 +1229,9 @@ sub _drawShips {
 			$py = ($offx + int($self->{ship}->{x})) + $aimy;
 			if (!$ship->{cloaked}){
 				if ($ship->{isBot}){
-					$self->setMap($px, $py, "+", 'RED ON_BLACK');
+					$self->setMap($px, $py, "+", 'RED', 'ON_BLACK');
 				} else {
-					$self->setMap($px, $py, "+", 'BRIGHT_BLUE ON_BLACK');
+					$self->setMap($px, $py, "+", 'BLUE', 'ON_BLACK');
 				}
 			}
 		}
@@ -1297,8 +1337,6 @@ sub _getMessagesFromServer {
 				if (my $ship = $self->_getShip($data->{sid})){
 					my $part = $ship->getPartById($data->{pid});
 					$part->{'lastShot'} = time();
-				} else {
-					#$self->{debug} = "ship not found $data->{sid}";
 				}
 				$self->{bullets}->{$key} = $data;
 				$self->{bullets}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
@@ -1310,7 +1348,6 @@ sub _getMessagesFromServer {
 			my $key = $data->{k};
 			$self->{items}->{$key} = $data;
 			$self->{items}->{$key}->{expires} = time() + $data->{ex}; # set absolute expire time
-			#$self->{debug} = "added item $key\n";
 		} elsif ($msg->{c} eq 'itemdel'){
 			my $key = $data->{k};
 			delete $self->{items}->{$key};
@@ -1326,7 +1363,6 @@ sub _getMessagesFromServer {
 			}
 			$self->_addShip($shipNew);
 		} elsif ($msg->{c} eq 'dam'){
-			#$debug = $data->{bullet_del} . " - " . exists($bullets{$data->{bullet_del}});
 			if (defined($data->{bullet_del})){
 				delete $self->{bullets}->{$data->{bullet_del}};
 			}
@@ -1345,7 +1381,6 @@ sub _getMessagesFromServer {
 			}
 		} elsif ($msg->{c} eq 'light'){
 			addLight($data);
-			$self->{debug} = 'light ' . time();
 		} elsif ($msg->{c} eq 'shipdelete'){
 			$self->_removeShip($data->{id});
 		} elsif ($msg->{c} eq 'shipchange'){
@@ -1360,7 +1395,6 @@ sub _getMessagesFromServer {
 					$self->{ships}->{$data->{'new_id'}} = $self->{ships}->{$data->{'old_id'}};
 					$s->{id} = $data->{'new_id'};
 					delete($self->{ships}->{$data->{'old_id'}});
-					#$self->{debug} = "$data->{'old_id'} to $data->{'new_id'}";
 				}
 			}
 		} elsif ($msg->{c} eq 'shipstatus'){
@@ -1477,7 +1511,7 @@ sub addLighting {
 sub onMap {
 	my $self = shift;
 	my ($x, $y) = @_;
-	return ($x > 0 && $y > 0 && $x < $self->{height} * $self->{zoom} && $y < $self->{width} * $self->{zoom});
+	return ($x > 0 && $y > 0 && $x < ($self->{height} - 2) * $self->{zoom} && $y < ($self->{width} - 2) * $self->{zoom});
 }
 
 1;

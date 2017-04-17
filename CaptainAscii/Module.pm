@@ -102,7 +102,8 @@ sub _hasPower {
 	my $self = shift;
 	my $ship = shift;
 	
-	return ($ship->{currentPower} > $self->_powerRequired($ship)); 
+	### need enough power for 1/3 of a second
+	return ($ship->{currentPower} > ($self->_powerRequired($ship) / 3)); 
 }
 
 sub _setTick {

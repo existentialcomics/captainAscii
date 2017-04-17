@@ -115,8 +115,8 @@ sub _init {
 	$self->{'statusChange'} = {}; #register changes in status to broadcast to clients
 	$self->{'_shipMsgs'}    = []; #register any msg that needs to broadcas
 
-    $self->{'_statusLimits'} = {
-        'currentThrust' => 'thrust',
+    $self->{'_statusMax'} = {
+        'currentPower'   => 'power',
     };
 
 	my @allowedColors = qw(red  green  yellow  blue  magenta  cyan  white RGB113);
@@ -128,7 +128,10 @@ sub _init {
 	$self->{debug} = 'ship debug msgs';
     $self->{zones} = {};
 
-    $self->{currentThrust} = 0;
+    $self->{currentThrustRight} = 0;
+    $self->{currentThrustLeft} = 0;
+    $self->{currentThrustUp} = 0;
+    $self->{currentThrustDown} = 0;
     $self->{currentSpeed}  = 0;
     $self->{acceleration}  = 0;
 
@@ -154,7 +157,10 @@ sub _init {
 	$self->{'movingVert'}   = 0;
 	$self->{'movingHozPress'}  = 0;
 	$self->{'movingVertPress'} = 0;
-	$self->{'thrustPressed'}    = 0;
+	$self->{'thrustPressedUp'}    = 0;
+	$self->{'thrustPressedDown'}    = 0;
+	$self->{'thrustPressedLeft'}    = 0;
+	$self->{'thrustPressedRight'}    = 0;
 	$self->{'brakePressed'}    = 0;
 	$self->{'shooting'} = 0;
 	$self->{'aimingPress'} = 0;
@@ -408,6 +414,7 @@ sub getZoneSpawnRate {
 	return $spawnRate;
 }
 
+# item drops
 sub calculateDrops {
     my $self = shift;
 
@@ -421,7 +428,7 @@ sub calculateDrops {
         push @drops, {
             cash => $cash,
             'chr'  => '$',
-            'col'  => 'green ON RGB121'
+            'col'  => 'GREEN'
         };
     }
     if (rand() < 0.1){
@@ -510,16 +517,77 @@ sub getAimingCursor {
 	return(cos($self->{direction}) * 12 * ASPECTRATIO, sin($self->{direction}) * 12);
 }
 
+### thrust also calculated here
 sub shoot {
 	my $self = shift;
-	if (time() - $self->{shooting} > 0.4){ return []; }
 
 	my $quad = $self->getQuadrant();
+
+	$self->setStatus('currentThrustUp', 0);
+	$self->setStatus('currentThrustDown', 0);
+	$self->setStatus('currentThrustLeft', 0);
+	$self->setStatus('currentThrustRight', 0);
 
 	my $time = time();
 	my @bullets = ();
 	foreach my $part ($self->getParts()){
-		if (!defined($part->{'lastShot'})){ $part->{'lastShot'} = $time;}
+		if ($time - $self->{thrustPressedUp} < 0.2 && defined($part->{part}->{thrustUp})){
+			if ($time - $part->{lastThrust} > 0.33){
+				$part->{lastThrust} = $time;
+				$self->addStatus('currentThrustUp', $part->{part}->{thrustUp});
+				$self->addServerMsg('light', 
+					{
+						'x' => int($part->{y} + $self->{y}),
+						'y' => int($part->{x} + $self->{x}),
+						'level' => 3,
+						'decay' => 4,
+					}
+				);
+			}
+		}
+		if ($time - $self->{thrustPressedLeft} < 0.2 && defined($part->{part}->{thrustLeft})){
+			if ($time - $part->{lastThrust} > 0.33){
+				$part->{lastThrust} = $time;
+				$self->addStatus('currentThrustLeft', $part->{part}->{thrustLeft});
+				$self->addServerMsg('light', 
+					{
+						'x' => int($part->{y} + $self->{y}),
+						'y' => int($part->{x} + $self->{x}),
+						'level' => 3,
+						'decay' => 4,
+					}
+				);
+			}
+		}
+		if ($time - $self->{thrustPressedRight} < 0.2 && defined($part->{part}->{thrustRight})){
+			if ($time - $part->{lastThrust} > 0.33){
+				$part->{lastThrust} = $time;
+				$self->addStatus('currentThrustRight', $part->{part}->{thrustRight});
+				$self->addServerMsg('light', 
+					{
+						'x' => int($part->{y} + $self->{y}),
+						'y' => int($part->{x} + $self->{x}),
+						'level' => 3,
+						'decay' => 4,
+					}
+				);
+			}
+		}
+		if ($time - $self->{thrustPressedDown} < 0.2 && defined($part->{part}->{thrustDown})){
+			if ($time - $part->{lastThrust} > 0.33){
+				$part->{lastThrust} = $time;
+				$self->addStatus('currentThrustDown', $part->{part}->{thrustDown});
+				$self->addServerMsg('light', 
+					{
+						'x' => int($part->{y} + $self->{y}),
+						'y' => int($part->{x} + $self->{x}),
+						'level' => 3,
+						'decay' => 4,
+					}
+				);
+			}
+		}
+		if ($time - $self->{shooting} > 0.4){ next; }
 		if (($part->{'part'}->{'type'} eq 'gun' || $part->{'part'}->{'type'} eq 'command') and abs($time - $part->{lastShot}) > $part->{'part'}->{rate}){
 			$part->{'lastShot'} = $time;
 			# not enough power
@@ -546,23 +614,34 @@ sub shoot {
 				x => ($self->{'y'} + $part->{'y'}),
 				'chr'   => $part->{'part'}->{'shotChr'},
 				'col'   => ($self->getStatus('emp') ? 'bold blue' : $part->{'part'}->{'shotColor'}),
-				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speedX} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
-				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speed} * $part->{'part'}->{'shipMomentum'} : 0)
+				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speedY} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * sin($direction),
 			};
 		}
 	}
-	$self->_limitPower();
 	return \@bullets;
 }
 
 sub _calculateThrust {
 	my $self = shift;
-	$self->{thrust} = 0;
+	$self->{thrustUp} = 0;
+	$self->{thrustDown} = 0;
+	$self->{thrustRight} = 0;
+	$self->{thrustLeft} = 0;
 	foreach my $part ($self->getParts()){
-		if (defined($part->{part}->{thrust})){
-			$self->{thrust} += $part->{part}->{thrust};
+		if (defined($part->{part}->{thrustUp})){
+			$self->{thrustUp} += $part->{part}->{thrustUp};
+		}
+		if (defined($part->{part}->{thrustDown})){
+			$self->{thrustDown} += $part->{part}->{thrustDown};
+		}
+		if (defined($part->{part}->{thrustLeft})){
+			$self->{thrustLeft} += $part->{part}->{thrustLeft};
+		}
+		if (defined($part->{part}->{thrustRight})){
+			$self->{thrustRight} += $part->{part}->{thrustRight};
 		}
 	}
 }
@@ -624,16 +703,6 @@ sub _calculatePower {
 	$self->setStatus('currentPowerGen', $self->{powergen});
 }
 
-sub _calculateSpeed {
-	my $self = shift;
-	if ($self->{weight} == 0){
-		$self->{speed} = 0;
-	} else {
-		$self->{speed} = $self->{thrust} / $self->{weight} * 2;
-	}
-	if ($self->{speed} > 35){ $self->{speed} = 35; }
-}
-
 sub _calculateWeight {
 	my $self = shift;
 	$self->{weight} = 0.0;
@@ -657,7 +726,6 @@ sub _recalculate {
 	$self->_recalculatePower();
 	$self->_calculateWeight();
 	$self->_calculateThrust();
-	$self->_calculateSpeed();
 	$self->_calculateShield();
 	$self->_calculateCost();
 	$self->_calculateHealth();
@@ -1095,13 +1163,10 @@ sub _getConnectedPartIds {
 sub keypress {
 	my $self = shift;
 	my $chr = shift;
-	if ($chr eq 'a'){ $self->{movingDir} = time(); $self->{movingDir} = -1; }
-	if ($chr eq 'd'){ $self->{movingDir} = time(); $self->{movingDir} = 1;  }
-	if ($chr eq 'w'){ $self->{thrustPressed} = time(); }
-	if ($chr eq 's'){ $self->{brakePressed}  = time(); }
-	if ($chr eq '5'){ $self->{brakePressed}  = time(); }
-	if ($chr eq '8'){ $self->{upPressed}     = time(); }
-	if ($chr eq '2'){ $self->{downPressed}   = time(); }
+	if ($chr eq 'a' || $chr eq '1' || $chr eq '4' || $chr eq '7'){ $self->{thrustPressedLeft}  = time(); }
+	if ($chr eq 'd' || $chr eq '3' || $chr eq '6' || $chr eq '9'){ $self->{thrustPressedRight} = time(); }
+	if ($chr eq 'w' || $chr eq '8' || $chr eq '7' || $chr eq '9'){ $self->{thrustPressedUp}    = time(); }
+	if ($chr eq 's' || $chr eq '1' || $chr eq '2' || $chr eq '3'){ $self->{thrustPressedDown}  = time(); }
 	if ($chr eq ' '){ $self->{shooting}      = time();}
 	if ($chr eq 'p'){ $self->_recalculate(); }
 	if ($chr eq 'q' || $chr eq 'j'){ $self->{aimingPress} = time(); $self->{aimingDir} = 1}
@@ -1140,9 +1205,9 @@ sub setStatus {
 	my $status = shift;
 	my $value = shift;
 
-    if (defined($self->{_statusLimits}->{$status})){
-        if ($value > $self->getStatus($self->{_statusLimits}->{$status})){
-            $value = $self->getStatus($self->{_statusLimits}->{$status});
+    if (defined($self->{_statusMax}->{$status})){
+        if ($value > $self->getStatus($self->{_statusMax}->{$status})){
+            $value = $self->getStatus($self->{_statusMax}->{$status});
         }
     }
 
@@ -1331,15 +1396,6 @@ sub power {
 	my $currentHealth = 0;
 	my $currentPowerGen = $self->getStatus('powergen');
 
-	# if the thrusters are activated
-	if ($self->{movingHoz} != 0 || $self->{movingVert} != 0){
-		if (int($self->{currentPower} < $self->{thrust} / 100)){
-			$self->{moving} = 0;
-		} else {
-			$currentPowerGen -= sprintf('%.2f', ($self->{thrust} / 100));
-		}
-	}
-
 	$currentPowerGen += $self->_resolveModulePower();
 	
 	# if shields are regenerating
@@ -1377,7 +1433,6 @@ sub power {
 	$self->setStatus('currentHealth', $currentHealth);
 	$self->setStatus('currentPowerGen', int($currentPowerGen));
 	$self->addStatus('currentPower', ($currentPowerGen * $timeMod * 0.2));
-	$self->_limitPower();
 	$self->{lastPower} = time();
 }
 
@@ -1400,9 +1455,6 @@ sub move {
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
 
-    my $xThrottle = 0;
-    my $yThrottle = 0;
-
 	if ($time - $self->{aimingPress} < 0.15){
 		my $direction = $self->getStatus('direction') + (1 * $self->{aimingDir} * $timeMod);
 		if ($direction > (PI * 2)){ $direction -= (PI * 2); }
@@ -1414,37 +1466,39 @@ sub move {
 	if ($self->{warp}){ return 0; }
     
     my $directionThrust = $self->getStatus('direction');
-
-    $xThrottle = sin($directionThrust) * $self->getStatus('currentThrust') * 5;
-    $yThrottle = cos($directionThrust) * $self->getStatus('currentThrust') * 5;
     
     if ($time - $self->{brakePressed} < 0.2){
-        $self->setStatus('xSpeed', $self->getStatus('xSpeed') * (1 - (1.5 * $timeMod)));
-        $self->setStatus('ySpeed', $self->getStatus('ySpeed') * (1 - (1.5 * $timeMod)));
+        $self->setStatus('speedX', $self->getStatus('speedX') * (1 - (1.5 * $timeMod)));
+        $self->setStatus('speedY', $self->getStatus('speedY') * (1 - (1.5 * $timeMod)));
     }
     ### friction
-    $self->setStatus('xSpeed', $self->getStatus('xSpeed') * (1 - (0.1 * $timeMod)));
-    $self->setStatus('ySpeed', $self->getStatus('ySpeed') * (1 - (0.1 * $timeMod)));
+    $self->setStatus('speedX', $self->getStatus('speedX') * (1 - (0.1 * $timeMod)));
+    $self->setStatus('speedY', $self->getStatus('speedY') * (1 - (0.1 * $timeMod)));
 
-    if ($time - $self->{thrustPressed} < 0.2){
-        $self->addStatus('currentThrust', $self->getStatus('thrust') * $timeMod);
-    } else {
-        $self->setStatus('currentThrust', 0);
+	### braking when not thrusting
+    if (! ($time - $self->{thrustPressedUp} < 0.2 || $time - $self->{thrustPressedDown} < 0.2) ){
+        $self->setStatus('speedY', $self->getStatus('speedY') * (1 - (1.5 * $timeMod)));
+    }
+    if (! ($time - $self->{thrustPressedLeft} < 0.2 || $time - $self->{thrustPressedRight} < 0.2) ){
+        $self->setStatus('speedX', $self->getStatus('speedX') * (1 - (1.5 * $timeMod)));
     }
 
-    my $inertia = (($self->getStatus('currentSpeed') ** 2) * $self->getStatus('weight')) + $self->getStatus('weight');
-    if ($inertia < 1){
-        $inertia = 1;
-    }
-    $self->setStatus('inertia', int($inertia));
-    $self->setStatus('acceleration', $self->getStatus('thrust') / $inertia);
+    my $inertiaX = abs(($self->getStatus('speedX')) * $self->getStatus('weight')) + $self->getStatus('weight');
+    my $inertiaY = abs(($self->getStatus('speedY')) * $self->getStatus('weight')) + $self->getStatus('weight');
 
-    $self->addStatus('xSpeed', ($xThrottle / $inertia) * $timeMod);
-    $self->addStatus('ySpeed', ($yThrottle / $inertia) * $timeMod);
-    $self->setStatus('currentSpeed', sqrt(($self->getStatus('xSpeed') ** 2) + ($self->getStatus('ySpeed') ** 2)));
+    $self->setStatus('inertiaX', int($inertiaX));
+    $self->setStatus('inertiaY', int($inertiaY));
+    $self->setStatus('accelerationX', $self->getStatus('thrustLeft') / $inertiaX);
+    $self->setStatus('accelerationY', $self->getStatus('thrustUp') / $inertiaY);
 
-	$self->addStatus('x', $self->getStatus('xSpeed') * $timeMod);
-	$self->addStatus('y', $self->getStatus('ySpeed') * $timeMod);
+	my $thrustX = $self->getStatus('currentThrustRight') - $self->getStatus('currentThrustLeft');
+	my $thrustY = $self->getStatus('currentThrustDown') - $self->getStatus('currentThrustUp');
+    $self->addStatus('speedX', ($thrustX / $inertiaX) * 10 * $timeMod);
+    $self->addStatus('speedY', ($thrustY / $inertiaY) * 10 * $timeMod * ASPECTRATIO);
+    $self->setStatus('currentSpeed', sqrt(($self->getStatus('speedX') ** 2) + ($self->getStatus('speedY') ** 2)));
+
+	$self->addStatus('x', $self->getStatus('speedX') * $timeMod * 3);
+	$self->addStatus('y', $self->getStatus('speedY') * $timeMod * 3);
 
 	$self->{lastMove} = $time;
 }
@@ -1490,6 +1544,8 @@ sub _loadPart {
 		'health' => $parts{$chr}->{health},
 		'shieldHealth' => $parts{$chr}->{shield},
 		'hit' => time(),
+		'lastThrust' => time(),
+		'lastShot' => time(),
 		'healing' => 0,
 		'id'  => $id,
 		'defchr' => $chr,
@@ -1623,7 +1679,10 @@ sub _loadPartConfig {
 	foreach my $section (@thrusters){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{type} = 'thruster';
-		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'thrustUp'}  = $cfg->val($section, 'thrustUp', undef);
+		$parts{$chr}->{'thrustDown'}  = $cfg->val($section, 'thrustDown', undef);
+		$parts{$chr}->{'thrustLeft'}  = $cfg->val($section, 'thrustLeft', undef);
+		$parts{$chr}->{'thrustRight'}  = $cfg->val($section, 'thrustRight', undef);
 	}
 
 	my @plates = $cfg->GroupMembers('plate');
@@ -1660,7 +1719,10 @@ sub _loadPartConfig {
 		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
 		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
 		
-		$parts{$chr}->{'thrust'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'thrustUp'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'thrustDown'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'thrustLeft'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'thrustRight'}  = $cfg->val($section, 'thrust', 100);
 
 		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
 		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);

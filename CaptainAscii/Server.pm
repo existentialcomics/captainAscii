@@ -785,8 +785,6 @@ sub _calculatePowerAndMovement {
 	# calculate power and movement
 	foreach my $ship ($self->getShips()){
 		# power first because it disables move
-		$ship->power();
-		$ship->move();
 		$ship->moduleTick();
         if ($ship->getStatus('autoaim')){
 		    my ($id, $distance, $dir) = $self->_findClosestShip(
@@ -799,6 +797,8 @@ sub _calculatePowerAndMovement {
 		foreach my $bul (@{ $ship->shoot() }){
 			$self->addBullet($bul);
 		}
+		$ship->power();
+		$ship->move();
 	}
 }
 
