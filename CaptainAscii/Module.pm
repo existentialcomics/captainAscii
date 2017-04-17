@@ -72,7 +72,6 @@ sub _powerRequired {
 	my $power = $self->{powerPassive};
 	$power += ($self->isActive() ? $self->{powerActive} : 0);
 	$power += ($self->isActive() ? $self->{powerPerPart} * $ship->getParts() : 0);
-	$power += ($self->isActive() ? $self->{powerPerSpeed} * $ship->{speed} : 0);
 	
 	return $power;
 }

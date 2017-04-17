@@ -808,6 +808,30 @@ sub isInShieldHitBox {
 	);
 }
 
+sub resolveShipCollision {
+	my $self = shift;
+    my $enemyShip = shift;
+
+	if (
+        $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yLow}, $enemyShip->{x} + $enemyShip->{_xLow}) ||
+        $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yLow}, $enemyShip->{x} + $enemyShip->{_xHigh}) ||
+        $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yHigh}, $enemyShip->{x} + $enemyShip->{_xLow}) ||
+        $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yHigh}, $enemyShip->{x} + $enemyShip->{_xHigh})
+    ){
+		my $by = int($enemyShip->{y}) - int($self->{y});
+		my $bx = int($enemyShip->{x}) - int($self->{x});
+        # TODO loop through the smaller ship only
+        foreach my $part ($enemyShip->getParts()){
+		    $part = $self->getPartByLocation($bx + $part->{x}, $by + $part->{y});
+            if ($part){
+                $self->setStatus('debug', 'collided with ship ' . $enemyShip->{id});
+                return 1;
+            }
+        }
+        return 2;
+    }
+    return 0;
+}
 
 sub resolveCollision {
 	my $self = shift;

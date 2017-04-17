@@ -51,7 +51,7 @@ sub _init {
 	$self->{lastTime} = 0;
 	$self->{bullets} = {};
 	$self->setLevel(300);
-	$self->{shipDensity} = 5;
+	$self->{shipDensity} = 2;
 	$self->{highestEnemy} = 1;
 	if (defined($options->{maxInitialCost})){
 		$self->{maxInitialCost} = $options->{maxInitialCost};
@@ -206,8 +206,7 @@ sub loop {
 		$frames++;
 		if ($time - $lastFrame > 1){
 			$lastFrame = $time;
-			#print "fps: $frames\n";
-			#$self->{shipSend} = 0;
+            #print "fps: $frames\n";
 			$frames = 0;
 		}
 
@@ -218,6 +217,7 @@ sub loop {
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
+        $self->_resolveShipCollisions();
 		$self->_sendShipMsgs();
         if ($self->timerCheck('spawn', 2)){
 		    $self->_spawnShips();
@@ -226,6 +226,17 @@ sub loop {
             $self->assignZones();
         }
 	}
+}
+
+sub _resolveShipCollisions{
+    my $self = shift;
+    foreach my $ship ($self->getShips()){
+        foreach my $innerShip ($self->getShips()){
+            next if ($ship->{id} eq $innerShip->{id});
+            my $return = $ship->resolveShipCollision($innerShip);
+            if ($return){ print "RETURN : $return\n"; }
+        }
+    }
 }
 
 sub _sendShipStatuses {

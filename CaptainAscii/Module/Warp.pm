@@ -5,8 +5,8 @@ use parent 'CaptainAscii::Module';
 
 my $warpTimeDelay = 1.7;      # seconds
 my $lightLength   = 3;      # seconds
-my $warpDistanceFactor = 1.5; # multiplied by ship speed
-my $warpDistance = 15;        # minimum distance
+my $warpDistanceFactor = 1.5; # warp factor
+my $warpDistance = 20;        # minimum distance
 
 sub command {
 	my $self = shift;
@@ -47,8 +47,8 @@ sub active {
 		return 0;
 	}
 
-	my $warpToX = ($warpXArg ? $warpXArg : $ship->{x} + ( ( $ship->{speed} * $x * $warpDistanceFactor ) + ($x * $warpDistance) ));
-	my $warpToY = ($warpYArg ? $warpYArg : $ship->{y} + ( ( $ship->{speed} * $y * $warpDistanceFactor ) + ($y * $warpDistance) ));
+	my $warpToX = ($warpXArg ? $warpXArg : $ship->{x} + ( ( 10 * $x * $warpDistanceFactor ) + ($x * $warpDistance) ));
+	my $warpToY = ($warpYArg ? $warpYArg : $ship->{y} + ( ( 10 * $y * $warpDistanceFactor ) + ($y * $warpDistance) ));
 	$ship->setStatus('warp', {
 		'time' => $warpTimeDelay,
 		'x'    => $warpToX,

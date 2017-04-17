@@ -601,7 +601,6 @@ sub putTermChr {
 }
 
 sub putStr {
-	#if ( ! onMap($_[0], $_[1], $_[2]) ){ return 0; }
     if ($useCurses){
         my $self = shift;
         if ($self->{zoom} == 1){
