@@ -140,6 +140,8 @@ sub _init {
 	$self->{'design'} = $shipDesign;
     $self->{'controls'} = (defined($options->{'controls'}) ? $options->{'controls'} : 'a');
  
+	$self->setStatus('intX', int($x));
+	$self->setStatus('intY', int($y));
 	$self->setStatus('x', $x);
 	$self->setStatus('y', $y);
 	$self->setStatus('direction', PI);
@@ -1232,6 +1234,19 @@ sub setStatus {
     if (defined($self->{_statusMax}->{$status})){
         if ($value > $self->getStatus($self->{_statusMax}->{$status})){
             $value = $self->getStatus($self->{_statusMax}->{$status});
+        }
+    }
+
+    if ($status eq 'x'){
+        if (int($self->{intX}) != int($value)){
+            $self->{hasMovedX} = 1;
+            $self->{intX} = int($value);
+        }
+    }
+    if ($status eq 'y'){
+        if ($self->{intY} != int($value)){
+            $self->{hasMovedY} = 1;
+            $self->{intY} = int($value);
         }
     }
 

@@ -968,9 +968,9 @@ sub parseCommand {
 		$self->sendSystemMsg("zones nearby: " . $zones, $ship);
 	} elsif ($command eq 'status' || $command eq 's'){
 		$self->sendSystemMsg("status $arg: " . $ship->getStatus($arg), $ship);
-	} elsif ($command eq 'serverStatus' || $command eq 'ss'){
+	} elsif ($command eq 'serverStatus' || $command eq 'servers'){
 		$self->sendSystemMsg("server status $arg:\n" . $self->{$arg}, $ship);
-	} elsif ($command eq 'serverStatusDump' || $command eq 'ssd'){
+	} elsif ($command eq 'serverStatusDump' || $command eq 'serversd'){
 		$self->sendSystemMsg("server status $arg:\n" . Dumper($self->{$arg}), $ship);
 	} elsif ($command eq 'statusDump' || $command eq 'sd'){
 		$self->sendSystemMsg("status $arg:\n" . Dumper($ship->getStatus($arg)), $ship);

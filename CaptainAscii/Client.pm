@@ -724,7 +724,7 @@ sub printSide {
 			my $msgLine = $self->{msgs}->[$lastMsg];
 			if ($msgLine){
 				$self->putSideStr(
-                    $height - $count,
+                    $height - $count - 1,
 					4,
                     sprintf('%-' . $self->{chatWidth} . 's', $msgLine->{msg}),
 					'GREEN',
