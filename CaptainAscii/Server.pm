@@ -217,7 +217,6 @@ sub loop {
 		$self->_calculatePowerAndMovement();
 		$self->_recieveInputFromClients();
 		$self->_sendShipStatuses();
-        $self->_resolveShipCollisions();
 		$self->_sendShipMsgs();
         if ($self->timerCheck('spawn', 2)){
 		    $self->_spawnShips();
@@ -230,13 +229,27 @@ sub loop {
 
 sub _resolveShipCollisions{
     my $self = shift;
-    foreach my $ship ($self->getShips()){
-        foreach my $innerShip ($self->getShips()){
-            next if ($ship->{id} eq $innerShip->{id});
-            my $return = $ship->resolveShipCollision($innerShip);
-            if ($return){ print "RETURN : $return\n"; }
+    my $ship = shift;
+    foreach my $innerShip ($self->getShips()){
+        next if ($ship->{id} eq $innerShip->{id});
+        my $return = $ship->resolveShipCollision($innerShip);
+        if ($return != 0){
+            if ($ship->getStatus('hasMovedX')){
+                $ship->revertX();
+            }
+            if ($ship->getStatus('hasMovedY')){
+                $ship->revertY();
+            }
+            $ship->setStatus('hasMovedX', 0);
+            $ship->setStatus('hasMovedY', 0);
+            $innerShip->addStatus('speedX', $ship->getStatus('speedX') * $ship->getStatus('weight') / $innerShip->getStatus('weight'));
+            $innerShip->addStatus('speedY', $ship->getStatus('speedY') * $ship->getStatus('weight') / $innerShip->getStatus('weight'));
+            return 1;
         }
     }
+    $ship->setStatus('hasMovedX', 0);
+    $ship->setStatus('hasMovedY', 0);
+    return 0;
 }
 
 sub _sendShipStatuses {
@@ -485,11 +498,11 @@ sub _ai {
 					$ship->{direction} = $dir + (rand(.3) - .15);
 					if ($ship->{aiState} eq 'aggressive'){
 						if ($ship->aiStateRequest(rand(), 'shoot')){
-							$ship->{shooting} = time();
+                            #$ship->{shooting} = time();
 						}
 					} else {
 						if ($ship->aiStateRequest(2, 'shoot')){
-							$ship->{shooting} = time();
+                            #$ship->{shooting} = time();
 						}
 					}
 					if ($ship->aiStateRequest(1, 'move')){
@@ -810,6 +823,9 @@ sub _calculatePowerAndMovement {
 		}
 		$ship->power();
 		$ship->move();
+        if ($ship->getStatus('hasMovedY') || $ship->getStatus('hasMovedX')){
+            $self->_resolveShipCollisions($ship);
+        }
 	}
 }
 

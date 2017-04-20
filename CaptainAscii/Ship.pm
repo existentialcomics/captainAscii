@@ -810,6 +810,13 @@ sub isInShieldHitBox {
 	);
 }
 
+### ships momentum is altered by an external object.
+sub impact {
+    my $self = shift;
+
+
+}
+
 sub resolveShipCollision {
 	my $self = shift;
     my $enemyShip = shift;
@@ -830,7 +837,6 @@ sub resolveShipCollision {
                 return 1;
             }
         }
-        return 2;
     }
     return 0;
 }
@@ -1226,6 +1232,22 @@ sub addStatus {
 	$self->setStatus($status, $self->getStatus($status) + $value);
 }
 
+sub revertX {
+    my $self = shift;
+    $self->{lastX} = $self->{lastlastX};
+    $self->{'x'} = $self->{lastX};
+    ### client will have non-matched lastX and lastlastX but it shoudln't matter
+	$self->{'statusChange'}->{'x'} = $self->{'x'};
+}
+
+sub revertY {
+    my $self = shift;
+    $self->{lastY} = $self->{lastlastY};
+    $self->{'y'} = $self->{lastY};
+    ### client will have non-matched lastY and lastlastY but it shoudln't matter
+	$self->{'statusChange'}->{'y'} = $self->{'y'};
+}
+
 sub setStatus {
 	my $self = shift;
 	my $status = shift;
@@ -1240,32 +1262,28 @@ sub setStatus {
     if ($status eq 'x'){
         if (int($self->{intX}) != int($value)){
             $self->{hasMovedX} = 1;
+            $self->{lastlastX} = $self->{lastX};
+            $self->{lastX} = $self->{intX};
             $self->{intX} = int($value);
         }
-    }
-    if ($status eq 'y'){
+    } elsif ($status eq 'y'){
         if ($self->{intY} != int($value)){
             $self->{hasMovedY} = 1;
+            $self->{lastlastY} = $self->{lastY};
+            $self->{lastY} = $self->{intY};
             $self->{intY} = int($value);
         }
-    }
-
-	if ($status eq 'taunt'){
+    } elsif ($status eq 'taunt'){
 		$self->{'lastTauntTime'} = time();
-	}
-	
-	if ($status eq 'color'){ $value = uc($value); }
-	#if ($status eq 'x'){ $value = int($value); }
-	#if ($status eq 'y'){ $value = int($value); }
-	if ($status eq 'warp'){
+	} elsif ($status eq 'color'){
+        $value = uc($value);
+    } elsif ($status eq 'warp'){
 		if (ref($value) eq 'HASH'){
 			$value->{end} = time() + $value->{'time'};
 		}
-	}
-
-	if ($status eq 'light'){
+	} elsif ($status eq 'light'){
 		$self->lightShip($value);
-	} elsif($status eq 'm_active'){
+	} elsif ($status eq 'm_active'){
         foreach my $module ($self->getModules()){
             if ($module->name() eq $value->{name}){
                 $module->setActive($value->{active});
