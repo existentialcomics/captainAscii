@@ -533,7 +533,10 @@ sub shoot {
 	my $time = time();
 	my @bullets = ();
 	foreach my $part ($self->getParts()){
-		if ($time - $self->{thrustPressedUp} < 0.2 && defined($part->{part}->{thrustUp})){
+		if ($time - $self->{thrustPressedUp} < 0.2
+		    && defined($part->{part}->{thrustUp}
+			&& $self->getStatus('currentPower') > $self->getStatus('thrustUpPower')
+		)){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustUp', $part->{part}->{thrustUp});
@@ -547,7 +550,10 @@ sub shoot {
 				);
 			}
 		}
-		if ($time - $self->{thrustPressedLeft} < 0.2 && defined($part->{part}->{thrustLeft})){
+		if ($time - $self->{thrustPressedLeft} < 0.2
+		    && defined($part->{part}->{thrustLeft} 
+			&& $self->getStatus('currentPower') > $self->getStatus('thrustLeftPower')
+		)){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustLeft', $part->{part}->{thrustLeft});
@@ -561,7 +567,10 @@ sub shoot {
 				);
 			}
 		}
-		if ($time - $self->{thrustPressedRight} < 0.2 && defined($part->{part}->{thrustRight})){
+		if ($time - $self->{thrustPressedRight} < 0.2
+		    && defined($part->{part}->{thrustRight} 
+			&& $self->getStatus('currentPower') > $self->getStatus('thrustRightPower')
+		)){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustRight', $part->{part}->{thrustRight});
@@ -575,7 +584,10 @@ sub shoot {
 				);
 			}
 		}
-		if ($time - $self->{thrustPressedDown} < 0.2 && defined($part->{part}->{thrustDown})){
+		if ($time - $self->{thrustPressedDown} < 0.2
+		    && defined($part->{part}->{thrustDown} 
+			&& $self->getStatus('currentPower') > $self->getStatus('thrustDownPower')
+		)){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustDown', $part->{part}->{thrustDown});
@@ -632,18 +644,28 @@ sub _calculateThrust {
 	$self->{thrustDown} = 0;
 	$self->{thrustRight} = 0;
 	$self->{thrustLeft} = 0;
+
+	$self->{thrustUpPower} = 0;
+	$self->{thrustDownPower} = 0;
+	$self->{thrustLeftPower} = 0;
+	$self->{thrustRightPower} = 0;
+
 	foreach my $part ($self->getParts()){
 		if (defined($part->{part}->{thrustUp})){
 			$self->{thrustUp} += $part->{part}->{thrustUp};
+			$self->{thrustUpPower} += $part->{part}->{powerThrust};
 		}
 		if (defined($part->{part}->{thrustDown})){
 			$self->{thrustDown} += $part->{part}->{thrustDown};
+			$self->{thrustDownPower} += $part->{part}->{powerThrust};
 		}
 		if (defined($part->{part}->{thrustLeft})){
 			$self->{thrustLeft} += $part->{part}->{thrustLeft};
+			$self->{thrustLeftPower} += $part->{part}->{powerThrust};
 		}
 		if (defined($part->{part}->{thrustRight})){
 			$self->{thrustRight} += $part->{part}->{thrustRight};
+			$self->{thrustRightPower} += $part->{part}->{powerThrust};
 		}
 	}
 }
@@ -1493,11 +1515,26 @@ sub power {
 		}
 	}
 
+	my $time = time();
+
+    if (($time - $self->{thrustPressedDown} < 0.2 && $self->getStatus('currentPower') > $self->getStatus('thrustDownPower'))){
+		$currentPowerGen -= $self->getStatus('thrustDownPower');
+    }
+    if (($time - $self->{thrustPressedUp} < 0.2 && $self->getStatus('currentPower') > $self->getStatus('thrustUpPower'))){
+		$currentPowerGen -= $self->getStatus('thrustUpPower');
+    }
+    if (($time - $self->{thrustPressedRight} < 0.2 && $self->getStatus('currentPower') > $self->getStatus('thrustRightPower'))){
+		$currentPowerGen -= $self->getStatus('thrustRightPower');
+    }
+    if (($time - $self->{thrustPressedLeft} < 0.2 && $self->getStatus('currentPower') > $self->getStatus('thrustLeftPower'))){
+		$currentPowerGen -= $self->getStatus('thrustLeftPower');
+    }
+
 	$self->setStatus('shieldHealth', int($shieldHealth));
 	$self->setStatus('currentHealth', $currentHealth);
 	$self->setStatus('currentPowerGen', int($currentPowerGen));
 	$self->addStatus('currentPower', ($currentPowerGen * $timeMod * 0.2));
-	$self->{lastPower} = time();
+	$self->{lastPower} = $time;
 }
 
 # TODO make a global list of statuses that are limited
@@ -1748,6 +1785,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'thrustDown'}  = $cfg->val($section, 'thrustDown', undef);
 		$parts{$chr}->{'thrustLeft'}  = $cfg->val($section, 'thrustLeft', undef);
 		$parts{$chr}->{'thrustRight'}  = $cfg->val($section, 'thrustRight', undef);
+		$parts{$chr}->{'powerThrust'}  = $cfg->val($section, 'powerThrust', 2);
 	}
 
 	my @plates = $cfg->GroupMembers('plate');
@@ -1788,6 +1826,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'thrustDown'}  = $cfg->val($section, 'thrust', 100);
 		$parts{$chr}->{'thrustLeft'}  = $cfg->val($section, 'thrust', 100);
 		$parts{$chr}->{'thrustRight'}  = $cfg->val($section, 'thrust', 100);
+		$parts{$chr}->{'powerThrust'}  = $cfg->val($section, 'powerThrust', 2);
 
 		$parts{$chr}->{'poweruse'}    = $cfg->val($section, 'poweruse', -1);
 		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
