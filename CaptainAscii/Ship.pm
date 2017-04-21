@@ -821,6 +821,9 @@ sub resolveShipCollision {
 	my $self = shift;
     my $enemyShip = shift;
 
+    my $collisions = 0;
+    my $elasticity = 0;
+
 	if (
         $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yLow}, $enemyShip->{x} + $enemyShip->{_xLow}) ||
         $self->isInHitBox($enemyShip->{y} + $enemyShip->{_yLow}, $enemyShip->{x} + $enemyShip->{_xHigh}) ||
@@ -831,14 +834,18 @@ sub resolveShipCollision {
 		my $bx = int($enemyShip->{x}) - int($self->{x});
         # TODO loop through the smaller ship only
         foreach my $part ($enemyShip->getParts()){
-		    $part = $self->getPartByLocation($bx + $part->{x}, $by + $part->{y});
-            if ($part){
+		    my $partHit = $self->getPartByLocation($bx + $part->{x}, $by + $part->{y});
+            if ($partHit){
                 $self->setStatus('debug', 'collided with ship ' . $enemyShip->{id});
-                return 1;
+                $collisions++;
+                $elasticity += ($part->{part}->{elasticity} + $partHit->{part}->{elasticity}) / 2;
             }
         }
     }
-    return 0;
+    if ($collisions > 0){
+        $elasticity /= $collisions;
+    }
+    return ($collisions, $elasticity);
 }
 
 sub resolveCollision {
@@ -1696,6 +1703,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
 		$parts{$chr}->{'show'}   = $cfg->val($section, 'show', 1);
+		$parts{$chr}->{'elasticity'}  = $cfg->val($section, 'elasticity', 0.5);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
 	}

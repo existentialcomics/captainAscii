@@ -232,8 +232,8 @@ sub _resolveShipCollisions{
     my $ship = shift;
     foreach my $innerShip ($self->getShips()){
         next if ($ship->{id} eq $innerShip->{id});
-        my $return = $ship->resolveShipCollision($innerShip);
-        if ($return != 0){
+        my ($collisions, $elasticity) = $ship->resolveShipCollision($innerShip);
+        if ($collisions != 0){
             if ($ship->getStatus('hasMovedX')){
                 $ship->revertX();
             }
@@ -242,8 +242,22 @@ sub _resolveShipCollisions{
             }
             $ship->setStatus('hasMovedX', 0);
             $ship->setStatus('hasMovedY', 0);
-            $innerShip->addStatus('speedX', $ship->getStatus('speedX') * $ship->getStatus('weight') / $innerShip->getStatus('weight'));
-            $innerShip->addStatus('speedY', $ship->getStatus('speedY') * $ship->getStatus('weight') / $innerShip->getStatus('weight'));
+
+            my $xTransferA = $ship->getStatus('speedX') * $ship->getStatus('weight');
+            my $xTransferB = $innerShip->getStatus('speedX') * $innerShip->getStatus('weight');
+            my $yTransferA = $ship->getStatus('speedY') * $ship->getStatus('weight');
+            my $yTransferB = $innerShip->getStatus('speedY') * $innerShip->getStatus('weight');
+
+            $innerShip->addStatus('speedX', $xTransferA / $innerShip->getStatus('weight') * $elasticity);
+            $innerShip->addStatus('speedX', -$xTransferB / $innerShip->getStatus('weight') * $elasticity);
+            $innerShip->addStatus('speedY', $yTransferA / $innerShip->getStatus('weight') * $elasticity);
+            $innerShip->addStatus('speedY', -$yTransferB / $innerShip->getStatus('weight') * $elasticity);
+
+            $ship->addStatus('speedX', $xTransferB / $ship->getStatus('weight') * $elasticity);
+            $ship->addStatus('speedX', -$xTransferA / $ship->getStatus('weight') * $elasticity);
+            $ship->addStatus('speedY', $yTransferB / $ship->getStatus('weight') * $elasticity);
+            $ship->addStatus('speedY', -$yTransferA / $ship->getStatus('weight') * $elasticity);
+
             return 1;
         }
     }
@@ -498,11 +512,11 @@ sub _ai {
 					$ship->{direction} = $dir + (rand(.3) - .15);
 					if ($ship->{aiState} eq 'aggressive'){
 						if ($ship->aiStateRequest(rand(), 'shoot')){
-                            #$ship->{shooting} = time();
+                            $ship->{shooting} = time();
 						}
 					} else {
 						if ($ship->aiStateRequest(2, 'shoot')){
-                            #$ship->{shooting} = time();
+                            $ship->{shooting} = time();
 						}
 					}
 					if ($ship->aiStateRequest(1, 'move')){
