@@ -1181,7 +1181,7 @@ sub _drawShips {
 		if ($taunt && (time() - $ship->{lastTauntTime} < 8)){
 			my $tx = $offy + int($ship->getShipTop() - 2);
 			my $ty = $offx + int($ship->getShipLeft());
-			$self->setMapString($taunt, $tx, $ty);
+			$self->setMapString($tx, $ty, $taunt);
 		}
 		foreach my $part ($ship->getParts()){
 			my $highlight = ((time() - $part->{'healing'} < .3 ) ? 'ON_RGB020' : ((time() - $part->{'hit'} < .3) ? 'ON_RGB222' : ''));

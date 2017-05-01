@@ -1728,6 +1728,7 @@ sub _loadPartConfig {
 
 	my $cfg = Config::IniFiles->new( -file => $config );
 	my @sections = $cfg->Sections();
+
 	### global options
 	foreach my $section (@sections){
 		my $chr = $cfg->val($section, 'ref');
@@ -1740,7 +1741,9 @@ sub _loadPartConfig {
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
 		$parts{$chr}->{'show'}   = $cfg->val($section, 'show', 1);
-		$parts{$chr}->{'elasticity'}  = $cfg->val($section, 'elasticity', 0.5);
+		$parts{$chr}->{'elasticity'}  = $cfg->val($section, 'elasticity', 0.3);
+		$parts{$chr}->{'damageGiven'} = $cfg->val($section, 'damageGiven', 0.5);
+		$parts{$chr}->{'damageTaken'} = $cfg->val($section, 'damageTaken', 0.5);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
 	}
