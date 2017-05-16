@@ -861,6 +861,11 @@ sub resolveShipCollision {
                 $self->setStatus('debug', 'collided with ship ' . $enemyShip->{id});
                 $collisions++;
                 $elasticity += ($part->{part}->{elasticity} + $partHit->{part}->{elasticity}) / 2;
+
+                ### damageTaken is a damper on how well you resist damage.
+                ### damageGiven is the damage you deal out, default 1
+                $self->damagePart($partHit, $part->{part}->{damageGiven} * $partHit->{part}->{damageTaken});
+                $enemyShip->damagePart($part, $partHit->{part}->{damageGiven} * $part->{part}->{damageTaken});
             }
         }
     }
@@ -941,15 +946,42 @@ sub resolveCollision {
 				$self->setStatus('currentPower', $self->{currentPower} - $bullet->{damage});
 				$self->_limitPower();
 			} else {
-				$part->{'health'} -= $bullet->{damage};
-				if ($part->{health} < 0){
-					$self->_removePart($part->{id});
-				}
+                $self->damagePart($part, $bullet->{damage}, $bullet->{id});
+
 				return { id => $part->{id}, health => $part->{health} };
 			}
 		}
     }
 	return undef;
+}
+
+### called by server
+sub damagePart {
+    my $self = shift;
+    my ($part, $damage, $bulletId) = @_;
+    $part->{'health'} -= $damage;
+
+	$self->addServerMsg('dam', {
+        'id'      => $part->{id},
+        'ship_id' => $self->{id},
+        'health'  => $part->{health}
+    });
+
+    if ($part->{health} < 0){
+        $self->_removePart($part->{id});
+
+        my @orphaned = $self->orphanParts();
+        #print "orphaned: $#orphaned\n";
+        foreach my $partId (@orphaned){
+            $self->addServerMsg('dam', {
+                ship_id => $self->{id},
+                id      => $partId,
+                health  => -1
+            });
+        }
+        $self->_recalculate();
+        # TODO send ship status?
+    }
 }
 
 sub lightShip {
@@ -1742,8 +1774,8 @@ sub _loadPartConfig {
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
 		$parts{$chr}->{'show'}   = $cfg->val($section, 'show', 1);
 		$parts{$chr}->{'elasticity'}  = $cfg->val($section, 'elasticity', 0.3);
-		$parts{$chr}->{'damageGiven'} = $cfg->val($section, 'damageGiven', 0.5);
-		$parts{$chr}->{'damageTaken'} = $cfg->val($section, 'damageTaken', 0.5);
+		$parts{$chr}->{'damageGiven'} = $cfg->val($section, 'damageGiven', 1);
+		$parts{$chr}->{'damageTaken'} = $cfg->val($section, 'damageTaken', 1);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
 	}

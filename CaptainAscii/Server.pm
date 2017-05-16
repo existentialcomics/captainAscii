@@ -258,6 +258,9 @@ sub _resolveShipCollisions{
             $ship->addStatus('speedY', $yTransferB / $ship->getStatus('weight') * $elasticity);
             $ship->addStatus('speedY', -$yTransferA / $ship->getStatus('weight') * $elasticity);
 
+            $self->checkForShipDeath($ship, $innerShip);
+            $self->checkForShipDeath($innerShip, $ship);
+
             return 1;
         }
     }
@@ -1142,49 +1145,42 @@ sub _calculateBullets {
 				if (!defined($data->{health})){
 					last;
 				}
-				if ($data->{health} <= 0){
-					#print "part killed $data->{id} from $ship->{id}\n";
-					$ship->_removePart($data->{id});
-					my @orphaned = $ship->orphanParts();
-					#print "orphaned: $#orphaned\n";
-					foreach my $partId (@orphaned){
-						my %data = (
-							ship_id => $ship->{id},
-							id => $partId,
-							health  => -1
-						);
-						$self->broadcastMsg('dam', \%data);
-					}
-					$ship->_recalculate();
-					# TODO send ship status?
-				}
-				if (! $ship->getCommandModule() ){
-					if (!$ship->isBot()){
-						my $killShip = $self->getShipById($bullet->{ship_id});
-						my $killName = '';
-						if (!defined($killShip)){
-							$killName = 'a stray bullet';
-						} else {
-							$killName = ($killShip->isBot() ? 'the computer' : $killShip->getStatus('name'));
-						}
-						$self->sendSystemMsg($ship->getStatus('name') . " has been killed by " . $killName . '.');
-						$self->sendMsg($ship, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
-					}
-					$self->removeShip($ship->{id});
-					$self->broadcastMsg('shipdelete', { id => $ship->{id} });
-                    foreach my $item ($ship->calculateDrops()){
-						$item->{ship_id} = $bullet->{ship_id};
-                        $self->addItem($item);
-                    }
 
-					print "ship $ship->{id}'s command module destroyed!\n";
-					print "ships in game : " . $self->getShipCount() . "\n";
-					next;
-				}
+                $self->checkForShipDeath($ship, $self->getShipById($bullet->{ship_id}));
+
 				last;
 			}
 		}
 	}
+}
+
+sub checkForShipDeath {
+    my $self = shift;
+    my $ship = shift;
+    my $killShip = shift;
+    if (! $ship->getCommandModule() ){
+        if (!$ship->isBot()){
+            my $killName = '';
+            if (!defined($killShip)){
+                $killName = 'a stray bullet';
+            } else {
+                $killName = ($killShip->isBot() ? 'the computer' : $killShip->getStatus('name'));
+            }
+            $self->sendSystemMsg($ship->getStatus('name') . " has been killed by " . $killName . '.');
+            $self->sendMsg($ship, 'exit', { msg => "You have died. Your deeds were few, and none will remember you." });
+        }
+        $self->removeShip($ship->{id});
+        $self->broadcastMsg('shipdelete', { id => $ship->{id} });
+        foreach my $item ($ship->calculateDrops()){
+            $item->{ship_id} = $killShip;
+            $self->addItem($item);
+        }
+
+        print "ship $ship->{id}'s command module destroyed!\n";
+        print "ships in game : " . $self->getShipCount() . "\n";
+        return 1;
+    }
+    return 0;
 }
 
 1;
