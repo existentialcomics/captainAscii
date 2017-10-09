@@ -16,6 +16,7 @@ use CaptainAscii::Ship;
 use CaptainAscii::Zones;
 use CaptainAscii::Factions;
 use IO::Socket::UNIX;
+use utf8;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -904,6 +905,13 @@ sub _recieveInputFromClients {
 				}
 				next;
 			}
+            if ($chr =~ m/P:(.+?):(.+)/){
+                my $part = $1;
+                my $shipId = $2;
+                my $saleShip = $self->getShipById($shipId);
+                my $success = $saleShip->purchasePart($part);
+
+            }
 			if ($chr =~ m/M:(.+?):(.+)/){
 				my ($user, $chat) = ($1, $2);
 				if ($chat =~ m#^/(.+)#){

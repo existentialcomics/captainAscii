@@ -5,7 +5,7 @@ use CaptainAscii::Ship;
 use Data::Dumper;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 
-my $ship = CaptainAscii::Ship->new('X');
+my $ship = CaptainAscii::Ship->new('X', 0, 0, 1);
 my $cash = shift;
 my $type = shift;
 

@@ -203,6 +203,46 @@ my %factions = (
                 left   => ['}'],
             },
         },
+    },
+    'station'      => {
+        'buildConfig' => {
+            'reflectX' => 0,
+            'reflectY' => 0,
+            'turnOdds' => 0.04,
+            'branchOdds' => 0.08,
+            'branchDir' => 'x',
+            'endOdds'   => 0.01,
+            'pieceOdds' => 0.05,    #non plate piece
+            'sideOdds'  => 0.05,    #one off side pieces
+            'capOdds'   => 0.5,    #ending cap piece
+            'parts1' => {
+                base   => ['-'],
+                embedx => ['|', 'H', 'O'],
+                embedy => ['_', 'O', '@'],
+                up     => ['v', '\\', '/', 'U', '|'],
+                down   => ['^', '\\', '/', 'U', '|'],
+                right  => [')'],
+                left   => ['('],
+            },
+            'parts2' => {
+                base   => ['+'],
+                embedx => ['|', 'H', 'O'],
+                embedy => ['_', 'O', '@'],
+                up     => ['v', '\\', '/', '8', 'U', '|'],
+                down   => ['^', '\\', '/', '8', 'U', '|'],
+                right  => [')'],
+                left   => ['('],
+            },
+            'parts3' => {
+                base   => ['+'],
+                embedx => ['|', 'H', 'O', 'M'],
+                embedy => ['_', 'O', '@'],
+                up     => ['v', '\\', '/', '8', 'I'],
+                down   => ['^', '\\', '/', '8', 'I'],
+                right  => ['{'],
+                left   => ['}'],
+            },
+        },
     }
 );
 

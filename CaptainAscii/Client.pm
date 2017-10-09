@@ -832,6 +832,8 @@ sub printInfo {
         'Weight'       => int $ship->getStatus('weight'),
         'Coordinates'  => sprintf('%3s,%3s', int($ship->{x}), int($ship->{y})),
         'Max Thrust'   => int $ship->getStatus('thrust'),
+        'Speed X' => sprintf('%.3f', $ship->getStatus('speedX')),
+        'Speed Y' => sprintf('%.3f', $ship->getStatus('speedY')),
         'Speed'        => sprintf('%.1f', $ship->getStatus('currentSpeed')),
         'Inertia X'      => sprintf('%.1f', $ship->getStatus('inertiaX')),
         'Inertia Y'      => sprintf('%.1f', $ship->getStatus('inertiaY')),

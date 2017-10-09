@@ -11,6 +11,7 @@ use Math::Trig ':radial';
 
 use CaptainAscii::Module;
 use CaptainAscii::Factions;
+use utf8;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -132,6 +133,8 @@ sub _init {
     $self->{currentThrustLeft} = 0;
     $self->{currentThrustUp} = 0;
     $self->{currentThrustDown} = 0;
+    $self->{thrustXMod} = 1;
+    $self->{thrustYMod} = 1;
     $self->{currentSpeed}  = 0;
     $self->{acceleration}  = 0;
 
@@ -628,9 +631,9 @@ sub shoot {
 				x => ($self->{'y'} + $part->{'y'}),
 				'chr'   => $part->{'part'}->{'shotChr'},
 				'col'   => ($self->getStatus('emp') ? 'bold blue' : $part->{'part'}->{'shotColor'}),
-				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingVert'} * $self->{speedX} * $part->{'part'}->{'shipMomentum'} : 0)
+				dx => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{speedX} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * $aspectRatio * cos($direction),
-				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{'movingHoz'}  * $self->{speedY} * $part->{'part'}->{'shipMomentum'} : 0)
+				dy => (defined($part->{'part'}->{'shipMomentum'}) ? $self->{speedY} * $part->{'part'}->{'shipMomentum'} : 0)
 					   + $part->{part}->{bulletspeed} * 2 * sin($direction),
 			};
 		}
@@ -1411,13 +1414,14 @@ sub hasSparePart {
 sub getStatus {
 	my $self = shift;
 	my $status = shift;
-#	if (defined($self->{'_status'}->{$status})){
-#		return $self->{'_status'}->{$status};
-#	}
+    #my $default = shift;
+
 	if (defined($self->{$status})){
 		return $self->{$status};
 	}
-	return 0;
+
+    #return (defined($default ? $default : 0);
+    return 0;
 }
 
 
@@ -1588,6 +1592,14 @@ sub move {
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
 
+    my $directionToThrust = $self->getStatus('direction');
+    if ($self->getStatus('cruise')){
+        $self->thrustToDirection($directionToThrust);
+    } else {
+        $self->setStatus('speedXMod', 1);
+        $self->setStatus('speedYMod', 1);
+    }
+
 	if ($time - $self->{aimingPress} < 0.15){
 		my $direction = $self->getStatus('direction') + (1 * $self->{aimingDir} * $timeMod);
 		if ($direction > (PI * 2)){ $direction -= (PI * 2); }
@@ -1597,8 +1609,6 @@ sub move {
 
 	### paralyzed during warp
 	if ($self->{warp}){ return 0; }
-    
-    my $directionThrust = $self->getStatus('direction');
     
     if ($time - $self->{brakePressed} < 0.2){
         $self->setStatus('speedX', $self->getStatus('speedX') * (1 - (1.5 * $timeMod)));
@@ -1626,6 +1636,10 @@ sub move {
 
 	my $thrustX = $self->getStatus('currentThrustRight') - $self->getStatus('currentThrustLeft');
 	my $thrustY = $self->getStatus('currentThrustDown') - $self->getStatus('currentThrustUp');
+
+    $thrustX *= $self->getStatus('thrustXMod');
+    $thrustY *= $self->getStatus('thrustYMod');
+
     $self->addStatus('speedX', ($thrustX / $inertiaX) * 10 * $timeMod);
     $self->addStatus('speedY', ($thrustY / $inertiaY) * 10 * $timeMod * ASPECTRATIO);
     $self->setStatus('currentSpeed', sqrt(($self->getStatus('speedX') ** 2) + ($self->getStatus('speedY') ** 2)));
@@ -1634,6 +1648,32 @@ sub move {
 	$self->addStatus('y', $self->getStatus('speedY') * $timeMod * 3);
 
 	$self->{lastMove} = $time;
+}
+
+sub thrustToDirection {
+	my $self = shift;
+    my $direction = shift;
+
+    $self->setStatus('debug', "Thrust to $direction");
+
+    my $vert = cos($direction);
+    my $hoz  = sin($direction);
+
+    $self->setStatus('debug', "Thrust to $vert, $hoz");
+
+    if ($vert > 0){
+        $self->setStatus('thrustPressedDown', time());
+    } else {
+        $self->setStatus('thrustPressedUp', time());
+    }
+    if ($hoz > 0){
+        $self->setStatus('thrustPressedRight', time());
+    } else {
+        $self->setStatus('thrustPressedLeft', time());
+    }
+
+    $self->setStatus('thrustXMod', abs($hoz));
+    $self->setStatus('thrustYMod', abs($vert));
 }
 
 sub purchasePart {
