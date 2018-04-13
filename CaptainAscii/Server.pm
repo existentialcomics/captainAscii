@@ -460,8 +460,7 @@ sub _ai {
 		
 		my ($id, $distance, $dir);
 		my $aiTargetId = $ship->getAiVar('target');
-		#if ($aiTargetId){
-		if (0 == 1){
+		if ($aiTargetId)
 			my $targetShip = $ship->getShipById($aiTargetId);
 			if (defined($targetShip)){
 				$id = $aiTargetId;
@@ -482,6 +481,7 @@ sub _ai {
 				{ 'skipId' => $ship->{'id'} }
 			);
 		}
+
 		if ($id eq '-1'){
 			$ship->changeAiMode('explore');
 		} else {
@@ -490,14 +490,14 @@ sub _ai {
 				$ship->setAiVar('target', $id);
 			}
 		}
+
+        # force to explore for now
+        $ship->changeAiMode('explore');
 		if ($mode eq 'explore'){
 			if ($ship->aiStateRequest(4, 'directionChange')){
-				my $move = rand(2 * PI);
-				$ship->{movingHoz}  = sin($move) * .3;
-				$ship->{movingVert} = cos($move) * .3;
+				$dir = rand(2 * PI);
+                $ship->setAiVar('aiMoveDirection', $dir);
 			}
-			$ship->{movingHozPress} = time();
-			$ship->{movingVertPress} = time();
 		} elsif ($mode eq 'attack'){
 			if (!defined($ship->{aiState})){
 				$ship->{aiState} = 'aggressive';
@@ -511,9 +511,10 @@ sub _ai {
 				$ship->{aiModeChange} = $time;
 				$ship->{aiMode} = 'explore';
 			}
+            ### no target is found
 			if ($id ne '-1'){
 				if ($distance < 30){
-					$ship->{direction} = $dir + (rand(.3) - .15);
+					$ship->setStatus('direction', $dir + (rand(.3) - .15));
 					if ($ship->{aiState} eq 'aggressive'){
 						if ($ship->aiStateRequest(rand(), 'shoot')){
                             $ship->{shooting} = time();
@@ -534,6 +535,7 @@ sub _ai {
 						}
 					}
 				} else {
+					$ship->setStatus('direction', $dir + (rand(.3) - .15));
 					if ($ship->aiStateRequest('1', 'pursue')){
 						my $move = $dir + (rand(.3) - .15);
 						my $factor = ($state eq 'aggressive' ? .7 : .2);
@@ -548,16 +550,10 @@ sub _ai {
 			if ($ship->aiStateRequest('1', 'pursue')){
 				my $move = $dir + (rand(.3) - .15);
 				my $factor = 0.8;
-				$ship->{movingHoz}  = -sin($move) * $factor;
-				$ship->{movingVert} = -cos($move) * $factor;
 			}
-			$ship->{movingHozPress} = time();
-			$ship->{movingVertPress} = time();
 		} else {
 			print "NULL ai mode\n";
 		}
-		#print "$ship->{id} - $id, $distance, $dir\n";
-		#print "mode: $ship->{aiMode}\n";
 	}
 }
 

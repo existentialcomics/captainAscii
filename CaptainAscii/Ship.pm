@@ -1592,9 +1592,10 @@ sub move {
 	my $time = time();
 	my $timeMod = $time - $self->{lastMove};
 
-    my $directionToThrust = $self->getStatus('direction');
     if ($self->getStatus('cruise')){
-        $self->thrustToDirection($directionToThrust);
+        $self->thrustToDirection($self->getStatus('direction'));
+    } elsif($self->isBot()){
+        $self->thrustToDirection($self->getAiVar('moveDirection'));
     } else {
         $self->setStatus('speedXMod', 1);
         $self->setStatus('speedYMod', 1);
@@ -1653,6 +1654,8 @@ sub move {
 sub thrustToDirection {
 	my $self = shift;
     my $direction = shift;
+
+    if (!$direction){ return undef; }
 
     $self->setStatus('debug', "Thrust to $direction");
 
