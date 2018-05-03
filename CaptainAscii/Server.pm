@@ -460,7 +460,7 @@ sub _ai {
 		
 		my ($id, $distance, $dir);
 		my $aiTargetId = $ship->getAiVar('target');
-		if ($aiTargetId)
+		if ($aiTargetId){
 			my $targetShip = $ship->getShipById($aiTargetId);
 			if (defined($targetShip)){
 				$id = $aiTargetId;
