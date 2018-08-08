@@ -528,21 +528,21 @@ sub shoot {
 
 	my $quad = $self->getQuadrant();
 
-	$self->setStatus('currentThrustUp', 0);
-	$self->setStatus('currentThrustDown', 0);
-	$self->setStatus('currentThrustLeft', 0);
-	$self->setStatus('currentThrustRight', 0);
+    $self->setStatus('currentThrustUp', 0);
+    $self->setStatus('currentThrustDown', 0);
+    $self->setStatus('currentThrustLeft', 0);
+    $self->setStatus('currentThrustRight', 0);
 
 	my $time = time();
 	my @bullets = ();
 	foreach my $part ($self->getParts()){
 		if ($time - $self->{thrustPressedUp} < 0.2
-		    && defined($part->{part}->{thrustUp}
+		    && defined($part->{part}->{thrustUp})
 			&& $self->getStatus('currentPower') > $self->getStatus('thrustUpPower')
-		)){
+		){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
-				$self->addStatus('currentThrustUp', $part->{part}->{thrustUp});
+                $self->addStatus('currentThrustUp', $part->{part}->{thrustUp});
 				$self->addServerMsg('light', 
 					{
 						'x' => int($part->{y} + $self->{y}),
@@ -554,9 +554,9 @@ sub shoot {
 			}
 		}
 		if ($time - $self->{thrustPressedLeft} < 0.2
-		    && defined($part->{part}->{thrustLeft} 
+		    && defined($part->{part}->{thrustLeft})
 			&& $self->getStatus('currentPower') > $self->getStatus('thrustLeftPower')
-		)){
+		){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustLeft', $part->{part}->{thrustLeft});
@@ -571,9 +571,9 @@ sub shoot {
 			}
 		}
 		if ($time - $self->{thrustPressedRight} < 0.2
-		    && defined($part->{part}->{thrustRight} 
+		    && defined($part->{part}->{thrustRight}) 
 			&& $self->getStatus('currentPower') > $self->getStatus('thrustRightPower')
-		)){
+		){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustRight', $part->{part}->{thrustRight});
@@ -588,9 +588,9 @@ sub shoot {
 			}
 		}
 		if ($time - $self->{thrustPressedDown} < 0.2
-		    && defined($part->{part}->{thrustDown} 
+		    && defined($part->{part}->{thrustDown})
 			&& $self->getStatus('currentPower') > $self->getStatus('thrustDownPower')
-		)){
+		){
 			if ($time - $part->{lastThrust} > 0.33){
 				$part->{lastThrust} = $time;
 				$self->addStatus('currentThrustDown', $part->{part}->{thrustDown});
@@ -1036,7 +1036,10 @@ sub changeAiMode {
 		print "mode not defined! $mode\n";
 	}
 	if ($mode ne $self->{aiMode}){
-		$self->setStatus('taunt', CaptainAscii::Factions::getTaunt($self->{faction}, $mode));
+        my $taunt = CaptainAscii::Factions::getTaunt($self->{faction}, $mode);
+        if (defined($taunt)){
+		    $self->setStatus('taunt', $taunt);
+        }
 		$self->{aiMode} = $mode;
 		$self->{_aiVars} = {};
 	}
@@ -1044,7 +1047,7 @@ sub changeAiMode {
 	$self->{aiTick} = time();
 	if (defined($state)){
 		$self->{aiState} = $state;
-	} else{
+	} else {
 		if ($mode eq 'attack'){
 			$self->{aiState} = 'aggressive';
 		} elsif ($mode eq 'explore'){
@@ -1355,6 +1358,7 @@ sub setStatus {
         }
 	}
 
+    if (!defined($value)){ warn "$status set with no value\n"; }
 	# register status change for server mgs's
 	if (!defined($self->{$status}) || $self->{$status} ne $value){
 		$self->{$status} = $value;

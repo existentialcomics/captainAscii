@@ -314,10 +314,12 @@ $quotes{zealot}->{flee} = [
 sub getTaunt {
 	my $faction = shift;
 	my $type = shift;
+    if ($type eq 'explore') { return undef; }
 	if (defined($quotes{$faction}->{$type})){
 		my @taunts = @{ $quotes{$faction}->{$type} };
 		return $taunts[rand @taunts];
 	}
+    warn "no taunts for $faction - $type";
 	return undef;
 }
 
