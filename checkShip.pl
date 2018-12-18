@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use Data::Dumper;
-use SpaceShip;
+use CaptainAscii::Ship;
 use Term::ANSIColor 4.00 qw(RESET color :constants256);
 
 
@@ -18,7 +18,7 @@ print "---------------------" . " ship input" . "---------------------" . "\n\n"
 print $ship_str1;
 print "\n---------------------" . " ship output" . "--------------------" . "\n\n";
 
-my $ship = SpaceShip->new($ship_str1, 5, 5, 1, { color => $color } );
+my $ship = CaptainAscii::Ship->new($ship_str1, 5, 5, 1, { color => $color } );
 #$ship->orphanParts();
 #$ship->_recalculate();
 #my $display = $ship->getShipDisplay($cloaked);
@@ -27,7 +27,7 @@ my $display = $ship->getDisplayArray($cloaked);
 foreach my $row (@$display){
 	if (!defined($row)){ next; }
 	foreach my $chr(@$row){
-		print (defined($chr) ? $chr : ' ');
+		print (defined($chr) ? substr($chr, 0, 1) : ' ');
 	}
 	print "\n";
 }

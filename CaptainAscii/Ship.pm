@@ -336,6 +336,7 @@ sub _loadRandomBuildPart {
 		'[' => ']',
 		']' => '[',
 	);
+    # TODO remove, pieces self reflect
 	my %reflectY = (
 		'v' => '^',
 		'^' => 'v',
@@ -1703,6 +1704,7 @@ sub loadSparePart {
 		return 0;
 	}
 	$self->useSparePart($chr);
+
 	return $self->_loadPart($chr, $x, $y);
 }
 
@@ -1710,12 +1712,35 @@ sub canLoadPart {
 	my $self = shift;
 	my ($chr, $x, $y) = @_;
 	if (!$self->hasSparePart($chr)){ return 0; }
+
+    my $canAttach = 0;
+    my $part;
+    # TODO does the part attach four ways?
+    if (defined($self->{partMap}->{$x}->{$y - 1})){
+        $part = $self->{parts}->{$self->{partMap}->{$x}->{$y - 1}};
+    } elsif (defined($self->{partMap}->{$x}->{$y + 1})){
+        $part = $self->{parts}->{$self->{partMap}->{$x}->{$y - 1}};
+    } elsif (defined($self->{partMap}->{$x + 1}->{$y})){
+        $part = $self->{parts}->{$self->{partMap}->{$x}->{$y - 1}};
+    } elsif (defined($self->{partMap}->{$x - 1}->{$y})){
+        $part = $self->{parts}->{$self->{partMap}->{$x}->{$y - 1}};
+    }
+
 	return 1;
 }
 
 sub _loadPart {
 	my $self = shift;
 	my ($chr, $x, $y, $id) = @_;
+
+    print $chr;
+    # default to level one
+    if (length($chr) == 1){
+        $chr .= '1';
+    }
+
+    if (!defined($parts{$chr})) { return 0; }
+    print " = $chr\n";
 	if ($x == 0 && $y == 0 && $chr ne 'X'){ return undef; } # cannot override command module
 	$id = (defined($id) ? $id : $self->{idCount}++);
 	$self->{parts}->{$id} = {
@@ -1811,7 +1836,9 @@ sub _loadPartConfig {
 	### global options
 	foreach my $section (@sections){
 		my $chr = $cfg->val($section, 'ref');
+
 		$parts{$chr}->{'chr'}    = $cfg->val($section, 'chr');
+		$parts{$chr}->{'chrDefault'}    = $cfg->val($section, 'chr');
 		if ($parts{$chr}->{'chr'} =~ m/^.+,/){
 			my @aryChr = split(',', $parts{$chr}->{'chr'});
 			$parts{$chr}->{'chr'} = \@aryChr;
@@ -1825,6 +1852,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'damageTaken'} = $cfg->val($section, 'damageTaken', 1);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
 	}
 
 	my @guns = $cfg->GroupMembers('gun');
@@ -1847,6 +1875,7 @@ sub _loadPartConfig {
 		foreach my $q (split ',', $quads){
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
 		}
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'once');
 	}
 
 	my @lasers = $cfg->GroupMembers('laser');
@@ -1857,6 +1886,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'damage'}      = $cfg->val($section, 'damage', 1);
 		$parts{$chr}->{'direction'}   = $cfg->val($section, 'direction', 4);
 		$parts{$chr}->{'shotColor'}   = $cfg->val($section, 'shotColor', 'WHITE');
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'once');
 	}
 
 	my @thrusters = $cfg->GroupMembers('thruster');
@@ -1868,12 +1898,14 @@ sub _loadPartConfig {
 		$parts{$chr}->{'thrustLeft'}  = $cfg->val($section, 'thrustLeft', undef);
 		$parts{$chr}->{'thrustRight'}  = $cfg->val($section, 'thrustRight', undef);
 		$parts{$chr}->{'powerThrust'}  = $cfg->val($section, 'powerThrust', 2);
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'once');
 	}
 
 	my @plates = $cfg->GroupMembers('plate');
 	foreach my $section (@plates){
 		my $chr = $cfg->val($section, 'ref');
 		$parts{$chr}->{type} = 'plate';
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
 	}
 
 	my @shields = $cfg->GroupMembers('shield');
@@ -1886,6 +1918,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'poweruse'}   = $cfg->val($section, 'poweruse', -4);
 		$parts{$chr}->{'shieldsize'} = $cfg->val($section, 'shieldsize', 2);
 		$parts{$chr}->{'shieldlight'} = $cfg->val($section, 'shieldlight', 2);
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
 	}
 
 	my @powers = $cfg->GroupMembers('power');
@@ -1894,6 +1927,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{type} = 'power';
 		$parts{$chr}->{'power'}     = $cfg->val($section, 'power', 30);
 		$parts{$chr}->{'powergen'}  = $cfg->val($section, 'powergen', 5);
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
 	}
 
 	my @commands = $cfg->GroupMembers('command');
@@ -1925,7 +1959,18 @@ sub _loadPartConfig {
 		foreach my $q (split ',', $quads){
 			$parts{$chr}->{'quadrants'}->{$q} = 1;
 		}
+		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
 	}
+
+
+    foreach my $chr (keys %parts) {
+        # default to level one
+        if (length($chr) == 1){
+            my $newChr = "$chr" . 1;
+            $parts{$newChr} = $parts{$chr};
+            delete $parts{$chr};
+        }
+    }
 }
 
 sub _loadShip {
@@ -1948,9 +1993,7 @@ sub _loadShip {
 		my $x = 0;
 		foreach my $chr (@chrs){
 			$x++;
-			if (defined($parts{$chr})){
-				my $id = $self->_loadPart($chr, $x, $y);
-			}
+            my $id = $self->_loadPart($chr, $x, $y);
 		}
 	}
 
@@ -1993,7 +2036,7 @@ sub _hasModule {
 sub _calculateParts {
 	my $self = shift;
 	$self->_offsetByCommandModule();
-	$self->_setPartConnections();
+	#$self->_setPartConnections();
 	$self->_removeBlockedGunQuadrants();
 }
 
@@ -2031,42 +2074,6 @@ sub getAllPartDefs {
 	return \%parts;
 }
 
-sub _setPartConnections {
-	my $self = shift;
-	# TODO put command link calc here, start with command and work out
-	foreach my $part ($self->getParts()){
-		my $x = $part->{x};
-		my $y = $part->{y};
-
-		# calculate connections
-		foreach my $partInner ($self->getParts()){
-			if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
-				$part->{connected}->{l} = $partInner->{id};	
-			}
-			elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
-				$part->{connected}->{r} = $partInner->{id};	
-			}
-			elsif ($partInner->{x} == $x && $partInner->{y} - 1 == $y){
-				$part->{connected}->{b} = $partInner->{id};	
-			}
-			elsif ($partInner->{x} == $x && $partInner->{y} + 1 == $y){
-				$part->{connected}->{t} = $partInner->{id};	
-			}
-		}
-		if ($part->{'part'}->{'type'} eq 'plate'){
-			my $connectLevel = (defined($part->{'part'}->{boxtype}) ? $part->{'part'}->{boxtype} : 1);
-			my $connectStr = 
-				(defined($part->{connected}->{b}) ? 'b' : '') .
-				(defined($part->{connected}->{l}) ? 'l' : '') .
-				(defined($part->{connected}->{r}) ? 'r' : '') .
-				(defined($part->{connected}->{t}) ? 't' : '') ;
-			if ($connectors{$connectLevel}->{$connectStr}){
-				$part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
-			}
-		}
-	}
-}
-
 sub _setPartConnection {
 	my $part = shift;
 }
@@ -2090,59 +2097,73 @@ sub _removeBlockedGunQuadrants {
 		my $x = $part->{x};
 
 		if (1){
-			if ($self->{collisionMap}->{ $x }->{ $y - 1 }){
+			if ($self->{partMap}->{ $x }->{ $y - 1 }){
+                my $partId = $self->{partMap}->{ $x }->{ $y - 1 };
+    			$part->{connected}->{b} = $partId;	
 				delete $part->{quadrants}->{5};
 			}
-			if ($self->{collisionMap}->{ $x + 1 }->{ $y - 1 }){
-				delete $part->{quadrants}->{4};
-			}
-			if ($self->{collisionMap}->{ $x + 1 }->{ $y }){
+			if ($self->{partMap}->{ $x + 1 }->{ $y }){
+                my $partId = $self->{partMap}->{ $x + 1 }->{ $y };
+    			$part->{connected}->{r} = $partId;	
 				delete $part->{quadrants}->{3};
 			}
-			if ($self->{collisionMap}->{ $x + 1 }->{ $y + 1 }){
-				delete $part->{quadrants}->{2};
-			}
-			if ($self->{collisionMap}->{ $x }->{ $y + 1 }){
+			if ($self->{partMap}->{ $x }->{ $y + 1 }){
+                my $partId = $self->{partMap}->{ $x }->{ $y + 1 };
+    			$part->{connected}->{t} = $partId;	
 				delete $part->{quadrants}->{1};
 			}
-			if ($self->{collisionMap}->{ $x - 1 }->{ $y + 1 }){
-				delete $part->{quadrants}->{8};
-			}
-			if ($self->{collisionMap}->{ $x - 1 }->{ $y }){
+			if ($self->{partMap}->{ $x - 1 }->{ $y }){
+                my $partId = $self->{partMap}->{ $x - 1 }->{ $y };
+    			$part->{connected}->{l} = $partId;	
 				delete $part->{quadrants}->{7};
 			}
-			if ($self->{collisionMap}->{ $x - 1 }->{ $y - 1 }){
+			if ($self->{partMap}->{ $x + 1 }->{ $y - 1 }){
+				delete $part->{quadrants}->{4};
+			}
+			if ($self->{partMap}->{ $x + 1 }->{ $y + 1 }){
+				delete $part->{quadrants}->{2};
+			}
+			if ($self->{partMap}->{ $x - 1 }->{ $y + 1 }){
+				delete $part->{quadrants}->{8};
+			}
+			if ($self->{partMap}->{ $x - 1 }->{ $y - 1 }){
 				delete $part->{quadrants}->{6};
 			}
-		}
-		# TODO do this here
-		# calculate connections
-#		if ($partInner->{x} == $x - 1 && $partInner->{y} == $y){
-#			$part->{connected}->{l} = $partInner->{id};	
-#		}
-#		elsif ($partInner->{x} == $x + 1 && $partInner->{y} == $y){
-#			$part->{connected}->{r} = $partInner->{id};	
-#		}
-#		elsif ($partInner->{x} == $x && $partInner->{y} - 1 == $y){
-#			$part->{connected}->{b} = $partInner->{id};	
-#		}
-#		elsif ($partInner->{x} == $x && $partInner->{y} + 1 == $y){
-#			$part->{connected}->{t} = $partInner->{id};	
-#		}
-#		if ($part->{'part'}->{'type'} eq 'plate'){
-#			my $connectLevel = (defined($part->{'part'}->{boxtype}) ? $part->{'part'}->{boxtype} : 1);
-#			my $connectStr = 
-#				(defined($part->{connected}->{b}) ? 'b' : '') .
-#				(defined($part->{connected}->{l}) ? 'l' : '') .
-#				(defined($part->{connected}->{r}) ? 'r' : '') .
-#				(defined($part->{connected}->{t}) ? 't' : '') ;
-#			if ($connectors{$connectLevel}->{$connectStr}){
-#				$part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
-#			}
-#		}
+        }
 
+        $self->setChr($part);
 	}
 
+}
+
+sub setChr {
+    my $self = shift;
+    my $part = shift;
+
+    if ($part->{'part'}->{'type'} eq 'plate'){
+        my $connectLevel = (defined($part->{'part'}->{boxtype}) ? $part->{'part'}->{boxtype} : 1);
+        my $connectStr = 
+            (defined($part->{connected}->{b}) ? 'b' : '') .
+            (defined($part->{connected}->{l}) ? 'l' : '') .
+            (defined($part->{connected}->{r}) ? 'r' : '') .
+            (defined($part->{connected}->{t}) ? 't' : '') ;
+        if ($connectors{$connectLevel}->{$connectStr}){
+            $part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
+        }
+    } else {
+        if (defined($part->{connected}->{l}) && defined($part->{'part'}->{chrLeft})) {
+            $part->{'chr'} = $part->{'part'}->{'chrLeft'};
+        } elsif (defined($part->{connected}->{r}) && defined($part->{'part'}->{chrRight})) {
+            $part->{'chr'} = $part->{'part'}->{'chrRight'};
+        } elsif (defined($part->{connected}->{t}) && defined($part->{'part'}->{chrTop})) {
+            $part->{'chr'} = $part->{'part'}->{'chrTop'};
+        } elsif (defined($part->{connected}->{b}) && defined($part->{'part'}->{chrBottom})) {
+            $part->{'chr'} = $part->{'part'}->{'chrBottom'};
+        } else {
+            $part->{'chr'} = $part->{'part'}->{'chrDefault'};
+        }
+    }
+    return $part;
 }
 
 sub getQuadrant {
