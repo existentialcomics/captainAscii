@@ -1733,14 +1733,14 @@ sub _loadPart {
 	my $self = shift;
 	my ($chr, $x, $y, $id) = @_;
 
-    print $chr;
+    #print $chr;
     # default to level one
     if (length($chr) == 1){
         $chr .= '1';
     }
 
     if (!defined($parts{$chr})) { return 0; }
-    print " = $chr\n";
+    #print " = $chr\n";
 	if ($x == 0 && $y == 0 && $chr ne 'X'){ return undef; } # cannot override command module
 	$id = (defined($id) ? $id : $self->{idCount}++);
 	$self->{parts}->{$id} = {

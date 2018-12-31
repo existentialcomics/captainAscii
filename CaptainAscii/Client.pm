@@ -46,7 +46,8 @@ my %colorCodes = (
     MAGENTA => 5,
     CYAN    => 6,
     WHITE   => 7,
-    ON_BLACK   => 0,
+    #ON_BLACK   => 0,
+    ON_BLACK   => 16,
     ON_RED     => 1,
     ON_GREEN   => 2,
     ON_YELLOW  => 3,
@@ -129,12 +130,16 @@ sub _init {
     initscr();
     curs_set(0);
 	start_color();
-    attrset(COLOR_PAIR(0));
+    attrset(COLOR_PAIR(16));
 	noecho();
+
     #my $res = $self->{_curses_info}      = newwin($self->{height}, 0, 10, 40);
 	# *newwin(int nlines, int ncols, int begin_y, int begin_x);
-    my $resI= $self->{_curses_info} = newwin($self->{termHeight} - $self->{height}, $self->{termWidth}, $self->{height}, 0);
-    my $resS = $self->{_curses_side} = newwin($self->{height}, $self->{termWidth} - $self->{width} , 0, $self->{width});
+    $self->{_curses_info} = newwin($self->{termHeight} - $self->{height}, $self->{termWidth}, $self->{height}, 0);
+    $self->{_curses_side} = newwin($self->{height}, $self->{termWidth} - $self->{width} , 0, $self->{width});
+
+    setCursesWinColor($self->{_curses_info}, 'WHITE', 'ON_BLACK');
+    setCursesWinColor($self->{_curses_side}, 'WHITE', 'ON_BLACK');
 
 	$self->_generateStarMap();
 
@@ -189,24 +194,41 @@ sub _generateStarMap {
 	$starMapSize = $size;
     #$self->{_curses_map}      = newpad($self->{height}, $self->{width});
     $self->{_curses_map} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_map}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlank} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlank}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNS} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNS}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNS2} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNS2}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNS3} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNS3}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNS4} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNS4}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankEW} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankEW}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankEW2} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankEW2}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankEW3} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankEW3}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankEW4} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankEW4}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNeSw} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNeSw}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNeSw2} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNeSw2}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNeSw3} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNeSw3}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNeSw4} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNeSw4}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNwSe} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNwSe}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNwSe2} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNwSe2}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNwSe3} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNwSe3}, 'WHITE', 'ON_BLACK');
     $self->{_curses_mapBlankNwSe4} = newpad($size * 2, $size * 2);
-    $self->{_curses_mapBlankNwSe5} = newpad($size * 2, $size * 2);
+    setCursesWinColor($self->{_curses_mapBlankNwSe4}, 'WHITE', 'ON_BLACK');
 	foreach my $x (0 .. $size){
 		push @starMap, [ (' ') x $size ];
 		push @starMapStr, '';
@@ -214,6 +236,7 @@ sub _generateStarMap {
 			my $rand = rand();
 			if ($rand > 0.03){
 				$starMapStr[$x] .= ' ';
+				#putCursesChr($self->{_curses_mapBlank}, $x, $y, ' ', 'WHITE', 'ON_BLACK');
                 next;
 			}
 			my $starRand = rand();
@@ -512,6 +535,9 @@ sub printCursesScreen {
     $self->{_curses_map}->prefresh(0, 0, 0, 0, $self->{height}, $self->{width});
     $self->{_curses_info}->refresh();
     $self->{_curses_side}->refresh();
+    setCursesWinColor($self->{_curses_info}, 'WHITE', 'ON_BLACK');
+    setCursesWinColor($self->{_curses_side}, 'WHITE', 'ON_BLACK');
+
     # copywin(*srcwin, *dstwin, sminrow, smincol, dminrow, dmincol, dmaxrow, dmaxcol, overlay)
 	my $copyWin = $self->{_curses_mapBlank};
 	my $warp = $self->{ship}->getStatus('warp');
@@ -1460,6 +1486,19 @@ sub setCursesColor {
         $cursesColors{$_[1]}->{$_[2]} = $colorId;
     }
     $_[0]->attrset(COLOR_PAIR($colorId));
+    return undef;
+}
+
+sub setCursesWinColor {
+	# Do not assign variables for performance
+    #my ($window, $foregroundColor, $backgroundColor) = @_;
+    my $colorId = $cursesColors{$_[1]}->{$_[2]};
+    if (!defined($colorId)){
+        $colorId = $cursesColorCount++;
+        init_pair($colorId, $colorCodes{$_[1]}, $colorCodes{$_[2]});
+        $cursesColors{$_[1]}->{$_[2]} = $colorId;
+    }
+    $_[0]->wbkgd(COLOR_PAIR($colorId));
     return undef;
 }
 
