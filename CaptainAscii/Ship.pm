@@ -158,8 +158,6 @@ sub _init {
 		push @{ $self->{'modules'} }, $moduleName->new();
 	}
 
-	$self->{'movingHoz'}   = 0;
-	$self->{'movingVert'}   = 0;
 	$self->{'movingHozPress'}  = 0;
 	$self->{'movingVertPress'} = 0;
 	$self->{'thrustPressedUp'}    = 0;
@@ -228,6 +226,9 @@ sub randomBuild {
 	if($self->{cash} > 10000){
 		$partLevel = 'parts3';
 	}
+
+    my $colorLevel = '1';
+
 	my @base   = @{$config->{$partLevel}->{base}};
 	my @embedx = @{$config->{$partLevel}->{embedx}};
 	my @embedy = @{$config->{$partLevel}->{embedy}};
@@ -265,22 +266,6 @@ sub randomBuild {
 			}
 
 			$self->_loadRandomBuildPart($chr, $tree, $config);
-			$tree->{$tree->{dir}} += $tree->{vector};
-			# change direction
-			if (rand() < $config->{turnOdds}){
-				$tree->{dir} = ($tree->{dir} eq 'x' ? 'y' : 'x');
-			}
-			## branch
-			elsif (($tree->{dir} eq $config->{branchDir}) && (rand() < $config->{branchOdds})){
-				push(@trees, 
-					{ 
-						x => $tree->{x},
-						y => $tree->{y},
-						dir => ($tree->{dir} eq 'x' ? 'y' : 'x'),
-						'vector' => (rand() < .4 ? -1 : 1),
-						'continue' => 1 }
-				);
-			}
 
 			# TODO distinguish between inner and outer pieces (i.e, lasers on the outside, power on the inside)
 			# up / right
@@ -312,59 +297,92 @@ sub randomBuild {
 					$tree->{x}-=$dirMove;
 				}
 			}
+           
+            # move the tree forward
+			$tree->{$tree->{dir}} += $tree->{vector};
+
+			# change direction
+			if (rand() < $config->{turnOdds}){
+				$tree->{dir} = ($tree->{dir} eq 'x' ? 'y' : 'x');
+			}
+			## branch
+			elsif (($tree->{dir} eq $config->{branchDir}) && (rand() < $config->{branchOdds})){
+				push(@trees, 
+					{ 
+						x => $tree->{x},
+						y => $tree->{y},
+						dir => ($tree->{dir} eq 'x' ? 'y' : 'x'),
+						'vector' => (rand() < .4 ? -1 : 1),
+						'continue' => 1 }
+				);
+			}
+
 			# down/left
-		}
+            $self->_calculateParts();
+            $self->_recalculate();
+            my $display = $self->getDisplayArray();
+            foreach my $row (@$display){
+                if (!defined($row)){ next; }
+                foreach my $chr(@$row){
+                    print (defined($chr) ? substr($chr, 0, 1) : ' ');
+                }
+                print "\n";
+            }
+
+		} #end foreach tree
 		@trees = grep { $_->{continue} } @trees;
 		#print scalar @trees . "\n";
 		if ($#trees == -1){ $continue = 0; }
-	}
+	} # end while(continue)
 	$self->_calculateParts();
 	$self->_recalculate();
 }
 
 sub _loadRandomBuildPart {
 	my $self = shift;
-	my ($chr, $tree, $config) = @_;
+	my ($chr, $tree, $config, $colorLevel) = @_;
+
+    if (!$colorLevel){ $colorLevel = '1'; }
 
 	my %reflectX = (
-		')' => '(',
-		'(' => ')',
-		'\\' => '/',
-		'/' => '\\',
-		'{' => '}',
-		'}' => '{',
-		'[' => ']',
-		']' => '[',
+		#')' => '(',
+		#'(' => ')',
+		#'\\' => '/',
+		#'/' => '\\',
+		#'{' => '}',
+		#'}' => '{',
+		#'[' => ']',
+		#']' => '[',
 	);
     # TODO remove, pieces self reflect
 	my %reflectY = (
-		'v' => '^',
-		'^' => 'v',
-		'\\' => '/',
-		'/' => '\\',
+		#'v' => '^',
+		#'^' => 'v',
+		#'\\' => '/',
+		#'/' => '\\',
 	);
 
-	if ($self->purchasePart($chr)){
-		$self->useSparePart($chr);
+	if ($self->purchasePart($chr . $colorLevel)){
+		$self->useSparePart($chr . $colorLevel);
 		$self->_loadPart($chr, $tree->{x}, $tree->{y});
 		if ($config->{reflectX}){
 			my $chrX = (defined($reflectX{$chr}) ? $reflectX{$chr} : $chr);
-			$self->purchasePart($chrX);
-			$self->useSparePart($chrX);
+			$self->purchasePart($chrX . $colorLevel);
+			$self->useSparePart($chrX . $colorLevel);
 			$self->_loadPart($chrX, -$tree->{x}, $tree->{y});
 		}
 		if ($config->{reflectY}){
 			my $chrY = (defined($reflectY{$chr}) ? $reflectY{$chr} : $chr);
-			$self->purchasePart($chrY);
-			$self->useSparePart($chrY);
+			$self->purchasePart($chrY . $colorLevel);
+			$self->useSparePart($chrY . $colorLevel);
 			$self->_loadPart($chrY, $tree->{x}, -$tree->{y});
 
 		}
 		if ($config->{reflectX} && $config->{reflectY}){
 			my $chrX = (defined($reflectX{$chr}) ? $reflectX{$chr} : $chr);
 			my $chrXY = (defined($reflectY{$chrX}) ? $reflectY{$chrX} : $chrX);
-			$self->purchasePart($chrXY);
-			$self->useSparePart($chrXY);
+			$self->purchasePart($chrXY . $colorLevel);
+			$self->useSparePart($chrXY . $colorLevel);
 			$self->_loadPart($chrXY, -$tree->{x}, -$tree->{y});
 		}
 		return 1;
@@ -1600,7 +1618,10 @@ sub move {
     if ($self->getStatus('cruise')){
         $self->thrustToDirection($self->getStatus('direction'));
     } elsif($self->isBot()){
-        $self->thrustToDirection($self->getAiVar('moveDirection'));
+        my $speed = $self->getAiVar('speed');
+        if (! defined($speed) || rand() < $speed) {
+            $self->thrustToDirection($self->getAiVar('moveDirection'));
+        }
     } else {
         $self->setStatus('speedXMod', 1);
         $self->setStatus('speedYMod', 1);
@@ -1687,7 +1708,11 @@ sub thrustToDirection {
 sub purchasePart {
 	my $self = shift;
 	my $chr  = shift;
+    if (length($chr) == 1){
+        $chr .= '1';
+    }
 	if (!defined($parts{$chr})){
+        print "part doesn't not exist $chr\n";
 		return undef;
 	}
 	if ($parts{$chr}->{'cost'} > $self->getStatus('cash')){
@@ -1772,7 +1797,7 @@ sub _recalculateCollisionMap {
 		my $chr = $part->{defchr};
 		$self->{collisionMap}->{$x}->{$y} = $chr;
 		$self->{partMap}->{$x}->{$y} = $part->{id};
-		push $self->{shieldsOnly}, $part;
+		push @{ $self->{shieldsOnly} }, $part;
 	}
 	return 1;
 }
@@ -1843,6 +1868,27 @@ sub _loadPartConfig {
 			my @aryChr = split(',', $parts{$chr}->{'chr'});
 			$parts{$chr}->{'chr'} = \@aryChr;
 		}
+		$parts{$chr}->{'chrLeft'}    = $cfg->val($section, 'chrLeft', $parts{$chr}->{'chr'});
+		if ($parts{$chr}->{'chrLeft'} =~ m/^.+,/){
+			my @aryChr = split(',', $parts{$chr}->{'chrLeft'});
+			$parts{$chr}->{'chrLeft'} = \@aryChr;
+		}
+		$parts{$chr}->{'chrRight'}    = $cfg->val($section, 'chrRight', $parts{$chr}->{'chr'});
+		if ($parts{$chr}->{'chrRight'} =~ m/^.+,/){
+			my @aryChr = split(',', $parts{$chr}->{'chrRight'});
+			$parts{$chr}->{'chrRight'} = \@aryChr;
+		}
+		$parts{$chr}->{'chrTop'}    = $cfg->val($section, 'chrTop', $parts{$chr}->{'chr'});
+		if ($parts{$chr}->{'chrTop'} =~ m/^.+,/){
+			my @aryChr = split(',', $parts{$chr}->{'chrTop'});
+			$parts{$chr}->{'chrTop'} = \@aryChr;
+		}
+		$parts{$chr}->{'chrBottom'}    = $cfg->val($section, 'chrBottom', $parts{$chr}->{'chr'});
+		if ($parts{$chr}->{'chrBottom'} =~ m/^.+,/){
+			my @aryChr = split(',', $parts{$chr}->{'chrBottom'});
+			$parts{$chr}->{'chrBottom'} = \@aryChr;
+		}
+
 		$parts{$chr}->{'cost'}   = $cfg->val($section, 'cost', 0);
 		$parts{$chr}->{'health'} = $cfg->val($section, 'health', 1);
 		$parts{$chr}->{'weight'} = $cfg->val($section, 'weight', 1);
@@ -1852,7 +1898,7 @@ sub _loadPartConfig {
 		$parts{$chr}->{'damageTaken'} = $cfg->val($section, 'damageTaken', 1);
 		my $color = $cfg->val($section, 'color', 'ship');
 		$parts{$chr}->{'color'}  = ($color eq 'rainbow' || $color eq 'ship' ? $color : $color);
-		$parts{$chr}->{'attach'}      = $cfg->val($section, 'attach', 'all');
+		$parts{$chr}->{'attach'} = $cfg->val($section, 'attach', 'all');
 	}
 
 	my @guns = $cfg->GroupMembers('gun');
@@ -2099,7 +2145,7 @@ sub _removeBlockedGunQuadrants {
 		if (1){
 			if ($self->{partMap}->{ $x }->{ $y - 1 }){
                 my $partId = $self->{partMap}->{ $x }->{ $y - 1 };
-    			$part->{connected}->{b} = $partId;	
+    			$part->{connected}->{t} = $partId;	
 				delete $part->{quadrants}->{5};
 			}
 			if ($self->{partMap}->{ $x + 1 }->{ $y }){
@@ -2109,7 +2155,7 @@ sub _removeBlockedGunQuadrants {
 			}
 			if ($self->{partMap}->{ $x }->{ $y + 1 }){
                 my $partId = $self->{partMap}->{ $x }->{ $y + 1 };
-    			$part->{connected}->{t} = $partId;	
+    			$part->{connected}->{b} = $partId;	
 				delete $part->{quadrants}->{1};
 			}
 			if ($self->{partMap}->{ $x - 1 }->{ $y }){
@@ -2151,14 +2197,14 @@ sub setChr {
             $part->{'chr'} = $connectors{$connectLevel}->{$connectStr};
         }
     } else {
-        if (defined($part->{connected}->{l}) && defined($part->{'part'}->{chrLeft})) {
-            $part->{'chr'} = $part->{'part'}->{'chrLeft'};
-        } elsif (defined($part->{connected}->{r}) && defined($part->{'part'}->{chrRight})) {
-            $part->{'chr'} = $part->{'part'}->{'chrRight'};
-        } elsif (defined($part->{connected}->{t}) && defined($part->{'part'}->{chrTop})) {
+        if (defined($part->{connected}->{t}) && defined($part->{'part'}->{chrTop})) {
             $part->{'chr'} = $part->{'part'}->{'chrTop'};
         } elsif (defined($part->{connected}->{b}) && defined($part->{'part'}->{chrBottom})) {
             $part->{'chr'} = $part->{'part'}->{'chrBottom'};
+        } elsif (defined($part->{connected}->{l}) && defined($part->{'part'}->{chrLeft})) {
+            $part->{'chr'} = $part->{'part'}->{'chrLeft'};
+        } elsif (defined($part->{connected}->{r}) && defined($part->{'part'}->{chrRight})) {
+            $part->{'chr'} = $part->{'part'}->{'chrRight'};
         } else {
             $part->{'chr'} = $part->{'part'}->{'chrDefault'};
         }

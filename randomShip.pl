@@ -20,7 +20,7 @@ my $display = $ship->getDisplayArray();
 foreach my $row (@$display){
 	if (!defined($row)){ next; }
 	foreach my $chr(@$row){
-		print (defined($chr) ? $chr : ' ');
+		print (defined($chr) ? substr($chr, 0, 1) : ' ');
 	}
 	print "\n";
 }

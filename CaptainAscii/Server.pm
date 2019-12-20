@@ -461,7 +461,7 @@ sub _ai {
 		my ($id, $distance, $dir);
 		my $aiTargetId = $ship->getAiVar('target');
 		if ($aiTargetId){
-			my $targetShip = $ship->getShipById($aiTargetId);
+			my $targetShip = $self->getShipById($aiTargetId);
 			if (defined($targetShip)){
 				$id = $aiTargetId;
 				my ($rho, $theta, $phi) = $self->_findShipDistanceDirection(
@@ -485,18 +485,18 @@ sub _ai {
 		if ($id eq '-1'){
 			$ship->changeAiMode('explore');
 		} else {
-			if ($distance < 20){
+			if ($distance < 30){
 				$ship->changeAiMode('attack', 'passive');
 				$ship->setAiVar('target', $id);
 			}
 		}
 
-        # force to explore for now
-        $ship->changeAiMode('explore');
-		if ($mode eq 'explore'){
+        # TODO force to explore for now
+        if ($mode eq 'explore'){
 			if ($ship->aiStateRequest(4, 'directionChange')){
 				$dir = rand(2 * PI);
-                $ship->setAiVar('aiMoveDirection', $dir);
+                $ship->setAiVar('moveDirection', $dir);
+                $ship->setAiVar('speed', 0.5);
 			}
 		} elsif ($mode eq 'attack'){
 			if (!defined($ship->{aiState})){
@@ -527,8 +527,8 @@ sub _ai {
 					if ($ship->aiStateRequest(1, 'move')){
 						my $move = $dir + (rand() < .5 ? (PI / 2) : -(PI / 2));
 						my $factor = ($state eq 'aggressive' ? .4 : .1);
-						$ship->{movingHoz}  = sin($move) * $factor;
-						$ship->{movingVert} = cos($move) * $factor;
+                        $ship->setAiVar('moveDirection', $move);
+                        $ship->setAiVar('speed', $factor);
 						if (rand() < .8){
 							$ship->{movingHozPress} = time() + rand();
 							$ship->{movingVertPress} = time() + rand();
@@ -539,8 +539,8 @@ sub _ai {
 					if ($ship->aiStateRequest('1', 'pursue')){
 						my $move = $dir + (rand(.3) - .15);
 						my $factor = ($state eq 'aggressive' ? .7 : .2);
-						$ship->{movingHoz}  = sin($move) * $factor;
-						$ship->{movingVert} = cos($move) * $factor;
+                        $ship->setAiVar('moveDirection', $move);
+                        $ship->setAiVar('speed', $factor);
 					}
 					$ship->{movingHozPress} = time();
 					$ship->{movingVertPress} = time();
@@ -550,6 +550,8 @@ sub _ai {
 			if ($ship->aiStateRequest('1', 'pursue')){
 				my $move = $dir + (rand(.3) - .15);
 				my $factor = 0.8;
+                $ship->setAiVar('moveDirection', $move);
+                $ship->setAiVar('speed', $factor);
 			}
 		} else {
 			print "NULL ai mode\n";

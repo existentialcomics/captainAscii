@@ -46,8 +46,8 @@ my %colorCodes = (
     MAGENTA => 5,
     CYAN    => 6,
     WHITE   => 7,
-    #ON_BLACK   => 0,
-    ON_BLACK   => 16,
+    ON_BLACK   => 0,
+    #ON_BLACK   => 16,
     ON_RED     => 1,
     ON_GREEN   => 2,
     ON_YELLOW  => 3,
@@ -1242,7 +1242,7 @@ sub _drawShips {
 				}
 			} else { 
                 # TODO highlight adds to lighting
-                $self->setMap($px, $py, $chr, $partColor);
+                $self->setMap($px, $py, $chr, $partColor, 'ON_BLACK');
 			}
 		}
 		my ($aimx, $aimy) = $ship->getAimingCursor();
