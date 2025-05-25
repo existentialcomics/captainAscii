@@ -119,7 +119,7 @@ sub addZone {
 	my ($zoneX, $zoneY) = @_;
 	print " **** adding zone at $zoneX, $zoneY\n";
 	$self->sendSystemMsg("adding zone at $zoneX, $zoneY");
-	push $self->{zones}, CaptainAscii::Zones->new(
+	push @{$self->{zones}}, CaptainAscii::Zones->new(
 		{ 
 			id => $self->{zoneIds}++ ,
 			x => $zoneX,

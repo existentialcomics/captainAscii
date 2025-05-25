@@ -1,6 +1,13 @@
 #!/usr/bin/perl
 #
 use strict; use warnings;
+use POSIX;
+use Cwd qw( abs_path );
+use File::Basename qw( dirname );
+use lib dirname(abs_path($0));
+#use utf8;
+
+#binmode(STDOUT, ":utf8");
 use CaptainAscii::Client;
 
 #export LD_PRELOAD=/lib/x86_64-linux-gnu/libncursesw.so.5

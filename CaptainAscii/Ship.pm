@@ -11,7 +11,7 @@ use Math::Trig ':radial';
 
 use CaptainAscii::Module;
 use CaptainAscii::Factions;
-use utf8;
+#use utf8;
 
 use constant {
 	ASPECTRATIO => 0.66666666,

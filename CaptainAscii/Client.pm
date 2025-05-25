@@ -1,10 +1,16 @@
 use strict; use warnings;
+use utf8;
 package CaptainAscii::Client;
 
 BEGIN {
+use POSIX qw(floor ceil);
+my $loc = POSIX::setlocale(&POSIX::LC_ALL, "");
 	$Curses::OldCurses = 1;
-	#$Curses::UI::utf8 = 1;
+    $Curses::UI::utf8 = 1;
 }
+### causes error on Term::Screen, not sure why its needed anyway
+#use open qw(:std :encoding(UTF-8));
+
 use Term::ANSIColor 4.00 qw(RESET color :constants256 colorstrip);
 require Term::Screen;
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval nanosleep time);
@@ -13,10 +19,11 @@ use JSON::XS qw(encode_json decode_json);
 use IO::Socket::UNIX;
 use Math::Trig ':radial';
 use Text::Wrap;
-use Curses;
 use POSIX qw(floor ceil);
+my $loc = POSIX::setlocale(&POSIX::LC_ALL, "");
 
 use CaptainAscii::Ship;
+use Curses;
 
 use constant {
 	ASPECTRATIO => 0.66666666,
@@ -583,7 +590,7 @@ sub printZoneScreen {
 
 sub printScreen {
 	my $self = shift;
-	if($useCurses){ return $self->printCursesScreen(); }
+	if ($useCurses) { return $self->printCursesScreen(); }
 	my $scr = shift;
 	my $map = $self->{map};
 
@@ -1027,7 +1034,7 @@ sub setHandlers {
 
 sub resizeScr {
 	my $self = shift;
-	use Term::ReadKey;
+    use Term::ReadKey;
 	my ($wchar, $hchar, $wpixels, $hpixels) = GetTerminalSize();
 	$self->{width} = $wchar - $self->{chatWidth};
 	$self->{height} = $hchar - 20;
@@ -1304,23 +1311,23 @@ sub _sendKeystrokesToServer {
 			}
 		}
 	} elsif($self->{mode} eq 'build') {
-		while ($scr->key_pressed()){ 
-			my $chr = $scr->getch();
-			if ($chr eq '`'){
-				$self->{'mode'} = 'drive';
-			}
-			elsif ($chr eq 'a'){ $self->{'cursory'}--; }
-			elsif ($chr eq 'd'){ $self->{'cursory'}++; }
-			elsif ($chr eq 's'){ $self->{'cursorx'}++; }
-			elsif ($chr eq 'w'){ $self->{'cursorx'}--; }
-			elsif (defined($self->{ship}->getPartDef($chr))){
-				#add part
-				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}:$chr\n";
-			} elsif ($chr eq ' '){
-				print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}: \n";
-				#remove part
-			}
-		}
+        while ($scr->key_pressed()){ 
+            my $chr = $scr->getch();
+            if ($chr eq '`'){
+                $self->{'mode'} = 'drive';
+            }
+            elsif ($chr eq 'a'){ $self->{'cursory'}--; }
+            elsif ($chr eq 'd'){ $self->{'cursory'}++; }
+            elsif ($chr eq 's'){ $self->{'cursorx'}++; }
+            elsif ($chr eq 'w'){ $self->{'cursorx'}--; }
+            elsif (defined($self->{ship}->getPartDef($chr))){
+                #add part
+                print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}:$chr\n";
+            } elsif ($chr eq ' '){
+                print {$self->{socket}} "B:$self->{'cursorx'}:$self->{'cursory'}: \n";
+                #remove part
+            }
+        }
 	} elsif($self->{mode} eq 'type'){
 		while ($scr->key_pressed()){ 
 			{

@@ -89,7 +89,7 @@ sub _createNode {
 	my $self = shift;
 	my ($x, $y, $size) = @_;
     $self->{nodeCount}++;
-	push $self->{nodes}, {
+	push @{$self->{nodes}}, {
         'x' => $x,
         'y' => $y,
         'size' => $size,
